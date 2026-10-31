@@ -15,6 +15,7 @@
 | 样式 | Tailwind CSS 4 + CSS 变量 | 变量承载 §7.1 色板，纸感/圆角/间距用 token，不引 UI 组件库 |
 | 状态 | Zustand 5 | 数据缓存与 UI 状态分离；按窗口各自实例化 |
 | 存储 | **SQLite**（`tauri-plugin-sql`，sqlx） | 区间查询、唯一约束、增量迁移都由数据库兜底 |
+| 更新 | `tauri-plugin-updater` + GitHub Releases | 静态 `latest.json` 做更新源；签名不可关闭（见 §8 M6） |
 | 日期 | date-fns 4 | 仅用其格式化/区间工具，业务日期一律 `YYYY-MM-DD` 字符串 |
 | 测试 | Vitest 3 + jsdom | domain 层纯函数优先覆盖，组件只测关键交互 |
 
@@ -22,11 +23,17 @@
 
 ```
 前端：@tauri-apps/api  @tauri-apps/plugin-sql  @tauri-apps/plugin-dialog
-      @tauri-apps/plugin-fs  zustand  date-fns  clsx
+      @tauri-apps/plugin-fs  @tauri-apps/plugin-updater  @tauri-apps/plugin-process
+      zustand  date-fns  clsx
       tailwindcss @tailwindcss/vite  vitest @testing-library/react jsdom
 工程：eslint  typescript-eslint  eslint-plugin-import
 Rust：tauri 2  tauri-plugin-sql(sqlite)  tauri-plugin-autostart  tauri-plugin-dialog
+      tauri-plugin-updater  tauri-plugin-process
 ```
+
+更新链路：`latest.json` 由发布脚本生成并上传到 GitHub Release，端点固定为
+`https://github.com/{owner}/{repo}/releases/latest/download/latest.json`。签名密钥
+`TAURI_SIGNING_PRIVATE_KEY` 只存在于本机环境变量，私钥丢失即无法再推送更新。
 
 ---
 
@@ -48,11 +55,12 @@ DailyTask/
 │  │  ├─ date.ts                     # logicalToday / addDays / range
 │  │  ├─ applicability.ts            # isApplicable / applicableTasks
 │  │  ├─ settle.ts                   # projectCell / dayProgress
-│  │  └─ stats.ts                    # taskStreak / completionRate
+│  │  └─ stats.ts                    # taskStreak / completionRate30
 │  ├─ db/
 │  │  ├─ client.ts                   # Database.load + migration 校验
 │  │  ├─ tasks.ts  checkins.ts  todos.ts  settings.ts
-│  │  └─ transfer.ts                 # JSON 导入 / 导出 / 备份轮转
+│  │  ├─ backup.ts                   # 每日轮转 + 安装更新前快照
+│  │  └─ transfer.ts                 # JSON 导入 / 导出
 │  ├─ stores/
 │  │  ├─ tasksStore.ts  checkinsStore.ts  todosStore.ts  settingsStore.ts  uiStore.ts
 │  │  └─ selectors/{today,grid,stats}.ts   # 跨 store 组合，纯函数
@@ -65,8 +73,9 @@ DailyTask/
 │  │     └─ useWidgetWindow.ts       # 拖拽 / 置顶 / 展开主窗口
 │  └─ ui/                            # tokens.css / PaperCard / CheckCell /
 │                                    # ProgressRing / DayGroup / EmptyState
-├─ docs/{Requirements.md, TODO.md, impl.md}
+├─ docs/{Requirements.md, TODO.md, impl.md, progress.md}
 └─ package.json  vite.config.ts  vitest.config.ts  eslint.config.js
+   scripts/release.mjs               # bump → 签名构建 → gh release → latest.json
 ```
 
 ---
@@ -149,7 +158,10 @@ ESLint flat config + `eslint-plugin-import` 的 `no-restricted-paths`，按目�
 
 ## 4. 数据层（SQLite）
 
-文件位置：`{AppData}/DailyTask/dailytask.db`；启动时把上一版复制到 `backup/dailytask-YYYYMMDD.db`，保留 7 份。
+文件位置：`{AppData}/DailyTask/dailytask.db`。备份分两种，统一放 `backup/`，共保留 7 份：
+
+- **每日轮转**：启动时把上一版复制为 `dailytask-YYYYMMDD.db`；
+- **更新前快照**：安装更新前复制为 `pre-update-{version}.db`，写入失败则中止安装。
 
 ```sql
 CREATE TABLE tasks (
@@ -215,6 +227,8 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 | 关闭行为 | 隐藏到托盘/挂件，不退出进程 | 关闭即隐藏，可从托盘唤回 |
 
 - 挂件只渲染：今日进度环、未完成项、今日到期待办、已完成折叠行；数据源与主窗口相同的 store/selector。
+- 挂件待办区只取「逾期 + 今天到期」，最多 3 条，超出显示 `+N`；本周和以后不进挂件。
+- **不做系统通知/到期提醒**（本期）：避免 Windows 通知权限、免打扰与点击跳转的额外复杂度，待办只在应用内展示。
 - 两窗口共用 `ui/tokens.css`；挂件额外挂 `.theme-paper`（纸底 `#FBF7EF` + 轻噪点纹理，用 1 张 base64 SVG 代替位图）。
 - 托盘菜单：显示主窗口 / 显示挂件 / 今日进度 / 退出。
 
@@ -257,9 +271,15 @@ projectCell(task, date, checkin, settings, today): CellState
 dayProgress(tasks, checkins, date, settings, today): { done; missed; applicable; ratio }
 
 // domain/stats.ts
-taskStreak(task, checkins, today, settings): number       // 跳过 skipped，不中断也不计数
-completionRate(task, checkins, from, to, settings): number
+taskStreak(task, checkins, today, settings): number       // skipped 不中断、不计数
+completionRate30(task, checkins, today, settings): number // 近 30 天完成率
 ```
+
+统计口径（与 §6 投影规则一致）：
+
+- **分母**只含 `done` + `missed`；`skipped` 不计入分母，也不中断 streak。
+- 关闭自动结算后，过期空白没有结论，同样不进分母。
+- 统计窗口固定近 30 天；本期不做热力图与全局折线（理由见 §10）。
 
 `projectCell` 判定顺序：
 
@@ -294,8 +314,8 @@ completionRate(task, checkins, from, to, settings): number
 | **M2 主窗口 + 今日** | 导航骨架、今日视图、进度环、打卡写库 | `MainLayout.tsx`、`views/Today.tsx`、`stores/*`、`shared/events.ts` | 勾选后重启应用状态保留；自愿/被迫分组与色值符合 §7.1；"今天不做"与 ✗ 视觉可区分；`useTodayData` 有单测 |
 | **M3 悬浮挂件** | 第二窗口、置顶、拖拽、快勾、展开主窗口、跨窗口同步 | `src-tauri/tauri.conf.json`、`windows/widget/*`、`shared/events.ts` | 挂件勾选后主窗口 200 ms 内同步；置顶可开关；展开后主窗口聚焦；事件 payload 有类型且 `source` 去重生效 |
 | **M4 任务表** | 网格渲染、区间置灰、缩放两档、键盘、备注气泡、筛选 | `views/TaskGrid.tsx`、`ui/CheckCell.tsx` | 1000 列滚动不掉帧；停用任务历史可见且不可点；`Ctrl+滚轮` 缩放值持久化 |
-| **M5 待办 + 任务管理** | 待办分组与 CRUD、任务区间追加 | `views/Todos.tsx`、`views/Manage.tsx` | 逾期天数计算正确；停用后再启用生成第 2 段区间且历史不变；无截止日归入「以后」 |
-| **M6 统计 + 设置 + 发布** | streak/热力图、主题、自启、导入导出、备份、NSIS 打包 | `views/Stats.tsx`、`views/Settings.tsx`、`db/transfer.ts` | 导出→清库→导入数据一致；开机自启在安装版生效；安装包体积 < 15 MB |
+| **M5 待办 + 任务管理** | 待办分组与 CRUD、任务区间追加 | `views/Todos.tsx`、`views/Manage.tsx` | 逾期天数计算正确；停用后再启用生成第 2 段区间且历史不变；停用日期只能选今天及以后；无截止日归入「以后」 |
+| **M6 统计 + 设置 + 发布** | 精简统计、主题、自启、导入导出、备份、托盘、打包、更新器、发布脚本 | `views/Stats.tsx`、`views/Settings.tsx`、`db/transfer.ts`、`db/backup.ts`、`src-tauri/tauri.conf.json`、`scripts/release.mjs` | 统计口径与 §6 一致；导出→清库→导入数据一致；安装版自启生效；**跨版本升级实测**：装 v0.1.0 → 发布 v0.1.1 → 应用内检测并升级成功 → 数据完整 |
 
 依赖关系：M1 → M2 → (M3 与 M4 可并行) → M5 → M6。每个阶段结束跑一次 `npm run lint` + `npm run test` + `npm run tauri build`，防止壳层与架构约束问题积压。
 
@@ -311,6 +331,9 @@ completionRate(task, checkins, from, to, settings): number
 | SQLite 并发写 | 前端串行化所有写操作（store 内队列），单实例锁防止双开 |
 | 时区 / 一天的起始时间导致"今天"错位 | 全应用只允许 `logicalToday()` 产出"今天"，禁止直接 `format(new Date())` |
 | 迁移脚本改历史 | migration 只追加；CI/测试校验已发布脚本的 hash |
+| 更新私钥丢失 = 永久无法推送更新 | 私钥离线保存 + 密码管理器留副本；丢失后只能让用户手动重装（需在 README 写明） |
+| Windows 安装更新会强制退出进程 | 安装前先落盘并做 `pre-update-{version}.db` 快照，快照失败则中止安装；挂件勾选写库串行化，避免半写 |
+| 公开仓库泄露风险 | 仓库不含密钥、`latest.json` 只放公开签名；签名私钥与 GitHub token 均不进仓库 |
 
 ---
 
@@ -320,4 +343,8 @@ completionRate(task, checkins, from, to, settings): number
 2. SQL 由前端执行（`tauri-plugin-sql`）+ TS repository，不写 Rust CRUD 命令。
 3. 自动结算**仅投影、不写库**（见 §6）。
 4. 导出/导入固定为 JSON v1，即使存储已换 SQLite。
-5. `Requirements.md` §8 仍写「本地 JSON 默认」，与本文件 §1/§4 冲突；**以本文件为准**，Requirements 待单独修订。
+5. 仓库**公开**，GitHub Releases 作为更新源；不引入 CI，发布在本机脚本里完成。
+6. **更新签名不可关闭**，私钥只存本机环境变量；更新后不支持降级。
+7. 统计只做「单任务 streak + 近 30 天完成率」，砍掉热力图、全局折线与自愿/被迫对比（与 `Requirements.md` §4.6 的差异，以此处为准）。
+8. 不做系统通知；首次启动为空态引导，不预置示例任务。
+9. `Requirements.md` §8 仍写「本地 JSON 默认」，与本文件 §1/§4 冲突；**以本文件为准**，Requirements 待单独修订。
