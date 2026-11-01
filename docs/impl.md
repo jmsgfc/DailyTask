@@ -74,9 +74,35 @@ DailyTask/
 │  └─ ui/                            # tokens.css / PaperCard / CheckCell /
 │                                    # ProgressRing / DayGroup / EmptyState
 ├─ docs/{Requirements.md, TODO.md, impl.md, progress.md}
+├─ design/                            # 设计稿，不进构建
+│  ├─ tokens.css                     # 色板 / 字号 / 间距 / 圆角 / 阴影（src/ui/tokens.css 的来源）
+│  └─ preview.html                   # 今日 / 任务表 / 挂件三屏静态稿
 └─ package.json  vite.config.ts  vitest.config.ts  eslint.config.js
    scripts/release.mjs               # bump → 签名构建 → gh release → latest.json
 ```
+
+### 2.1 设计稿（UI 的单一真值）
+
+`design/` 不是构建产物，是写界面前的可视基准，浏览器直接打开，零依赖：
+
+- `tokens.css`：命名按用途不按色值；M2 的 `src/ui/tokens.css` 直接搬，不在组件里另写一套。
+- `preview.html`：按真实尺寸画（主窗 1080×720、挂件 220×280），带假数据、浅深主题与勾选交互，用来验密度而不是看效果图。
+
+已定尺寸（写组件时照此，要改先改这里）：
+
+| 项 | 值 |
+|---|---|
+| 左导航宽 | 200px |
+| 任务行高 / 勾选框 | 34px / 22×22，圆角 6 |
+| 内容区 padding | 24 |
+| 进度环 | 96px，描边 8 |
+| 任务列宽 | 160px（`--task-col-width`） |
+| 网格 cellSize | 详细 32 / 概览 16（缩放区间仍 [14, 44]） |
+
+`Requirements.md` §7.1 没给、设计稿被迫补的两类色，已收成命名 token，禁止裸写十六进制：
+
+- `--color-warning`：待办「今天到期」黄
+- `--color-paper-edge` / `--color-paper-text` / `--color-paper-muted`：挂件纸面的边、正文、次文字
 
 ---
 
@@ -153,6 +179,7 @@ ESLint flat config + `eslint-plugin-import` 的 `no-restricted-paths`，按目�
 6. view 没有绕过 store 直接调 `db/*`？
 7. 写库成功后 emit 了对应 `*Changed` 事件？
 8. 停用/启用任务走“追加区间”，没有改历史区间？
+9. 样式里的颜色 / 间距 / 圆角取自 `tokens.css`，没有裸写十六进制和魔法数？
 
 ---
 
@@ -297,9 +324,9 @@ completionRate30(task, checkins, today, settings): number // 近 30 天完成率
 
 ## 7. 任务表网格
 
-- 结构：CSS Grid；左上角为「任务/日期」双冻结角，任务列 `position: sticky; left: 0`，日期行 `sticky; top: 0`。
+- 结构：CSS Grid；左上角为「任务/日期」双冻结角，任务列 `position: sticky; left: 0`（固定 160px，超长名 `text-overflow` 截断），日期行 `sticky; top: 0`。
 - **只做横向虚拟化**：任务 5–15 行不虚拟化；日期列按 `scrollLeft` 计算可见窗口 ±3 屏，自研约 40 行的 `useHorizontalWindow`（不引 Virtuoso，避免与 sticky 列打架）。
-- 缩放：`Ctrl + 滚轮` 改 `cellSize ∈ [14, 44]`（默认 32），写回 `settings.gridZoom`；`cellSize < 24` 自动切概览模式（单色块按完成率着色，点击跳到详细模式）。
+- 缩放：`Ctrl + 滚轮` 改 `cellSize ∈ [14, 44]`（详细模式默认 32，概览模式基准 16），写回 `settings.gridZoom`；`cellSize < 24` 自动切概览模式（单色块按完成率着色，点击跳到详细模式）。
 - 行分组：自愿 / 被迫 / 已停用（默认折叠），组头可折叠，`sort_order` 支持拖拽排序。
 - 今日列：整列浅色底 + 右边框竖线；`Home` 键回到今日。
 - 键盘：`←/→` 切日期，`↑/↓` 切任务，`Space` 循环当前格，`Esc` 取消焦点。
@@ -311,7 +338,7 @@ completionRate30(task, checkins, today, settings): number // 近 30 天完成率
 | 阶段 | 内容 | 涉及文件 | 验收标准 |
 |---|---|---|---|
 | **M1 数据层 + 护栏** | Tauri 脚手架、建表迁移、5 个 repository、domain 纯函数、5 个 store 骨架、ESLint zone 规则 | `migrations/001_init.sql`、`src/db/*`、`src/domain/*`、`src/stores/*`、`eslint.config.js` | `npm run test` 与 `npm run lint` 通过；`isApplicable` 覆盖首尾日 ±1 天、多段区间、`end=null`；`projectCell` 覆盖 today 边界与结算开关；故意写一条反向 import 能被 lint 拦下 |
-| **M2 主窗口 + 今日** | 导航骨架、今日视图、进度环、打卡写库 | `MainLayout.tsx`、`views/Today.tsx`、`stores/*`、`shared/events.ts` | 勾选后重启应用状态保留；自愿/被迫分组与色值符合 §7.1；"今天不做"与 ✗ 视觉可区分；`useTodayData` 有单测 |
+| **M2 主窗口 + 今日** | 导航骨架、今日视图、进度环、打卡写库 | `MainLayout.tsx`、`ui/tokens.css`、`views/Today.tsx`、`stores/*`、`shared/events.ts` | 勾选后重启应用状态保留；自愿/被迫分组与色值符合 §7.1；"今天不做"与 ✗ 视觉可区分；`useTodayData` 有单测 |
 | **M3 悬浮挂件** | 第二窗口、置顶、拖拽、快勾、展开主窗口、跨窗口同步 | `src-tauri/tauri.conf.json`、`windows/widget/*`、`shared/events.ts` | 挂件勾选后主窗口 200 ms 内同步；置顶可开关；展开后主窗口聚焦；事件 payload 有类型且 `source` 去重生效 |
 | **M4 任务表** | 网格渲染、区间置灰、缩放两档、键盘、备注气泡、筛选 | `views/TaskGrid.tsx`、`ui/CheckCell.tsx` | 1000 列滚动不掉帧；停用任务历史可见且不可点；`Ctrl+滚轮` 缩放值持久化 |
 | **M5 待办 + 任务管理** | 待办分组与 CRUD、任务区间追加 | `views/Todos.tsx`、`views/Manage.tsx` | 逾期天数计算正确；停用后再启用生成第 2 段区间且历史不变；停用日期只能选今天及以后；无截止日归入「以后」 |
