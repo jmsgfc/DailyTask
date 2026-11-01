@@ -255,17 +255,255 @@
   .chip.is-overdue { color: var(--color-missed); background: color-mix(in srgb, var(--color-missed) 12%, transparent); }
   .chip.is-today { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 14%, transparent); }
 
-  /* ---------- 占位 ---------- */
-  .placeholder {
-    max-width: 1080px; margin: 0 auto;
-    padding: var(--space-6);
-    background: var(--color-surface);
-    border: 1px dashed var(--color-border-strong);
-    border-radius: var(--radius-card);
+  /* ---------- 任务表网格 ---------- */
+  .view-head .grid-tools { margin-left: auto; display: flex; align-items: center; gap: var(--space-2); }
+
+  .seg {
+    display: flex; gap: 2px; padding: 2px;
+    border: 1px solid var(--color-border); border-radius: var(--radius-pill);
+    background: var(--color-bg);
   }
-  .placeholder h2 { margin: 0 0 var(--space-2); font-size: var(--text-md); }
-  .placeholder p { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
-  .placeholder ul { margin: 0; padding-left: var(--space-5); font-size: var(--text-sm); line-height: 1.9; color: var(--color-text); }
+  .seg button {
+    border: 0; background: transparent; cursor: pointer;
+    padding: 3px 10px; border-radius: var(--radius-pill);
+    font-size: var(--text-2xs); color: var(--color-text-muted);
+  }
+  .seg button.is-active { background: var(--color-surface); color: var(--color-text); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+
+  .tool-btn {
+    padding: 4px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-pill);
+    background: var(--color-surface); cursor: pointer;
+    font-size: var(--text-2xs); color: var(--color-text-muted);
+  }
+  .tool-btn:hover { background: var(--state-hover); }
+
+  .grid-card { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .grid-scroll { flex: 1; overflow: auto; }
+  .grid-foot {
+    flex: none; height: 30px;
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 var(--space-3);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+    font-size: 10px; color: var(--color-text-muted);
+  }
+  .grid-foot .right { margin-left: auto; }
+  .grid-foot .sep { color: var(--color-border-strong); }
+  .grid { --cell: var(--cell-size); --row: 34px; --cols: 30; width: max-content; }
+
+  .grid-row { display: grid; grid-template-columns: var(--task-col-width) repeat(var(--cols), var(--cell)); }
+
+  .g-head { position: sticky; z-index: 3; background: var(--color-surface); }
+  .g-head.month { top: 0; height: 22px; }
+  .g-head.dates { top: 22px; height: 34px; border-bottom: 1px solid var(--color-border); }
+
+  .g-corner {
+    position: sticky; left: 0; z-index: 4;
+    display: flex; align-items: center;
+    padding: 0 var(--space-2);
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    font-size: var(--text-2xs); color: var(--color-text-muted);
+  }
+
+  .g-month-track { height: 22px; border-bottom: 1px solid var(--color-border); }
+
+  .month-pill {
+    position: absolute; top: 0; left: var(--task-col-width); z-index: 6;
+    height: 22px; display: flex; align-items: center;
+    padding: 0 10px 0 8px;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    font-size: 10px; color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  .g-date {
+    height: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    border-left: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+    font-size: var(--text-2xs); font-variant-numeric: tabular-nums;
+  }
+  .g-date small { font-size: 9px; color: var(--color-text-muted); }
+  .g-date b { font-weight: 500; }
+  .g-date.is-today { background: color-mix(in srgb, var(--color-voluntary) 9%, transparent); color: var(--color-voluntary); font-weight: 700; }
+  .g-date.is-today small { color: color-mix(in srgb, var(--color-voluntary) 70%, var(--color-text-muted)); }
+
+  .g-group-label {
+    position: sticky; left: 0; z-index: 2;
+    height: 26px; display: flex; align-items: center; gap: 6px;
+    padding-left: var(--space-2);
+    background: var(--color-surface);
+    font-size: var(--text-2xs); font-weight: 600; color: var(--color-text-muted);
+  }
+  .g-group-label i { width: 3px; height: 11px; border-radius: 2px; }
+  .g-group-fill { height: 26px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+
+  .g-task {
+    position: sticky; left: 0; z-index: 2;
+    height: var(--row); display: flex; align-items: center; gap: 6px;
+    padding: 0 var(--space-2);
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+    font-size: var(--text-xs);
+  }
+  .g-task i { width: 5px; height: 5px; border-radius: 50%; flex: none; }
+  .g-task span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .g-task.is-disabled span { color: var(--color-text-muted); }
+
+  .g-cell {
+    height: var(--row); display: grid; place-items: center;
+    font-size: 12px; color: var(--color-text-muted); cursor: pointer;
+    border-left: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+  }
+  .g-cell.is-done { color: var(--color-voluntary); }
+  .g-cell.is-missed { color: var(--color-missed); }
+  .g-cell.is-na { background: var(--color-na); color: color-mix(in srgb, var(--color-text) 28%, transparent); cursor: not-allowed; }
+  .g-cell.is-skipped { color: var(--color-text-muted); }
+  .g-cell.is-today {
+    background: color-mix(in srgb, var(--color-voluntary) 8%, transparent);
+    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-voluntary) 45%, transparent);
+  }
+  .g-cell.is-focus { position: relative; }
+  .g-cell.is-focus::after { content: ""; position: absolute; inset: 2px; border-radius: 4px; box-shadow: 0 0 0 2px var(--color-voluntary); }
+
+  /* 概览模式：16px 色块 */
+  .grid-card[data-mode="overview"] .grid { --cell: var(--cell-size-overview); --row: 18px; }
+  .grid-card[data-mode="overview"] .g-cell { font-size: 0; }
+  .grid-card[data-mode="overview"] .g-cell.is-done { background: var(--color-voluntary); }
+  .grid-card[data-mode="overview"] .g-cell.is-missed { background: color-mix(in srgb, var(--color-missed) 55%, var(--color-surface)); }
+  .grid-card[data-mode="overview"] .g-cell.is-skipped { background: color-mix(in srgb, var(--color-forced) 35%, var(--color-surface)); }
+  .grid-card[data-mode="overview"] .g-cell.is-na { background: var(--color-na); }
+  .grid-card[data-mode="overview"] .g-date { font-size: 9px; }
+  .grid-card[data-mode="overview"] .g-date small { display: none; }
+  .grid-card[data-mode="overview"] .g-group-label,
+  .grid-card[data-mode="overview"] .g-group-fill { height: 18px; }
+  .grid-card[data-mode="overview"] .g-task { font-size: var(--text-2xs); }
+
+  .grid-card::after {
+    content: ""; position: absolute; top: 0; right: 0;
+    width: 28px; height: calc(100% - 30px);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-surface) 92%, transparent));
+    pointer-events: none; z-index: 5;
+  }
+
+  /* 备注气泡 */
+  .note-bubble {
+    position: absolute; z-index: 8; width: 208px;
+    padding: var(--space-2);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-popover);
+  }
+  .bubble-head { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: var(--text-2xs); color: var(--color-text-muted); }
+  .note-bubble textarea {
+    width: 100%; height: 46px; resize: none;
+    padding: 6px;
+    border: 1px solid var(--color-border); border-radius: var(--radius-control);
+    background: var(--color-bg); color: var(--color-text);
+    font: inherit; font-size: var(--text-2xs);
+  }
+  .bubble-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+  .btn-xs {
+    padding: 3px 9px; border: 1px solid var(--color-border); border-radius: var(--radius-control);
+    background: var(--color-surface); cursor: pointer; font-size: var(--text-2xs);
+  }
+  .btn-xs.primary { background: var(--color-voluntary); border-color: var(--color-voluntary); color: #fff; }
+
+  /* ---------- 悬浮挂件 ---------- */
+  .widget-stage { display: flex; justify-content: center; align-items: flex-start; gap: 56px; padding: var(--space-6) 0 var(--space-2); }
+  .widget-slot { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+  .widget-slot .slot-label { font-size: var(--text-2xs); color: var(--canvas-muted); }
+  .widget-slot .slot-label b { color: var(--canvas-text); font-weight: 600; }
+
+  .widget {
+    width: 220px; height: 280px; padding: 8px;
+    border-radius: 24px;
+    overflow: hidden;
+    background:
+      repeating-conic-gradient(#E4E6E9 0 25%, #F1F2F4 0 50%) 0 0 / 16px 16px;
+  }
+  :root[data-theme="dark"] .widget {
+    background:
+      repeating-conic-gradient(#242424 0 25%, #2E2E2E 0 50%) 0 0 / 16px 16px;
+  }
+
+  .widget-card {
+    position: relative;
+    width: 204px; height: 264px;
+    padding: var(--space-3);
+    display: flex; flex-direction: column;
+    background: var(--color-paper);
+    border: 1px solid var(--color-paper-edge);
+    border-radius: var(--radius-widget);
+    box-shadow: var(--shadow-widget);
+    color: var(--color-paper-text);
+    overflow: hidden;
+  }
+  .widget-card::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    border-radius: inherit;
+    opacity: .05; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  }
+  :root[data-theme="dark"] .widget-card::before { mix-blend-mode: screen; opacity: .035; }
+
+  .w-head { position: relative; z-index: 1; height: 20px; display: flex; align-items: center; gap: 6px; }
+  .w-date { font-family: "KaiTi", "Kaiti SC", "STKaiti", "KaiTi SC", serif; font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+  .w-actions { margin-left: auto; display: flex; gap: 1px; opacity: 0; transition: opacity .15s; }
+  .widget-card:hover .w-actions,
+  .widget-card.is-hover .w-actions { opacity: 1; }
+  .w-act {
+    width: 18px; height: 18px; display: grid; place-items: center;
+    border: 0; background: transparent; border-radius: 4px;
+    color: color-mix(in srgb, var(--color-paper-text) 55%, transparent); cursor: pointer;
+  }
+  .w-act:hover { background: rgba(0, 0, 0, .07); }
+  .w-act svg { width: 12px; height: 12px; }
+
+  .w-ring-wrap { position: relative; z-index: 1; height: 44px; margin: 4px 0; display: flex; align-items: center; gap: 10px; }
+  .w-ring-wrap svg { width: 40px; height: 40px; flex: none; }
+  .w-ring-wrap circle { fill: none; stroke-width: 4; }
+  .w-ring-track { stroke: color-mix(in srgb, var(--color-paper-text) 12%, transparent); }
+  .w-ring-fg { stroke: var(--color-voluntary); stroke-linecap: round; transition: stroke-dashoffset .3s; }
+  .w-ring-text { display: flex; flex-direction: column; gap: 1px; }
+  .w-ring-text b { font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+  .w-ring-text span { font-size: 10px; color: var(--color-paper-muted); }
+
+  .w-tasks { position: relative; z-index: 1; }
+  .w-task {
+    height: 24px; display: flex; align-items: center; gap: 7px;
+    margin: 0 -4px; padding: 0 4px; border-radius: 5px;
+    cursor: pointer; transition: opacity .18s, transform .18s;
+  }
+  .w-task:hover { background: rgba(0, 0, 0, .045); }
+  :root[data-theme="dark"] .w-task:hover { background: rgba(255, 255, 255, .05); }
+  .w-task.is-leaving { opacity: 0; transform: translateX(8px); }
+  .w-check {
+    width: 16px; height: 16px; flex: none;
+    display: grid; place-items: center;
+    border: 1.4px solid color-mix(in srgb, var(--color-paper-text) 35%, transparent);
+    border-radius: 4px;
+    font-size: 10px; color: transparent;
+  }
+  .w-task.is-done .w-check { background: var(--color-voluntary); border-color: var(--color-voluntary); color: #fff; }
+  .w-task.is-done .w-name { text-decoration: line-through; color: var(--color-paper-muted); }
+  .w-name { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .w-fold { position: relative; z-index: 1; height: 16px; margin-top: 2px; display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--color-paper-muted); }
+  .w-fold svg { width: 9px; height: 9px; }
+  .w-fold-check { color: var(--color-voluntary); font-weight: 700; }
+
+  .w-todos { position: relative; z-index: 1; margin-top: 4px; }
+  .w-todo { height: 24px; display: flex; align-items: center; gap: 6px; margin: 0 -4px; padding: 0 4px; border-radius: 5px; font-size: 11px; }
+  .w-todo:hover { background: rgba(0, 0, 0, .035); }
+  .w-dot { width: 10px; height: 10px; flex: none; border: 1.3px solid color-mix(in srgb, var(--color-paper-text) 30%, transparent); border-radius: 50%; }
+  .w-todo .w-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .w-todo .w-meta { margin-left: auto; font-size: 9.5px; color: var(--color-paper-muted); white-space: nowrap; }
+  .w-todo.is-overdue .w-meta { color: var(--color-missed); font-weight: 600; }
+  .w-todo.is-today .w-meta { color: var(--color-warning); font-weight: 600; }
 
   /* ---------- 决策说明 ---------- */
   .notes {
@@ -305,6 +543,15 @@
   </symbol>
   <symbol id="i-settings" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
     <circle cx="8" cy="8" r="2.4"/><path d="M8 1.6v1.8M8 12.6v1.8M14.4 8h-1.8M3.4 8H1.6M12.5 3.5l-1.3 1.3M4.8 11.2l-1.3 1.3M12.5 12.5l-1.3-1.3M4.8 4.8L3.5 3.5"/>
+  </symbol>
+  <symbol id="i-expand" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.5 2.5h-4v4M9.5 13.5h4v-4M2.5 2.5l4.5 4.5M13.5 13.5L9 9"/>
+  </symbol>
+  <symbol id="i-pin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 1.8v4.4M4.8 6.2h6.4L10 10H6L4.8 6.2zM8 10.2v4"/>
+  </symbol>
+  <symbol id="i-min" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+    <path d="M3.5 8h9"/>
   </symbol>
 </svg>
 
@@ -465,32 +712,129 @@
   </div>
 </section>
 
-<!-- ================= 任务表（B） ================= -->
+<!-- ================= 任务表 ================= -->
 <section class="stage" data-stage="grid">
-  <div class="placeholder">
-    <h2>任务表 · 设计稿 B（11/16）</h2>
-    <p>这一屏留到 B，因为 30 列 × 5 态的密度不靠想象，得画出来才敢定。</p>
-    <ul>
-      <li>8 行：3 自愿 / 2 被迫 / 3 已停用（折叠）</li>
-      <li>30 个日期列，默认 cellSize 32，验证列宽与符号可读性</li>
-      <li>今日列高亮 + 左侧任务列 sticky 的视觉分层</li>
-      <li>概览模式（16px 色块）对照</li>
-      <li>一个备注气泡 + 键盘焦点态</li>
-    </ul>
+  <div class="stage-inner">
+    <p class="frame-caption"><b>任务表</b> 1080 × 720 · 详细 21 列 / 概览 42 列 · 共 84 天 · 打开定位到今日</p>
+
+    <div class="window">
+      <div class="titlebar">
+        <span class="dot"></span>
+        <span>DailyTask</span>
+        <span class="win-ctrl" aria-hidden="true">—&nbsp;&nbsp;▢&nbsp;&nbsp;✕</span>
+      </div>
+
+      <div class="app">
+        <aside class="nav">
+          <div class="nav-item"><svg class="icon"><use href="#i-today"/></svg>今日</div>
+          <div class="nav-item is-active"><svg class="icon"><use href="#i-grid"/></svg>任务表</div>
+          <div class="nav-item"><svg class="icon"><use href="#i-todo"/></svg>待办</div>
+          <div class="nav-item"><svg class="icon"><use href="#i-manage"/></svg>任务管理</div>
+          <div class="nav-item"><svg class="icon"><use href="#i-stats"/></svg>统计</div>
+          <div class="nav-item"><svg class="icon"><use href="#i-settings"/></svg>设置</div>
+          <div class="nav-foot">v0.1.0 · 本地数据</div>
+        </aside>
+
+        <div class="content">
+          <div class="view-head">
+            <h1>任务表</h1>
+            <span class="date">08/22 – 11/13 · 84 天</span>
+            <div class="grid-tools">
+              <div class="seg" role="group" aria-label="缩放档位">
+                <button class="is-active" data-grid-mode="detail">详细</button>
+                <button data-grid-mode="overview">概览</button>
+              </div>
+              <button class="tool-btn" type="button">今天</button>
+            </div>
+          </div>
+
+          <div class="card grid-card" data-mode="detail">
+            <div class="month-pill">2026 年 10 月</div>
+            <div class="grid-scroll">
+              <div class="grid" id="task-grid" style="--cols: 84"></div>
+            </div>
+
+            <div class="note-bubble" id="note-bubble">
+              <div class="bubble-head"><span>10/28 背单词</span><span>备注</span></div>
+              <textarea>只背了 20 个</textarea>
+              <div class="bubble-actions">
+                <button class="btn-xs" type="button">取消</button>
+                <button class="btn-xs primary" type="button">保存</button>
+              </div>
+            </div>
+
+            <div class="grid-foot">
+              <span>11 个任务</span><span class="sep">·</span><span>84 天</span><span class="sep">·</span><span>今日 11/01</span>
+              <span class="right">Ctrl + 滚轮缩放</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note">
+        <h3>本稿已定</h3>
+        <ol>
+          <li>一屏 <b>21 列</b>：832 − 160 = 672 / 32；打开时滚到今日，右侧留 3–4 天</li>
+          <li>表头两行：月份带 22 + 日期/星期 34；月份文字固定在任务列右侧，随滚动换月</li>
+          <li>▫ 用 <code>--color-na</code> 底且不可点，已停用组默认折叠</li>
+          <li>概览 16px：一屏 42 列，84 天总宽 1344px，仍要横滚</li>
+          <li>备注气泡 208px 锚在格子下方；焦点环画在格内 2px</li>
+        </ol>
+      </div>
+      <div class="note">
+        <h3>留到实现 / 需回写文档</h3>
+        <ul>
+          <li>月份带的批量启停标记（§4.3 顶部时间标尺）本轮没画</li>
+          <li>筛选条（类型 / 单任务 / 时间段）留到 M4 D51</li>
+          <li>表格空态 / 加载骨架未画</li>
+          <li>概览色阶目前两档（✓ 实心 / ✗ 半透明），实际按完成率取三档</li>
+          <li>横向虚拟化后 sticky 表头是否仍成立 → M4 验证</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- ================= 挂件（B） ================= -->
+<!-- ================= 挂件 ================= -->
 <section class="stage" data-stage="widget">
-  <div class="placeholder">
-    <h2>挂件 · 设计稿 B（11/16）</h2>
-    <p>220×280 是硬约束：纸感、进度环、未完成项、折叠行要在这一块里排下。</p>
-    <ul>
-      <li>纸底 #FBF7EF + 圆角 16 + 轻噪点（base64 SVG）</li>
-      <li>进度环 + 「4 项已完成」折叠行</li>
-      <li>最多 3 条待办，超出显示 +N</li>
-      <li>悬停出现「展开 / 钉住 / 最小化」的位置与顺序</li>
-    </ul>
+  <div class="stage-inner">
+    <p class="frame-caption"><b>挂件</b> 220 × 280 · 含 8px 透明边距 · 纸卡 204×264 · 棋盘格 = 透明区</p>
+
+    <div class="widget-stage">
+      <div class="widget-slot">
+        <div class="widget"><div class="widget-card" data-widget></div></div>
+        <div class="slot-label"><b>常态</b> · 标题区即拖拽区</div>
+      </div>
+      <div class="widget-slot">
+        <div class="widget"><div class="widget-card is-hover" data-widget></div></div>
+        <div class="slot-label"><b>悬停态</b> · 展开 / 钉住 / 最小化</div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note">
+        <h3>高度预算（内容 240）</h3>
+        <ol>
+          <li>标题行 20 + 进度环 44 = 64</li>
+          <li>未完成任务 4 × 24 = 96</li>
+          <li>已完成折叠行 16 + 间距 2 = 18</li>
+          <li>待办 2 × 24 + 间距 4 = 52</li>
+          <li>合计 <b>238 / 240</b>，余量 2px</li>
+        </ol>
+      </div>
+      <div class="note">
+        <h3>溢出规则（已定）</h3>
+        <ul>
+          <li>优先级：<b>逾期待办 &gt; 未完成任务 &gt; 今天到期</b></li>
+          <li>任务最多 4 条、待办最多 2 条，超出显示 <b>+N</b></li>
+          <li>「展开详情」从底部移进标题区，才腾出第 2 条待办的位置</li>
+          <li>点任务即时完成，划掉并计入折叠行（本例 4/8 → 5/8）</li>
+          <li>纸纹 <code>feTurbulence</code> 透明度 0.05，日期用楷体</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -523,6 +867,12 @@
       document.querySelectorAll('[data-stage]').forEach(s => {
         s.classList.toggle('is-active', s.dataset.stage === tab.dataset.view);
       });
+      if (tab.dataset.view === 'grid') {
+        requestAnimationFrame(() => {
+          scrollToToday();
+          placeBubble();
+        });
+      }
     });
   });
 
@@ -582,6 +932,281 @@
   });
 
   refresh();
+
+  // ================= 任务表 =================
+  const GRID_START = Date.UTC(2026, 7, 22); // 08/22
+  const GRID_DAYS = 84;                      // 08/22 – 11/13
+  const TODAY_INDEX = 71;                    // 11/01
+  const TAIL_FROM = 54;                      // 10/15 起用手写数据
+  const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
+  const GRID_GROUPS = [
+    {
+      id: 'voluntary', title: '自愿任务', color: 'var(--color-voluntary)', disabled: false,
+      rows: [
+        { name: '早起', start: 0, end: 83, seed: 1, tail: 'dmddmsdddmddddddd' + 'd' + '.'.repeat(12) },
+        { name: '跑步', start: 0, end: 83, seed: 2, tail: 'ddmmddddddddddddd' + '.'.repeat(13) },
+        { name: '背单词', start: 61, end: 83, seed: 3, tail: 'n'.repeat(7) + 'dddmdddddd' + 'd' + '.'.repeat(12) },
+        { name: '阅读 20 分钟', start: 0, end: 83, seed: 4, tail: 'dddmdddmddddddddd' + '.'.repeat(13) },
+      ],
+    },
+    {
+      id: 'forced', title: '被迫任务', color: 'var(--color-forced)', disabled: false,
+      rows: [
+        { name: '开会', start: 0, end: 83, seed: 5, tail: 'ddddddddmdddddddd' + '.'.repeat(13) },
+        { name: '交周报', start: 0, end: 83, seed: 6, tail: 'dmdmdmdmdmdmdmdmd' + '.'.repeat(13) },
+        { name: '打卡', start: 0, end: 83, seed: 7, tail: 'd'.repeat(17) + '.'.repeat(13) },
+      ],
+    },
+    {
+      id: 'archived', title: '已停用', color: 'var(--color-text-muted)', disabled: true,
+      rows: [
+        { name: '跳绳', start: 0, end: 59, seed: 8, tail: 'ddmddm' + 'n'.repeat(24) },
+        { name: '冥想', start: 0, end: 63, seed: 9, tail: 'dddmdddddd' + 'n'.repeat(20) },
+        { name: '喝水', start: 0, end: 66, seed: 10, tail: 'dmddddddddddd' + 'n'.repeat(17) },
+        { name: '拉伸', start: 0, end: 57, seed: 11, tail: 'ddmd' + 'n'.repeat(26) },
+      ],
+    },
+  ];
+
+  // 10/15 之前用确定性规律生成，保证截图稳定
+  function stateAt(row, i) {
+    if (i < row.start || i > row.end) return 'n';
+    if (i >= TAIL_FROM) return row.tail[i - TAIL_FROM] ?? '.';
+    const r = (i * 7 + row.seed * 11) % 13;
+    return r === 0 ? 'm' : r === 5 ? 's' : 'd';
+  }
+
+  function symbolOf(ch) {
+    return ch === 'd' ? '✓' : ch === 'm' ? '✗' : ch === 'n' ? '▫' : ch === 's' ? '–' : '';
+  }
+  function classOf(ch) {
+    return ch === 'd' ? 'is-done' : ch === 'm' ? 'is-missed' : ch === 'n' ? 'is-na' : ch === 's' ? 'is-skipped' : 'is-empty';
+  }
+  const cycle = { '.': 'd', d: 'm', m: '.' };
+
+  function buildGrid() {
+    const grid = document.getElementById('task-grid');
+    if (!grid || grid.dataset.built) return;
+    grid.dataset.built = '1';
+
+    // 月份带（具体月份由 .month-pill 跟随滚动显示）
+    const monthRow = document.createElement('div');
+    monthRow.className = 'grid-row g-head month';
+    const mCorner = document.createElement('div');
+    mCorner.className = 'g-corner';
+    const mTrack = document.createElement('div');
+    mTrack.className = 'g-month-track';
+    mTrack.style.gridColumn = '2 / -1';
+    monthRow.append(mCorner, mTrack);
+    grid.appendChild(monthRow);
+
+    // 日期 / 星期
+    const dates = Array.from({ length: GRID_DAYS }, (_, i) => new Date(GRID_START + i * 86400000));
+    const dateRow = document.createElement('div');
+    dateRow.className = 'grid-row g-head dates';
+    const dCorner = document.createElement('div');
+    dCorner.className = 'g-corner';
+    dCorner.textContent = '任务 / 日期';
+    dateRow.appendChild(dCorner);
+    dates.forEach((d, i) => {
+      const c = document.createElement('div');
+      c.className = 'g-date' + (i === TODAY_INDEX ? ' is-today' : '');
+      c.innerHTML = `<b>${d.getUTCDate()}</b><small>${WEEKDAYS[d.getUTCDay()]}</small>`;
+      dateRow.appendChild(c);
+    });
+    grid.appendChild(dateRow);
+
+    // 分组 + 行
+    GRID_GROUPS.forEach(group => {
+      const gRow = document.createElement('div');
+      gRow.className = 'grid-row';
+      const label = document.createElement('div');
+      label.className = 'g-group-label';
+      label.innerHTML = `<i style="background:${group.color}"></i>${group.title} · ${group.rows.length}`;
+      const fill = document.createElement('div');
+      fill.className = 'g-group-fill';
+      fill.style.gridColumn = '2 / -1';
+      gRow.append(label, fill);
+      grid.appendChild(gRow);
+
+      group.rows.forEach(row => {
+        const tr = document.createElement('div');
+        tr.className = 'grid-row';
+
+        const task = document.createElement('div');
+        task.className = 'g-task' + (group.disabled ? ' is-disabled' : '');
+        task.innerHTML = `<i style="background:${group.color};opacity:${group.disabled ? 0.35 : 1}"></i><span>${row.name}</span>`;
+        tr.appendChild(task);
+
+        for (let i = 0; i < GRID_DAYS; i++) {
+          const ch = stateAt(row, i);
+          const cell = document.createElement('div');
+          cell.className = `g-cell ${classOf(ch)}${i === TODAY_INDEX ? ' is-today' : ''}`;
+          if (row.name === '开会' && i === 73) cell.classList.add('is-focus');
+          cell.textContent = symbolOf(ch);
+          cell.dataset.key = `${row.name}|${i}`;
+          cell.dataset.state = ch;
+
+          if (!group.disabled && ch !== 'n') {
+            cell.addEventListener('click', () => {
+              const next = cycle[cell.dataset.state] ?? 'd';
+              cell.dataset.state = next;
+              cell.className = `g-cell ${classOf(next)}${i === TODAY_INDEX ? ' is-today' : ''}`;
+              cell.textContent = symbolOf(next);
+            });
+          }
+          tr.appendChild(cell);
+        }
+        grid.appendChild(tr);
+      });
+    });
+  }
+
+  function placeBubble() {
+    const card = document.querySelector('.grid-card');
+    const bubble = document.getElementById('note-bubble');
+    const cell = document.querySelector('[data-key="背单词|67"]');
+    if (!card || !bubble || !cell || !card.offsetParent) return;
+    const cr = card.getBoundingClientRect();
+    const r = cell.getBoundingClientRect();
+    bubble.style.left = Math.min(Math.max(r.left - cr.left - 88, 8), cr.width - 216) + 'px';
+    bubble.style.top = (r.bottom - cr.top + 8) + 'px';
+  }
+
+  function gridCellWidth() {
+    const grid = document.getElementById('task-grid');
+    return parseFloat(getComputedStyle(grid).getPropertyValue('--cell')) || 32;
+  }
+
+  function updateMonthPill() {
+    const scroller = document.querySelector('.grid-scroll');
+    const pill = document.querySelector('.month-pill');
+    if (!scroller || !pill) return;
+    const idx = Math.min(GRID_DAYS - 1, Math.max(0, Math.floor(scroller.scrollLeft / gridCellWidth())));
+    const d = new Date(GRID_START + idx * 86400000);
+    pill.textContent = `${d.getUTCFullYear()} 年 ${d.getUTCMonth() + 1} 月`;
+  }
+
+  function scrollToToday() {
+    const scroller = document.querySelector('.grid-scroll');
+    if (!scroller || !scroller.offsetParent) return;
+    const cellW = gridCellWidth();
+    const visible = Math.floor((scroller.clientWidth - 160) / cellW);
+    scroller.scrollLeft = Math.max(0, (TODAY_INDEX - Math.max(visible - 4, 0)) * cellW);
+    updateMonthPill();
+  }
+
+  document.querySelector('.grid-scroll')?.addEventListener('scroll', updateMonthPill);
+
+  document.querySelectorAll('[data-grid-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = document.querySelector('.grid-card');
+      card.dataset.mode = btn.dataset.gridMode;
+      document.querySelectorAll('[data-grid-mode]').forEach(b => b.classList.toggle('is-active', b === btn));
+      document.getElementById('note-bubble').hidden = btn.dataset.gridMode === 'overview';
+      requestAnimationFrame(() => {
+        scrollToToday();
+        placeBubble();
+      });
+    });
+  });
+  window.addEventListener('resize', () => {
+    updateMonthPill();
+    placeBubble();
+  });
+
+  buildGrid();
+
+  // ================= 挂件 =================
+  const W_TOTAL = 8;
+  let wDone = 4;
+  const W_TASKS = [
+    { id: 'run', name: '跑步' },
+    { id: 'meeting', name: '开会' },
+    { id: 'report', name: '交周报' },
+    { id: 'read', name: '阅读 20 分钟' },
+  ];
+  const WR = 2 * Math.PI * 17;
+
+  const widgetTemplate = () => `
+    <div class="w-head" data-tauri-drag-region>
+      <span class="w-date">11/01 周日</span>
+      <div class="w-actions">
+        <button class="w-act" type="button" title="展开主窗口"><svg><use href="#i-expand"/></svg></button>
+        <button class="w-act" type="button" title="钉住"><svg><use href="#i-pin"/></svg></button>
+        <button class="w-act" type="button" title="最小化"><svg><use href="#i-min"/></svg></button>
+      </div>
+    </div>
+    <div class="w-ring-wrap">
+      <svg viewBox="0 0 40 40" aria-hidden="true">
+        <circle class="w-ring-track" cx="20" cy="20" r="17"/>
+        <circle class="w-ring-fg" cx="20" cy="20" r="17" transform="rotate(-90 20 20)"/>
+      </svg>
+      <div class="w-ring-text">
+        <b class="w-ring-num">4 / 8</b>
+        <span class="w-ring-left">还剩 4 项</span>
+      </div>
+    </div>
+    <div class="w-tasks">
+      ${W_TASKS.map(t => `
+        <div class="w-task" data-task="${t.id}">
+          <span class="w-check">✓</span>
+          <span class="w-name">${t.name}</span>
+        </div>`).join('')}
+    </div>
+    <div class="w-fold">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 4l4 4-4 4"/></svg>
+      <span><span class="w-fold-check">✓</span> <b class="w-fold-count">4</b> 项已完成</span>
+    </div>
+    <div class="w-todos">
+      <div class="w-todo is-overdue"><span class="w-dot"></span><span class="w-title">交房租</span><span class="w-meta">逾期 2 天</span></div>
+      <div class="w-todo is-today"><span class="w-dot"></span><span class="w-title">买猫粮</span><span class="w-meta">今天</span></div>
+    </div>
+  `;
+
+  function widgetRefresh() {
+    document.querySelectorAll('.widget-card').forEach(card => {
+      const fg = card.querySelector('.w-ring-fg');
+      if (fg) {
+        fg.style.strokeDasharray = WR;
+        fg.style.strokeDashoffset = WR * (1 - wDone / W_TOTAL);
+      }
+      const num = card.querySelector('.w-ring-num');
+      if (num) num.textContent = `${wDone} / ${W_TOTAL}`;
+      const left = card.querySelector('.w-ring-left');
+      if (left) left.textContent = `还剩 ${W_TOTAL - wDone} 项`;
+      const fold = card.querySelector('.w-fold-count');
+      if (fold) fold.textContent = wDone;
+    });
+  }
+
+  document.querySelectorAll('[data-widget]').forEach(card => {
+    if (card.dataset.ready) return;
+    card.innerHTML = widgetTemplate();
+    card.dataset.ready = '1';
+  });
+
+  document.querySelectorAll('.w-task').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.dataset.task;
+      wDone = Math.min(W_TOTAL, wDone + 1);
+      document.querySelectorAll(`.w-task[data-task="${id}"]`).forEach(el => {
+        el.classList.add('is-leaving');
+        setTimeout(() => el.remove(), 180);
+      });
+      widgetRefresh();
+    });
+  });
+
+  widgetRefresh();
+
+  // ---- 支持 ?view=grid / widget 直达（用于截图与分享） ----
+  const directView = new URLSearchParams(location.search).get('view');
+  if (directView) document.querySelector(`[data-view="${directView}"]`)?.click();
+  if (new URLSearchParams(location.search).get('mode') === 'overview') {
+    document.querySelector('[data-grid-mode="overview"]')?.click();
+  }
 </script>
 </body>
 </html>
