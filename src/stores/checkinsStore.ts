@@ -25,24 +25,60 @@ export const useCheckinsStore = create<CheckinsState>()((set, get) => ({
 
   hydrate: (checkins) => set({ byKey: toCheckinMapFromArray(checkins) }),
 
-  setStatus: (taskId, date, status) =>
-    enqueueWrite(async () => {
-      const db = await getDb();
-      const next = new Map(get().byKey);
+  setStatus: (taskId, date, status) => {
+    const key = checkinKey(taskId, date);
+    const previous = get().byKey;
+    const optimistic = new Map(previous);
 
-      if (status === null) {
-        await deleteCheckin(db, taskId, date);
-        next.delete(checkinKey(taskId, date));
-      } else {
-        const checkin = await upsertCheckin(db, { taskId, date, status });
-        next.set(checkinKey(taskId, date), checkin);
+    if (status === null) {
+      optimistic.delete(key);
+    } else {
+      optimistic.set(key, {
+        id: previous.get(key)?.id ?? `pending-${key}`,
+        taskId,
+        date,
+        status,
+        note: previous.get(key)?.note ?? null,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    set({ byKey: optimistic });
+
+    return enqueueWrite(async () => {
+      try {
+        const db = await getDb();
+
+        if (status === null) {
+          await deleteCheckin(db, taskId, date);
+        } else {
+          const saved = await upsertCheckin(db, {
+            taskId,
+            date,
+            status,
+            note: previous.get(key)?.note ?? null,
+          });
+          set({ byKey: new Map(get().byKey).set(key, saved) });
+        }
+
+        set({ loaded: true });
+        void emitCheckinsChanged({ date, source: currentSource() }).catch(
+          () => undefined,
+        );
+      } catch (error) {
+        console.error("[checkins] 写库失败，已回滚", error);
+        // 只回滚这一格，避免把同时进行的其他写入一起撤掉。
+        const rollback = new Map(get().byKey);
+        const before = previous.get(key);
+        if (before) {
+          rollback.set(key, before);
+        } else {
+          rollback.delete(key);
+        }
+        set({ byKey: rollback });
+        throw error;
       }
-
-      set({ byKey: next, loaded: true });
-      void emitCheckinsChanged({ date, source: currentSource() }).catch(
-        () => undefined,
-      );
-    }),
+    });
+  },
 }));
 
 function toCheckinMapFromArray(checkins: Checkin[]): Map<string, Checkin> {

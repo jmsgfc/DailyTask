@@ -73,4 +73,22 @@ describe("useCheckinsStore", () => {
     expect(deleteCheckin).toHaveBeenCalled();
     expect(useCheckinsStore.getState().byKey.has("t1|2026-11-02")).toBe(false);
   });
+
+  it("rolls back the cell when the write fails", async () => {
+    useCheckinsStore.getState().hydrate([checkin]);
+    vi.mocked(upsertCheckin).mockRejectedValueOnce(new Error("disk full"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    await expect(
+      useCheckinsStore.getState().setStatus("t1", "2026-11-02", "missed"),
+    ).rejects.toThrow("disk full");
+
+    expect(useCheckinsStore.getState().byKey.get("t1|2026-11-02")).toEqual(
+      checkin,
+    );
+    expect(emitCheckinsChanged).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
 });
