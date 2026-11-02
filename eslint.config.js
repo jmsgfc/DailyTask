@@ -1,11 +1,87 @@
 import js from "@eslint/js";
+import importPlugin from "eslint-plugin-import";
 import tseslint from "typescript-eslint";
 
-// Zone / dependency rules land in D13; this is the baseline only.
+const eventPattern = {
+  group: ["@tauri-apps/api/event"],
+  message: "事件 API 只允许 src/shared/events.ts 使用，其余走类型化封装。",
+};
+
+const sqlPattern = {
+  group: ["@tauri-apps/plugin-sql"],
+  message: "SQL 插件只允许 src/db/* 使用。",
+};
+
+const directDbPattern = {
+  group: ["**/db", "**/db/*"],
+  message: "view 必须通过 store 访问数据，不能直接 import db/*。",
+};
+
 export default tseslint.config(
   {
     ignores: ["dist", "node_modules", "src-tauri", "design", "coverage"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    plugins: { import: importPlugin },
+    settings: {
+      "import/resolver": {
+        typescript: { project: "./tsconfig.json" },
+      },
+    },
+    rules: {
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            { target: "./src/domain", from: "./src", except: ["./domain"] },
+            {
+              target: "./src/ui",
+              from: "./src",
+              except: ["./ui", "./domain/types"],
+            },
+            { target: "./src/db", from: "./src", except: ["./db", "./domain", "./shared"] },
+            {
+              target: "./src/stores",
+              from: "./src",
+              except: ["./stores", "./db", "./domain", "./shared"],
+            },
+            {
+              target: "./src/windows",
+              from: "./src",
+              except: ["./windows", "./stores", "./domain", "./ui", "./shared"],
+            },
+          ],
+        },
+      ],
+      "no-restricted-imports": ["error", { patterns: [eventPattern, sqlPattern] }],
+    },
+  },
+
+  {
+    files: ["src/shared/events.ts", "src/shared/events.test.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [sqlPattern] }],
+    },
+  },
+
+  {
+    files: ["src/db/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [eventPattern] }],
+    },
+  },
+
+  {
+    files: ["src/windows/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [directDbPattern, eventPattern, sqlPattern] },
+      ],
+    },
+  },
 );
