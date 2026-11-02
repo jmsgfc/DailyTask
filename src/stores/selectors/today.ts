@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns";
-import { zhCN } from "date-fns/locale/zh-CN";
 import { useMemo } from "react";
+
+import { dateLocale } from "../../shared/i18n";
 
 import { applicableTasks } from "../../domain/applicability";
 import { diffDays, logicalToday } from "../../domain/date";
@@ -87,7 +88,9 @@ export function buildToday(
 
   return {
     today,
-    dateLabel: format(parseISO(today), "MM/dd EEEE", { locale: zhCN }),
+    dateLabel: format(parseISO(today), "MM/dd EEEE", {
+      locale: dateLocale(settings.language),
+    }),
     voluntary,
     forced,
     progress: dayProgress(tasks, checkins, today, settings, today),

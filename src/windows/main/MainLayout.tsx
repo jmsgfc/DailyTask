@@ -1,5 +1,7 @@
+import type { MessageKey } from "../../shared/i18n";
 import { useUiStore, type ViewName } from "../../stores/uiStore";
 import { Icon, type IconName } from "../../ui/Icon";
+import { useT } from "../../ui/useT";
 import Manage from "./views/Manage";
 import Settings from "./views/Settings";
 import Stats from "./views/Stats";
@@ -7,13 +9,13 @@ import TaskGrid from "./views/TaskGrid";
 import Today from "./views/Today";
 import Todos from "./views/Todos";
 
-const NAV: { view: ViewName; label: string; icon: IconName }[] = [
-  { view: "today", label: "今日", icon: "today" },
-  { view: "grid", label: "任务表", icon: "grid" },
-  { view: "todos", label: "待办", icon: "todo" },
-  { view: "manage", label: "任务管理", icon: "manage" },
-  { view: "stats", label: "统计", icon: "stats" },
-  { view: "settings", label: "设置", icon: "settings" },
+const NAV: { view: ViewName; labelKey: MessageKey; icon: IconName }[] = [
+  { view: "today", labelKey: "nav.today", icon: "today" },
+  { view: "grid", labelKey: "nav.grid", icon: "grid" },
+  { view: "todos", labelKey: "nav.todos", icon: "todo" },
+  { view: "manage", labelKey: "nav.manage", icon: "manage" },
+  { view: "stats", labelKey: "nav.stats", icon: "stats" },
+  { view: "settings", labelKey: "nav.settings", icon: "settings" },
 ];
 
 function renderView(view: ViewName) {
@@ -34,6 +36,7 @@ function renderView(view: ViewName) {
 }
 
 export function MainLayout() {
+  const t = useT();
   const view = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
 
@@ -56,14 +59,14 @@ export function MainLayout() {
                 }
               >
                 <Icon name={item.icon} />
-                {item.label}
+                {t(item.labelKey)}
               </button>
             );
           })}
         </nav>
 
         <div className="mt-auto px-2 py-2 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-          v0.1.0 · 本地数据
+          {t("app.footer", { version: "0.1.0" })}
         </div>
       </aside>
 

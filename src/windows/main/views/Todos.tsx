@@ -1,5 +1,13 @@
+import { useT } from "../../../ui/useT";
 import { PagePlaceholder } from "./PagePlaceholder";
 
 export default function Todos() {
-  return <PagePlaceholder title="待办" note="M5 实现 · 四分组与行内完成" />;
+  const t = useT();
+
+  return (
+    <PagePlaceholder
+      title={t("view.todos.title")}
+      note={t("view.todos.note")}
+    />
+  );
 }

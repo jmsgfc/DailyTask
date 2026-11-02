@@ -1,3 +1,5 @@
+import { useT } from "./useT";
+
 const RADIUS = 42;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -14,6 +16,7 @@ export function ProgressRing({
   size = 96,
   strokeWidth = 8,
 }: ProgressRingProps) {
+  const t = useT();
   const ratio = total === 0 ? 0 : Math.min(done / total, 1);
   const offset = CIRCUMFERENCE * (1 - ratio);
 
@@ -22,7 +25,7 @@ export function ProgressRing({
       className="relative shrink-0"
       style={{ width: size, height: size }}
       role="img"
-      aria-label={`今日进度 ${done} / ${total}`}
+      aria-label={t("progress.aria", { done, total })}
     >
       <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
         <circle

@@ -6,6 +6,7 @@ import App from "./App";
 import { useCheckinsStore } from "./stores/checkinsStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useTasksStore } from "./stores/tasksStore";
+import { setLocale, t } from "./shared/i18n";
 import { useTodosStore } from "./stores/todosStore";
 import { applyTheme } from "./ui/theme";
 import "./styles.css";
@@ -23,13 +24,14 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <main className="flex h-full items-center justify-center text-sm text-stone-500">
-    正在加载…
+    {t("app.loading")}
   </main>,
 );
 
 void initApp()
   .then((data) => {
     hydrate(data);
+    setLocale(data.settings.language);
     applyTheme(data.settings.theme);
     root.render(
       <React.StrictMode>
@@ -41,8 +43,8 @@ void initApp()
     console.error("[init] 初始化失败", error);
     root.render(
       <main className="flex h-full flex-col items-center justify-center gap-2 text-sm text-red-600">
-        <p>初始化失败，请重启应用。</p>
-        <p className="text-stone-500">详情见开发者工具控制台。</p>
+        <p>{t("app.initFailed")}</p>
+        <p className="text-stone-500">{t("app.initFailedHint")}</p>
       </main>,
     );
   });

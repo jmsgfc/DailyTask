@@ -21,6 +21,7 @@ describe("sanitizeSettings", () => {
   it("merges valid fields and ignores unknown or bad values", () => {
     const settings = sanitizeSettings({
       theme: "dark",
+      language: "en",
       gridZoom: 40,
       autoSettleMissed: false,
       dayStartHour: 25,
@@ -28,10 +29,17 @@ describe("sanitizeSettings", () => {
     });
 
     expect(settings.theme).toBe("dark");
+    expect(settings.language).toBe("en");
     expect(settings.gridZoom).toBe(40);
     expect(settings.autoSettleMissed).toBe(false);
     expect(settings.dayStartHour).toBe(DEFAULT_SETTINGS.dayStartHour);
     expect(settings.autoLaunch).toBe(DEFAULT_SETTINGS.autoLaunch);
+  });
+
+  it("falls back for an unsupported language", () => {
+    expect(sanitizeSettings({ language: "fr" }).language).toBe(
+      DEFAULT_SETTINGS.language,
+    );
   });
 
   it("clamps gridZoom into [14, 44]", () => {

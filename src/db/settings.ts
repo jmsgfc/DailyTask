@@ -1,5 +1,6 @@
 import {
   DEFAULT_SETTINGS,
+  type Language,
   type Settings,
   type Theme,
 } from "../domain/types";
@@ -11,6 +12,7 @@ interface SettingRow {
 }
 
 const THEMES: Theme[] = ["light", "dark", "system"];
+const LANGUAGES: Language[] = ["zh-CN", "en"];
 const GRID_ZOOM_MIN = 14;
 const GRID_ZOOM_MAX = 44;
 
@@ -21,6 +23,7 @@ function clamp(value: number, min: number, max: number): number {
 /** 逐字段校验；坏值回退默认值，不让一条脏数据拖垮启动。 */
 export function sanitizeSettings(raw: Record<string, unknown>): Settings {
   const theme = raw.theme;
+  const language = raw.language;
   const gridZoom = raw.gridZoom;
   const dayStartHour = raw.dayStartHour;
 
@@ -29,6 +32,10 @@ export function sanitizeSettings(raw: Record<string, unknown>): Settings {
       typeof theme === "string" && THEMES.includes(theme as Theme)
         ? (theme as Theme)
         : DEFAULT_SETTINGS.theme,
+    language:
+      typeof language === "string" && LANGUAGES.includes(language as Language)
+        ? (language as Language)
+        : DEFAULT_SETTINGS.language,
     gridZoom:
       typeof gridZoom === "number" && Number.isFinite(gridZoom)
         ? clamp(gridZoom, GRID_ZOOM_MIN, GRID_ZOOM_MAX)

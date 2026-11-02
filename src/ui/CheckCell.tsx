@@ -1,6 +1,8 @@
 import { clsx } from "clsx";
 
 import type { CellState } from "../domain/types";
+import type { MessageKey } from "../shared/i18n";
+import { useT } from "./useT";
 
 const SYMBOLS: Record<CellState, string> = {
   done: "✓",
@@ -10,12 +12,12 @@ const SYMBOLS: Record<CellState, string> = {
   none: "",
 };
 
-const LABELS: Record<CellState, string> = {
-  done: "已完成",
-  missed: "未完成",
-  skipped: "今天不做",
-  pending: "未打卡",
-  none: "不适用",
+const LABEL_KEYS: Record<CellState, MessageKey> = {
+  done: "checkin.done",
+  missed: "checkin.missed",
+  skipped: "checkin.skipped",
+  pending: "checkin.pending",
+  none: "checkin.none",
 };
 
 // 状态色整组覆盖，避免基础 bg / border 与状态类在同优先级下互相打架。
@@ -44,11 +46,16 @@ export function CheckCell({
   disabled,
   size = "row",
 }: CheckCellProps) {
+  const t = useT();
+
   return (
     <button
       type="button"
       data-state={state}
-      aria-label={`${taskName}：${LABELS[state]}`}
+      aria-label={t("checkin.aria", {
+        task: taskName,
+        status: t(LABEL_KEYS[state]),
+      })}
       disabled={disabled || state === "none"}
       onClick={
         onClick

@@ -9,11 +9,13 @@ import {
 } from "../../../stores/selectors/today";
 import { CheckCell } from "../../../ui/CheckCell";
 import { ProgressRing } from "../../../ui/ProgressRing";
+import { useT } from "../../../ui/useT";
 
 const CARD =
   "rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]";
 
 export default function Today() {
+  const t = useT();
   const data = useTodayData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
 
@@ -30,12 +32,18 @@ export default function Today() {
   };
 
   const total = data.progress.applicable - data.progress.skipped;
+  const statusText =
+    total === 0
+      ? t("today.noTasks")
+      : data.progress.pending > 0
+        ? t("today.remaining", { count: data.progress.pending })
+        : t("today.allDone");
 
   return (
     <>
       <header className="flex items-baseline gap-3">
         <h1 className="m-0 text-[var(--text-lg)] font-semibold tracking-[.2px]">
-          今日
+          {t("today.title")}
         </h1>
         <span className="text-sm text-[var(--color-text-muted)]">
           {data.dateLabel}
@@ -45,33 +53,37 @@ export default function Today() {
       <section className={`${CARD} flex items-center gap-6 px-6 py-4`}>
         <ProgressRing done={data.progress.done} total={total} />
         <div className="flex flex-col gap-0.5">
-          <div>
-            已完成 <b>{data.progress.done}</b> / <b>{total}</b> 项
-          </div>
+          <div>{t("today.doneOfTotal", { done: data.progress.done, total })}</div>
           <div className="text-xs text-[var(--color-text-muted)]">
-            完成率 {Math.round(data.progress.ratio * 100)}% ·{" "}
-            {total === 0
-              ? "今天没有任务"
-              : data.progress.pending > 0
-                ? `还剩 ${data.progress.pending} 项`
-                : "今天已收尾"}
+            {t("today.rate", {
+              percent: Math.round(data.progress.ratio * 100),
+              status: statusText,
+            })}
           </div>
         </div>
         <div className="ml-auto flex gap-6">
-          <SplitStat label="自愿" color="var(--color-voluntary)" stat={data.voluntaryStat} />
-          <SplitStat label="被迫" color="var(--color-forced)" stat={data.forcedStat} />
+          <SplitStat
+            label={t("today.category.voluntary")}
+            color="var(--color-voluntary)"
+            stat={data.voluntaryStat}
+          />
+          <SplitStat
+            label={t("today.category.forced")}
+            color="var(--color-forced)"
+            stat={data.forcedStat}
+          />
         </div>
       </section>
 
       <section className={`${CARD} p-2`}>
         {data.voluntary.length === 0 && data.forced.length === 0 ? (
           <p className="py-10 text-center text-sm text-[var(--color-text-muted)]">
-            今天没有需要打卡的任务
+            {t("today.empty")}
           </p>
         ) : (
           <>
             <TaskGroup
-              title="自愿任务"
+              title={t("today.group.voluntary")}
               color="var(--color-voluntary)"
               rows={data.voluntary}
               stat={data.voluntaryStat}
@@ -79,7 +91,7 @@ export default function Today() {
               onSkip={toggleSkip}
             />
             <TaskGroup
-              title="被迫任务"
+              title={t("today.group.forced")}
               color="var(--color-forced)"
               rows={data.forced}
               stat={data.forcedStat}
@@ -93,9 +105,9 @@ export default function Today() {
       {data.dueTodos.length > 0 ? (
         <section className={`${CARD} p-2`}>
           <div className="flex h-[34px] items-center gap-2 px-2 text-xs font-semibold text-[var(--color-text-muted)]">
-            今日到期待办
+            {t("today.dueTodos")}
             <span className="ml-auto font-normal tabular-nums">
-              {data.dueTodos.length} 项
+              {t("common.itemCount", { count: data.dueTodos.length })}
             </span>
           </div>
           {data.dueTodos.map(({ todo, overdueDays }) => (
@@ -119,7 +131,9 @@ export default function Today() {
                       : "rounded-[var(--radius-pill)] bg-[color-mix(in_srgb,var(--color-warning)_14%,transparent)] px-[7px] py-px text-[var(--text-2xs)] font-semibold text-[var(--color-warning)]"
                   }
                 >
-                  {overdueDays > 0 ? `逾期 ${overdueDays} 天` : "今天"}
+                  {overdueDays > 0
+                    ? t("today.overdueDays", { days: overdueDays })
+                    : t("today.dueToday")}
                 </span>
               </span>
             </div>
@@ -167,6 +181,8 @@ function TaskGroup({
   onToggle: (row: TodayTask) => void;
   onSkip: (row: TodayTask) => void;
 }) {
+  const t = useT();
+
   if (rows.length === 0) {
     return null;
   }
@@ -224,7 +240,7 @@ function TaskGroup({
                 : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
             }`}
           >
-            {row.state === "skipped" ? "取消" : "今天不做"}
+            {row.state === "skipped" ? t("today.unskip") : t("today.skip")}
           </button>
         </div>
       ))}

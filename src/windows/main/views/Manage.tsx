@@ -1,5 +1,13 @@
+import { useT } from "../../../ui/useT";
 import { PagePlaceholder } from "./PagePlaceholder";
 
 export default function Manage() {
-  return <PagePlaceholder title="任务管理" note="M5 实现 · 启用区间与任务表格" />;
+  const t = useT();
+
+  return (
+    <PagePlaceholder
+      title={t("view.manage.title")}
+      note={t("view.manage.note")}
+    />
+  );
 }
