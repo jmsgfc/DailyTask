@@ -66,23 +66,23 @@
 |---|---|---|---|---|
 | D1 | 11/01 日 | 设计稿 A/B · tokens + 今日 + 挂件 + 任务表三屏（复盘①并入 D15） | 三屏可交互 + 深浅色切换 | ☑ |
 | D2 | 11/02 一 | M1 · 脚手架 Tauri 2 + React + TS（D1 并入），接入 Tailwind 与 Vitest | `dev` / `test` 均可跑（实际：test/lint/build 通过，`tauri dev` 窗口启动） | ☑ |
-| D3 | 11/03 二 | M1 · 写 `001_init.sql`（5 表 + 索引），注册 migration | 首次启动建库成功 | ☐ |
-| D4 | 11/04 三 | M1 · `db/client.ts` + `db/tasks.ts`（interval 行↔实体映射） | 单测通过 | ☐ |
-| D5 | 11/05 四 | M1 · `db/checkins.ts` upsert + `db/todos.ts` | 重复写同一格不报错 | ☐ |
-| D6 | 11/06 五 | M1 · `db/settings.ts` 默认值合并 + `app/init.ts` 串行加载 | 启动顺序符合 §3 | ☐ |
-| D7 | 11/07 六 | M1 · `domain/date.ts` + `applicability.ts` + 单测 | ±1 天与 end=null 覆盖 | ☐ |
+| D3 | 11/03 二 | M1 · 写 `001_init.sql`（5 表 + 索引），注册 migration | 首次启动建库成功（实际：5 表 + 3 索引 + migration v1） | ☑ |
+| D4 | 11/04 三 | M1 · `db/client.ts` + `db/tasks.ts`（interval 行↔实体映射） | 单测通过（实际：4 tests 全绿） | ☑ |
+| D5 | 11/05 四 | M1 · `db/checkins.ts` upsert + `db/todos.ts` | 重复写同一格不报错（实际：真 SQLite upsert 用例通过） | ☑ |
+| D6 | 11/06 五 | M1 · `db/settings.ts` 默认值合并 + `app/init.ts` 串行加载 | 启动顺序符合 §3（实际：加载顺序用例通过） | ☑ |
+| D7 | 11/07 六 | M1 · `domain/date.ts` + `applicability.ts` + 单测 | ±1 天与 end=null 覆盖（实际：30 tests 全绿） | ☑ |
 
 ### 第 2 周 · 11/08–11/14 ｜ M1 收尾
 
 | # | 日期 | 任务（40 分钟） | 完成标志 | 状态 |
 |---|---|---|---|---|
-| D8 | 11/08 日 | 复盘② · M1 上半：date / applicability 单测补漏 | 复盘记录已写 | ☐ |
-| D9 | 11/09 一 | M1 · `domain/settle.ts`：`projectCell` 五态判定 | 边界用例通过 | ☐ |
-| D10 | 11/10 二 | M1 · `domain/stats.ts`：streak + 近 30 天完成率 | skipped 规则有测试 | ☐ |
-| D11 | 11/11 三 | M1 · 5 个 store 骨架（只做加载与 CRUD 转发） | 无跨 store import | ☐ |
-| D12 | 11/12 四 | M1 · `shared/events.ts` 类型化 emit/listen + 单测 | payload 类型生效 | ☐ |
-| D13 | 11/13 五 | M1 · ESLint zone 规则，故意写反向 import 验证拦截 | lint 报错 | ☐ |
-| D14 | 11/14 六 | M1 · 验收：多段区间、跨区间、边界用例补齐 | `impl.md` §8 M1 全过 | ☐ |
+| D8 | 11/08 日 | 复盘② · M1 上半：date / applicability 单测补漏 | 复盘记录已写（实际：补跨年/闰日/重叠区间） | ☑ |
+| D9 | 11/09 一 | M1 · `domain/settle.ts`：`projectCell` 五态判定 | 边界用例通过（实际：today 边界与结算开关 7 用例） | ☑ |
+| D10 | 11/10 二 | M1 · `domain/stats.ts`：streak + 近 30 天完成率 | skipped 规则有测试（实际：10 用例） | ☑ |
+| D11 | 11/11 三 | M1 · 5 个 store 骨架（只做加载与 CRUD 转发） | 无跨 store import（实际：5 store + 串行写队列） | ☑ |
+| D12 | 11/12 四 | M1 · `shared/events.ts` 类型化 emit/listen + 单测 | payload 类型生效（实际：4 事件 + 3 用例） | ☑ |
+| D13 | 11/13 五 | M1 · ESLint zone 规则，故意写反向 import 验证拦截 | lint 报错（实际：`domain → db` 被 no-restricted-paths 拦下） | ☑ |
+| D14 | 11/14 六 | M1 · 验收：多段区间、跨区间、边界用例补齐 | `impl.md` §8 M1 全过（实际：54 tests / lint / dev 窗口启动） | ☑ |
 
 ### 第 3 周 · 11/15–11/21 ｜ M1 缓冲 + M2 起步
 
@@ -212,6 +212,11 @@
 - **里程碑进度** = 该里程碑已 `☑` 行数 / 该里程碑功能日数
 - 每周日复盘时手写一行：`第 N 周：完成 x/7，里程碑 M? 进度 y/z`
 - 本期结束后追加一节「实际耗时与偏差」，记录估算 vs 实际，作为下个周期的校准依据
+
+### 复盘记录
+
+- 第 1 周（11/01–11/07）：完成 7/7，M1 进度 6/12（D1 设计稿 + D2–D7 数据层）
+- 第 2 周（11/08–11/14）：完成 7/7，M1 进度 12/12，M1 验收通过
 
 ## 7. 附注
 
