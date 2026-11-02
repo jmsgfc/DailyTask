@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./ui/tokens.css";
 
 @layer base {
   html,
@@ -9,6 +10,33 @@
 
   body {
     margin: 0;
-    font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  /* 纸感挂件与网格的公共细节后续继续落在这里，先保留滚动条基调。 */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border: 3px solid var(--color-surface);
+    border-radius: var(--radius-pill);
   }
 }

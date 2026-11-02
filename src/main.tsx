@@ -7,6 +7,7 @@ import { useCheckinsStore } from "./stores/checkinsStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useTasksStore } from "./stores/tasksStore";
 import { useTodosStore } from "./stores/todosStore";
+import { applyTheme } from "./ui/theme";
 import "./styles.css";
 
 function hydrate(data: AppData): void {
@@ -29,6 +30,7 @@ root.render(
 void initApp()
   .then((data) => {
     hydrate(data);
+    applyTheme(data.settings.theme);
     root.render(
       <React.StrictMode>
         <App />

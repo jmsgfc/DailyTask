@@ -41,7 +41,7 @@ export default tseslint.config(
             {
               target: "./src/ui",
               from: "./src",
-              except: ["./ui", "./domain/types"],
+              except: ["./ui", "./domain/types", "./domain/types.ts"],
             },
             { target: "./src/db", from: "./src", except: ["./db", "./domain", "./shared"] },
             {
