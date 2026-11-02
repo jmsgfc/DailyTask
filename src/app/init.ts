@@ -1,9 +1,30 @@
+import { getSettings } from "../db/settings";
+import type { SqlDatabase } from "../db/client";
+import { listCheckins } from "../db/checkins";
+import { listTasks } from "../db/tasks";
+import { listTodos } from "../db/todos";
+import type { Checkin, Settings, Task, Todo } from "../domain/types";
 import { getDb } from "../db/client";
 
+export interface AppData {
+  settings: Settings;
+  tasks: Task[];
+  checkins: Checkin[];
+  todos: Todo[];
+}
+
 /**
- * 启动串行加载入口。D3 只确保数据库与迁移就绪，
- * D6 再按 settings → tasks → checkins → todos 扩展。
+ * 串行加载：settings 必须先到位，logicalToday 才知道 dayStartHour；
+ * 其余按 tasks → checkins → todos 装载，全部就绪前不渲染业务视图。
  */
-export async function initApp(): Promise<void> {
-  await getDb();
+export async function loadAppData(db: SqlDatabase): Promise<AppData> {
+  const settings = await getSettings(db);
+  const tasks = await listTasks(db);
+  const checkins = await listCheckins(db);
+  const todos = await listTodos(db);
+  return { settings, tasks, checkins, todos };
+}
+
+export async function initApp(): Promise<AppData> {
+  return loadAppData(await getDb());
 }
