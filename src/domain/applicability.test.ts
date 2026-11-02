@@ -48,6 +48,16 @@ describe("isApplicable", () => {
     expect(isApplicable(intervals, "2026-11-05")).toBe(true);
   });
 
+  it("stays applicable when segments overlap", () => {
+    const intervals = [
+      interval("2026-11-01", "2026-11-10"),
+      interval("2026-11-05", "2026-11-15"),
+    ];
+
+    expect(isApplicable(intervals, "2026-11-07")).toBe(true);
+    expect(isApplicable(intervals, "2026-11-16")).toBe(false);
+  });
+
   it("returns false for a task without intervals", () => {
     expect(isApplicable([], "2026-11-02")).toBe(false);
   });
