@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+
+import { applicableTasks, isApplicable } from "./applicability";
+import type { Interval, Task } from "./types";
+
+function interval(start: string, end: string | null): Interval {
+  return { id: `${start}-${end ?? "open"}`, taskId: "t1", start, end };
+}
+
+function task(id: string, intervals: Interval[]): Task {
+  return {
+    id,
+    name: id,
+    category: "voluntary",
+    intervals,
+    order: 0,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+describe("isApplicable", () => {
+  it("covers start-1, start, end, end+1", () => {
+    const intervals = [interval("2026-11-02", "2026-11-10")];
+
+    expect(isApplicable(intervals, "2026-11-01")).toBe(false);
+    expect(isApplicable(intervals, "2026-11-02")).toBe(true);
+    expect(isApplicable(intervals, "2026-11-10")).toBe(true);
+    expect(isApplicable(intervals, "2026-11-11")).toBe(false);
+  });
+
+  it("treats end = null as open ended", () => {
+    const intervals = [interval("2026-11-02", null)];
+
+    expect(isApplicable(intervals, "2026-11-02")).toBe(true);
+    expect(isApplicable(intervals, "2030-01-01")).toBe(true);
+    expect(isApplicable(intervals, "2026-11-01")).toBe(false);
+  });
+
+  it("supports multiple segments and leaves the gap inactive", () => {
+    const intervals = [
+      interval("2026-10-01", "2026-10-31"),
+      interval("2026-11-05", null),
+    ];
+
+    expect(isApplicable(intervals, "2026-10-15")).toBe(true);
+    expect(isApplicable(intervals, "2026-11-01")).toBe(false);
+    expect(isApplicable(intervals, "2026-11-05")).toBe(true);
+  });
+
+  it("returns false for a task without intervals", () => {
+    expect(isApplicable([], "2026-11-02")).toBe(false);
+  });
+});
+
+describe("applicableTasks", () => {
+  it("filters tasks by interval coverage", () => {
+    const tasks = [
+      task("a", [interval("2026-11-01", null)]),
+      task("b", [interval("2026-10-01", "2026-10-31")]),
+    ];
+
+    expect(applicableTasks(tasks, "2026-11-02").map((t) => t.id)).toEqual([
+      "a",
+    ]);
+  });
+});
