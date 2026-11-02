@@ -1,8 +1,14 @@
 import { isApplicable } from "./applicability";
 import { checkinKey } from "./keys";
-import type { Checkin, Settings, Task } from "./types";
+import type {
+  CellState,
+  Checkin,
+  CheckinStatus,
+  Settings,
+  Task,
+} from "./types";
 
-export type CellState = "done" | "missed" | "skipped" | "pending" | "none";
+export type { CellState };
 
 /**
  * 判定顺序（impl.md §6）：
@@ -29,6 +35,17 @@ export function projectCell(
     return "pending";
   }
   return settings.autoSettleMissed ? "missed" : "pending";
+}
+
+/** 单击循环：空 → done → missed → 空；skipped 只能通过「今天不做」进出。 */
+export function nextCellState(state: CellState): CheckinStatus | null {
+  if (state === "done") {
+    return "missed";
+  }
+  if (state === "missed") {
+    return null;
+  }
+  return "done";
 }
 
 export interface DayProgress {

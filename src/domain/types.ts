@@ -5,6 +5,7 @@
 
 export type TaskCategory = "voluntary" | "forced";
 export type CheckinStatus = "done" | "missed" | "skipped";
+export type CellState = CheckinStatus | "pending" | "none";
 export type Theme = "light" | "dark" | "system";
 
 /** 启用区间；end 为 null 表示至今有效。 */
