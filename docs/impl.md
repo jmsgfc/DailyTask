@@ -50,6 +50,7 @@ DailyTask/
 │  ├─ main.tsx  App.tsx
 │  ├─ app/init.ts                     # 启动串行加载：settings → tasks → checkins → todos
 │  ├─ shared/events.ts                # 事件名 + payload 类型（唯一允许 import 事件 API 的文件）
+│  ├─ shared/i18n/                    # zh-CN 字典 + t()；新增语言只需实现同一 Messages
 │  ├─ domain/                        # 纯 TS，无 IO、无 React，100% 可单测
 │  │  ├─ types.ts                    # Task / Checkin / Todo / Settings
 │  │  ├─ date.ts                     # logicalToday / addDays / range
