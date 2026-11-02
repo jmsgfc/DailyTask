@@ -65,7 +65,7 @@
 | # | 日期 | 任务（40 分钟） | 完成标志 | 状态 |
 |---|---|---|---|---|
 | D1 | 11/01 日 | 设计稿 A/B · tokens + 今日 + 挂件 + 任务表三屏（复盘①并入 D15） | 三屏可交互 + 深浅色切换 | ☑ |
-| D2 | 11/02 一 | M1 · 脚手架 Tauri 2 + React + TS（D1 并入），接入 Tailwind 与 Vitest | `dev` / `test` 均可跑 | ☐ |
+| D2 | 11/02 一 | M1 · 脚手架 Tauri 2 + React + TS（D1 并入），接入 Tailwind 与 Vitest | `dev` / `test` 均可跑（实际：test/lint/build 通过，`tauri dev` 窗口启动） | ☑ |
 | D3 | 11/03 二 | M1 · 写 `001_init.sql`（5 表 + 索引），注册 migration | 首次启动建库成功 | ☐ |
 | D4 | 11/04 三 | M1 · `db/client.ts` + `db/tasks.ts`（interval 行↔实体映射） | 单测通过 | ☐ |
 | D5 | 11/05 四 | M1 · `db/checkins.ts` upsert + `db/todos.ts` | 重复写同一格不报错 | ☐ |
