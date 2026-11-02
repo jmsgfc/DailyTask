@@ -1,5 +1,8 @@
+import { checkinKey } from "../domain/keys";
 import type { Checkin, CheckinStatus } from "../domain/types";
 import type { SqlDatabase } from "./client";
+
+export { checkinKey };
 
 export interface CheckinRow {
   id: string;
@@ -8,10 +11,6 @@ export interface CheckinRow {
   status: CheckinStatus;
   note: string | null;
   updated_at: string;
-}
-
-export function checkinKey(taskId: string, date: string): string {
-  return `${taskId}|${date}`;
 }
 
 export function checkinFromRow(row: CheckinRow): Checkin {
