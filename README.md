@@ -205,5 +205,4 @@ See `docs/progress.md` for the daily plan and `docs/impl.md` for acceptance crit
 <a id="license"></a>
 ## License
 
-No license has been chosen yet. Treat the code as all rights reserved until a
-license file is added.
+[MIT](./LICENSE) © 2026 DailyTask contributors.

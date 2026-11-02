@@ -191,4 +191,4 @@ UI 文案集中在 `src/shared/i18n/zh-CN.ts`，组件通过 `t()` 取文案。�
 <a id="license"></a>
 ## 许可证
 
-暂未选择许可证。在补充 LICENSE 文件之前，代码默认保留所有权利。
+[MIT](./LICENSE) © 2026 DailyTask contributors。

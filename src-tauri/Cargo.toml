@@ -3,6 +3,7 @@ name = "dailytask"
 version = "0.1.0"
 description = "Daily task check-in and todo desktop app"
 authors = ["DailyTask"]
+license = "MIT"
 edition = "2021"
 
 [lib]
