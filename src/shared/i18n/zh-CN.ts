@@ -41,6 +41,13 @@ export const zhCN = {
   "progress.aria": "今日进度 {done} / {total}",
   "common.itemCount": "{count} 项",
 
+  "widget.remaining": "还剩 {count} 项",
+  "widget.allDone": "今天已收尾",
+  "widget.completedCount": "{count} 项已完成",
+  "widget.moreTasks": "还有 {count} 项",
+  "widget.complete": "完成 {task}",
+  "widget.empty": "今天没有任务",
+
   "view.grid.title": "任务表",
   "view.grid.note": "M4 实现 · 日期列 + 任务行网格",
   "view.todos.title": "待办",

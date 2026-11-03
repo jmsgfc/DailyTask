@@ -35,6 +35,29 @@
 }
 
 @layer components {
+  /* 挂件纸面：纸底 + 一层 feTurbulence 噪点，避免位图纹理。 */
+  .paper-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0.05;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  }
+
+  :root[data-theme="dark"] .paper-card::before {
+    mix-blend-mode: screen;
+    opacity: 0.035;
+  }
+
+  .paper-date {
+    font-family: "KaiTi", "Kaiti SC", "STKaiti", "KaiTi SC", serif;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
   /* 纸感挂件与网格的公共细节后续继续落在这里，先保留滚动条基调。 */
   ::-webkit-scrollbar {
     width: 10px;

@@ -29,37 +29,29 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );
 
-if (target === "widget") {
-  root.render(
-    <React.StrictMode>
-      <Widget />
-    </React.StrictMode>,
-  );
-} else {
-  root.render(
-    <main className="flex h-full items-center justify-center text-sm text-stone-500">
-      {t("app.loading")}
-    </main>,
-  );
+root.render(
+  <main className="flex h-full items-center justify-center text-sm text-stone-500">
+    {t("app.loading")}
+  </main>,
+);
 
-  void initApp()
-    .then((data) => {
-      hydrate(data);
-      setLocale(data.settings.language);
-      applyTheme(data.settings.theme);
-      root.render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
-      );
-    })
-    .catch((error: unknown) => {
-      console.error("[init] 初始化失败", error);
-      root.render(
-        <main className="flex h-full flex-col items-center justify-center gap-2 text-sm text-red-600">
-          <p>{t("app.initFailed")}</p>
-          <p className="text-stone-500">{t("app.initFailedHint")}</p>
-        </main>,
-      );
-    });
-}
+void initApp()
+  .then((data) => {
+    hydrate(data);
+    setLocale(data.settings.language);
+    applyTheme(data.settings.theme);
+    root.render(
+      <React.StrictMode>
+        {target === "widget" ? <Widget /> : <App />}
+      </React.StrictMode>,
+    );
+  })
+  .catch((error: unknown) => {
+    console.error("[init] 初始化失败", error);
+    root.render(
+      <main className="flex h-full flex-col items-center justify-center gap-2 text-sm text-red-600">
+        <p>{t("app.initFailed")}</p>
+        <p className="text-stone-500">{t("app.initFailedHint")}</p>
+      </main>,
+    );
+  });
