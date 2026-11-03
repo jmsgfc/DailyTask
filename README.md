@@ -47,8 +47,10 @@ Implemented today:
 - **Interval-based tasks** — a task can be paused and resumed; history stays intact.
 - **Today view** — voluntary/forced groups, progress ring, overdue and due-today
   todos, and one-click check-ins with optimistic updates.
-- **Three check-in states** — done, missed, and "skip today" (excluded from the
-  progress denominator).
+- **Three check-in states** — done, missed, and "skip today", plus a "recorded" state
+  for value-only cells; neither skip nor record affects the progress denominator.
+- **Free-form cell value** — a cell can also carry `4`, `3min`, or `4/3/2/2`.
+  The value is recorded only; it never changes completion.
 - **Projected auto-settle** — past blanks render as missed without writing hundreds
   of rows to the database.
 - **Local SQLite storage** — no account, no network, no sync.
@@ -110,10 +112,12 @@ Five tables: `tasks`, `task_intervals`, `checkins`, `todos`, and `settings`.
 - A task can have multiple `task_intervals`; `end_date = NULL` means "still active".
 - `checkins` has `UNIQUE(task_id, date)`, so one cell maps to one row and writes are
   idempotent.
+- Each cell carries an optional free-form `value` that is independent of its status:
+  writing `4` does not mark the task done.
 - Cell projection order: not applicable → stored check-in → today/future pending →
   past blank with auto-settle → missed. Automatic settle is display-only.
-- The progress denominator is `applicable tasks − skipped`, so "skip today" does not
-  hurt the percentage.
+- The progress denominator is `applicable tasks − skipped − recorded`, so neither
+  "skip today" nor a value-only cell hurts the percentage.
 
 <a id="getting-started"></a>
 ## Getting Started

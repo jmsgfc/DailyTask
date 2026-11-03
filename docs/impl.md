@@ -43,7 +43,8 @@ Rust：tauri 2  tauri-plugin-sql(sqlite)  tauri-plugin-autostart  tauri-plugin-d
 DailyTask/
 ├─ src-tauri/
 │  ├─ src/{main.rs, lib.rs}          # 注册插件、初始化 DB、创建挂件窗口
-│  ├─ migrations/001_init.sql        # 建表 + 索引
+│  ├─ migrations/001_init.sql        # 建表 + 索引（历史，只读）
+│  ├─ migrations/002_checkin_value.sql # 打卡自由值 + recorded 状态
 │  ├─ capabilities/default.json      # sql / dialog / fs / window 权限
 │  └─ tauri.conf.json                # 两个窗口的尺寸与属性
 ├─ src/
@@ -236,6 +237,35 @@ CREATE INDEX idx_todos_due ON todos(done, due_date);
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 ```
 
+### 4.1 `002_checkin_value.sql`（打卡自由值）
+
+SQLite 无法放宽既有 `CHECK`，所以重建 `checkins`：加 `value`，状态枚举补 `recorded`。
+
+```sql
+CREATE TABLE checkins_new (
+  id         TEXT PRIMARY KEY,
+  task_id    TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  date       TEXT NOT NULL,
+  status     TEXT NOT NULL CHECK (status IN ('done','missed','skipped','recorded')),
+  value      TEXT,          -- 自由值；与 status 相互独立
+  note       TEXT,
+  updated_at TEXT NOT NULL,
+  UNIQUE (task_id, date)
+);
+
+INSERT INTO checkins_new (id, task_id, date, status, value, note, updated_at)
+SELECT id, task_id, date, status, NULL, note, updated_at FROM checkins;
+
+DROP TABLE checkins;
+ALTER TABLE checkins_new RENAME TO checkins;
+CREATE INDEX idx_checkins_date ON checkins(date);
+```
+
+两条写入路径分开，避免互相覆盖：
+
+- `upsertCheckin` 只改 `status` / `note`，**不碰 `value`**；
+- `setCheckinValue` 只改 `value`；新建行时状态为 `recorded`，清空值且该行只是 `recorded` 时整行删除。
+
 - 迁移由 `tauri-plugin-sql` 的 `Migration` 数组在 `lib.rs` 注册，版本号只增不改，禁止改历史脚本。
 - `settings` 用 kv 存 JSON 值，读写都过 `db/settings.ts` 的类型化包装（默认值集中在 `domain/types.ts` 的 `DEFAULT_SETTINGS`）。
 - 日期列建在 `(task_id, date)` 与 `date` 上；统计按任务查整行、今日按日期查整列，两条路径都走索引。
@@ -308,9 +338,9 @@ isApplicable(intervals: Interval[], date: string): boolean   // 任一区间命�
 applicableTasks(tasks: Task[], date: string): Task[]
 
 // domain/settle.ts
-type CellState = "done" | "missed" | "skipped" | "pending" | "none";
+type CellState = "done" | "missed" | "skipped" | "recorded" | "pending" | "none";
 projectCell(task, date, checkin, settings, today): CellState
-dayProgress(tasks, checkins, date, settings, today): { done; missed; applicable; ratio }
+dayProgress(tasks, checkins, date, settings, today): { done; missed; skipped; recorded; applicable; ratio }
 
 // domain/stats.ts
 taskStreak(task, checkins, today, settings): number       // skipped 不中断、不计数
@@ -319,7 +349,8 @@ completionRate30(task, checkins, today, settings): number // 近 30 天完成率
 
 统计口径（与 §6 投影规则一致）：
 
-- **分母**只含 `done` + `missed`；`skipped` 不计入分母，也不中断 streak。
+- **分母**只含 `done` + `missed`；`skipped` 与 `recorded` 不计入分母，也不中断 streak。
+- `recorded` 是「有值但未判定」：只记录次数 / 时长 / 文本，不改变完成率。
 - 关闭自动结算后，过期空白没有结论，同样不进分母。
 - 统计窗口固定近 30 天；本期不做热力图与全局折线（理由见 §10）。
 
@@ -394,3 +425,4 @@ completionRate30(task, checkins, today, settings): number // 近 30 天完成率
 8. 不做系统通知；首次启动为空态引导，不预置示例任务。
 9. `Requirements.md` §8 仍写「本地 JSON 默认」，与本文件 §1/§4 冲突；**以本文件为准**，Requirements 待单独修订。
 10. 挂件待办上限从 3 条降为 **2 条**，「展开详情」从卡片底部移进标题区悬停按钮——220×280 装不下 4 条任务 + 3 条待办（见 §5 尺寸预算）。
+11. **格子只加一个自由值 `value`，不做列模型**：`status` 与 `value` 相互独立，`value` 只记录不判定。这样「每组个数 / 间隔」这类参数可以直接写在格子里，又不会污染完成率；代价是应用不知道值是什么，无法按量统计。
