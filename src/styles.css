@@ -17,6 +17,13 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* 透明窗口里只让纸卡本身有底色，8px 留白交给 CSS 阴影。 */
+  :root[data-window="widget"],
+  :root[data-window="widget"] body {
+    background: transparent;
+    overflow: hidden;
+  }
+
   button {
     font: inherit;
     color: inherit;
