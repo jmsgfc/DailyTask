@@ -27,6 +27,7 @@ function checkin(status: CheckinStatus): Checkin {
     taskId: "t1",
     date: "2026-11-02",
     status,
+    value: null,
     note: null,
     updatedAt: "2026-11-02T00:00:00.000Z",
   };
@@ -86,6 +87,18 @@ describe("projectCell", () => {
       "pending",
     );
   });
+
+  it("returns recorded for a value-only cell", () => {
+    expect(
+      projectCell(
+        task([open("2026-11-01")]),
+        "2026-11-02",
+        { ...checkin("recorded"), value: "10" },
+        settings,
+        "2026-11-02",
+      ),
+    ).toBe("recorded");
+  });
 });
 
 describe("dayProgress", () => {
@@ -133,5 +146,33 @@ describe("dayProgress", () => {
         "2026-11-02",
       ).ratio,
     ).toBe(0);
+  });
+
+  it("keeps recorded cells out of the denominator", () => {
+    const tasks = [task([open("2026-11-01")]), task([open("2026-11-01")])];
+    tasks[1].id = "t2";
+
+    const checkins = new Map<string, Checkin>();
+    checkins.set(checkinKey("t1", "2026-11-02"), checkin("done"));
+    checkins.set(checkinKey("t2", "2026-11-02"), {
+      ...checkin("recorded"),
+      taskId: "t2",
+      value: "10",
+    });
+
+    const progress = dayProgress(
+      tasks,
+      checkins,
+      "2026-11-02",
+      settings,
+      "2026-11-02",
+    );
+
+    expect(progress).toMatchObject({
+      done: 1,
+      recorded: 1,
+      applicable: 2,
+      ratio: 1,
+    });
   });
 });

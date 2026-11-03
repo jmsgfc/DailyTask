@@ -49,10 +49,14 @@ export function Widget() {
 
   const rows = [...data.voluntary, ...data.forced];
   const incomplete = rows.filter(
-    (row) => row.state !== "done" && row.state !== "skipped",
+    (row) =>
+      row.state !== "done" &&
+      row.state !== "skipped" &&
+      row.state !== "recorded",
   );
   const completed = data.progress.done;
-  const total = data.progress.applicable - data.progress.skipped;
+  const total =
+    data.progress.applicable - data.progress.skipped - data.progress.recorded;
   const remaining = Math.max(total - completed, 0);
   const visibleTasks = incomplete.slice(0, MAX_TASKS);
   const hiddenTasks = incomplete.length - visibleTasks.length;

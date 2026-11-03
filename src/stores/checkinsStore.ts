@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { deleteCheckin, listCheckins, upsertCheckin } from "../db/checkins";
+import { deleteCheckin, listCheckins, setCheckinValue, upsertCheckin } from "../db/checkins";
 import { getDb } from "../db/client";
 import { checkinKey } from "../domain/keys";
 import type { Checkin, CheckinStatus } from "../domain/types";
@@ -18,6 +18,12 @@ export interface CheckinsState {
     taskId: string,
     date: string,
     status: CheckinStatus | null,
+  ) => Promise<void>;
+  /** 写入自由值；null / 空白表示清空。只记录不判定。 */
+  setValue: (
+    taskId: string,
+    date: string,
+    value: string | null,
   ) => Promise<void>;
 }
 
@@ -46,6 +52,7 @@ export const useCheckinsStore = create<CheckinsState>()((set, get) => ({
         taskId,
         date,
         status,
+        value: previous.get(key)?.value ?? null,
         note: previous.get(key)?.note ?? null,
         updatedAt: new Date().toISOString(),
       });
@@ -77,6 +84,71 @@ export const useCheckinsStore = create<CheckinsState>()((set, get) => ({
         // 只回滚这一格，避免把同时进行的其他写入一起撤掉。
         const rollback = new Map(get().byKey);
         const before = previous.get(key);
+        if (before) {
+          rollback.set(key, before);
+        } else {
+          rollback.delete(key);
+        }
+        set({ byKey: rollback });
+        throw error;
+      }
+    });
+  },
+
+  setValue: (taskId, date, value) => {
+    const key = checkinKey(taskId, date);
+    const previous = get().byKey;
+    const before = previous.get(key);
+    const normalized = value?.trim() ? value.trim() : null;
+
+    // 乐观更新：值只影响 value；清空 recorded 行时整行消失。
+    const optimistic = new Map(previous);
+    if (normalized === null) {
+      if (before) {
+        if (before.status === "recorded") {
+          optimistic.delete(key);
+        } else {
+          optimistic.set(key, {
+            ...before,
+            value: null,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    } else {
+      optimistic.set(key, {
+        id: before?.id ?? `pending-${key}`,
+        taskId,
+        date,
+        status: before?.status ?? "recorded",
+        value: normalized,
+        note: before?.note ?? null,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    set({ byKey: optimistic });
+
+    return enqueueWrite(async () => {
+      try {
+        const saved = await setCheckinValue(
+          await getDb(),
+          taskId,
+          date,
+          normalized,
+        );
+        const next = new Map(get().byKey);
+        if (saved === null) {
+          next.delete(key);
+        } else {
+          next.set(key, saved);
+        }
+        set({ byKey: next, loaded: true });
+        void emitCheckinsChanged({ date, source: currentSource() }).catch(
+          () => undefined,
+        );
+      } catch (error) {
+        console.error("[checkins] 写值失败，已回滚", error);
+        const rollback = new Map(get().byKey);
         if (before) {
           rollback.set(key, before);
         } else {

@@ -31,6 +31,7 @@ function withCheckins(
       taskId: "t1",
       date,
       status,
+      value: null,
       note: null,
       updatedAt: `${date}T00:00:00.000Z`,
     });

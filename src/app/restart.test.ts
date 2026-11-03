@@ -12,10 +12,14 @@ import { createTask } from "../db/tasks";
 import { createTodo } from "../db/todos";
 import { loadAppData } from "./init";
 
-const MIGRATION = readFileSync(
-  resolve(process.cwd(), "src-tauri/migrations/001_init.sql"),
-  "utf8",
-);
+const MIGRATION = [
+  "001_init.sql",
+  "002_checkin_value.sql",
+]
+  .map((name) =>
+    readFileSync(resolve(process.cwd(), "src-tauri/migrations", name), "utf8"),
+  )
+  .join("\n");
 
 type BindValue = string | number | bigint | null | Uint8Array;
 

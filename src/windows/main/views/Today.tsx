@@ -1,4 +1,5 @@
 import { format, parseISO } from "date-fns";
+import { useRef, useState } from "react";
 
 import { nextCellState } from "../../../domain/settle";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
@@ -19,9 +20,14 @@ export default function Today() {
   const t = useT();
   const data = useTodayData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
+  const setValue = useCheckinsStore((state) => state.setValue);
 
   const toggle = (row: TodayTask) => {
     void setStatus(row.task.id, data.today, nextCellState(row.state));
+  };
+
+  const saveValue = (row: TodayTask, value: string) => {
+    void setValue(row.task.id, data.today, value.trim() === "" ? null : value);
   };
 
   const toggleSkip = (row: TodayTask) => {
@@ -32,7 +38,8 @@ export default function Today() {
     );
   };
 
-  const total = data.progress.applicable - data.progress.skipped;
+  const total =
+    data.progress.applicable - data.progress.skipped - data.progress.recorded;
   const statusText =
     total === 0
       ? t("today.noTasks")
@@ -90,6 +97,7 @@ export default function Today() {
               stat={data.voluntaryStat}
               onToggle={toggle}
               onSkip={toggleSkip}
+              onValue={saveValue}
             />
             <TaskGroup
               title={t("today.group.forced")}
@@ -98,6 +106,7 @@ export default function Today() {
               stat={data.forcedStat}
               onToggle={toggle}
               onSkip={toggleSkip}
+              onValue={saveValue}
             />
           </>
         )}
@@ -188,6 +197,7 @@ function TaskGroup({
   stat,
   onToggle,
   onSkip,
+  onValue,
 }: {
   title: string;
   color: string;
@@ -195,8 +205,10 @@ function TaskGroup({
   stat: CategoryStat;
   onToggle: (row: TodayTask) => void;
   onSkip: (row: TodayTask) => void;
+  onValue: (row: TodayTask, value: string) => void;
 }) {
   const t = useT();
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   if (rows.length === 0) {
     return null;
@@ -243,6 +255,33 @@ function TaskGroup({
           >
             {row.task.name}
           </span>
+          {editingId === row.task.id ? (
+            <ValueInput
+              initial={row.value ?? ""}
+              onCommit={(next) => {
+                setEditingId(null);
+                onValue(row, next);
+              }}
+              onCancel={() => setEditingId(null)}
+            />
+          ) : (
+            <button
+              type="button"
+              data-value={row.value ?? undefined}
+              aria-label={t("today.editValue")}
+              onClick={(event) => {
+                event.stopPropagation();
+                setEditingId(row.task.id);
+              }}
+              className={`shrink-0 rounded-[var(--radius-pill)] px-1.5 py-[2px] text-xs tabular-nums text-[var(--color-text-muted)] hover:bg-[var(--state-active)] ${
+                row.value
+                  ? "bg-[var(--state-hover)]"
+                  : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+              }`}
+            >
+              {row.value ?? t("today.addValue")}
+            </button>
+          )}
           <button
             type="button"
             onClick={(event) => {
@@ -260,5 +299,45 @@ function TaskGroup({
         </div>
       ))}
     </div>
+  );
+}
+
+/** 行内编辑自由值：Enter 提交、Esc 取消、失焦提交。 */
+function ValueInput({
+  initial,
+  onCommit,
+  onCancel,
+}: {
+  initial: string;
+  onCommit: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const cancelled = useRef(false);
+
+  return (
+    <input
+      autoFocus
+      value={value}
+      aria-label={initial}
+      onChange={(event) => setValue(event.target.value)}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") {
+          onCommit(value);
+        }
+        if (event.key === "Escape") {
+          cancelled.current = true;
+          onCancel();
+        }
+      }}
+      onBlur={() => {
+        if (!cancelled.current) {
+          onCommit(value);
+        }
+      }}
+      className="w-20 shrink-0 rounded-[var(--radius-control)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-1.5 py-[2px] text-xs focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+    />
   );
 }

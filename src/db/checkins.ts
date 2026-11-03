@@ -9,6 +9,7 @@ export interface CheckinRow {
   task_id: string;
   date: string;
   status: CheckinStatus;
+  value: string | null;
   note: string | null;
   updated_at: string;
 }
@@ -19,6 +20,7 @@ export function checkinFromRow(row: CheckinRow): Checkin {
     taskId: row.task_id,
     date: row.date,
     status: row.status,
+    value: row.value,
     note: row.note,
     updatedAt: row.updated_at,
   };
@@ -33,11 +35,24 @@ export function toCheckinMap(rows: CheckinRow[]): Map<string, Checkin> {
   return map;
 }
 
+const SELECT_COLUMNS =
+  "SELECT id, task_id, date, status, value, note, updated_at FROM checkins";
+
 export async function listCheckins(db: SqlDatabase): Promise<Checkin[]> {
-  const rows = await db.select<CheckinRow[]>(
-    "SELECT id, task_id, date, status, note, updated_at FROM checkins",
-  );
+  const rows = await db.select<CheckinRow[]>(SELECT_COLUMNS);
   return rows.map(checkinFromRow);
+}
+
+async function readCell(
+  db: SqlDatabase,
+  taskId: string,
+  date: string,
+): Promise<Checkin | null> {
+  const rows = await db.select<CheckinRow[]>(
+    `${SELECT_COLUMNS} WHERE task_id = ? AND date = ?`,
+    [taskId, date],
+  );
+  return rows.length === 0 ? null : checkinFromRow(rows[0]);
 }
 
 export interface UpsertCheckinInput {
@@ -50,6 +65,7 @@ export interface UpsertCheckinInput {
 /**
  * 同一格只保留一条记录。冲突时更新状态而不是插入新行，
  * 所以「空 → ✓ → ✗」反复点不会撞 UNIQUE。
+ * 不触碰 value：判定与记录值相互独立。
  */
 export async function upsertCheckin(
   db: SqlDatabase,
@@ -57,8 +73,8 @@ export async function upsertCheckin(
 ): Promise<Checkin> {
   const now = new Date().toISOString();
   await db.execute(
-    "INSERT INTO checkins (id, task_id, date, status, note, updated_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?) " +
+    "INSERT INTO checkins (id, task_id, date, status, value, note, updated_at) " +
+      "VALUES (?, ?, ?, ?, NULL, ?, ?) " +
       "ON CONFLICT(task_id, date) DO UPDATE SET " +
       "status = excluded.status, note = excluded.note, updated_at = excluded.updated_at",
     [
@@ -71,12 +87,52 @@ export async function upsertCheckin(
     ],
   );
 
-  const rows = await db.select<CheckinRow[]>(
-    "SELECT id, task_id, date, status, note, updated_at FROM checkins " +
-      "WHERE task_id = ? AND date = ?",
-    [input.taskId, input.date],
+  const saved = await readCell(db, input.taskId, input.date);
+  if (saved === null) {
+    throw new Error("checkin disappeared after upsert");
+  }
+  return saved;
+}
+
+/**
+ * 写入自由值。没有记录时建一条 recorded 行；清空值时：
+ * - 该行只是 recorded → 删除，格子回到空
+ * - 该行已有 done/missed/skipped → 只清值，保留判定
+ */
+export async function setCheckinValue(
+  db: SqlDatabase,
+  taskId: string,
+  date: string,
+  value: string | null,
+): Promise<Checkin | null> {
+  const normalized = value?.trim() ? value.trim() : null;
+  const now = new Date().toISOString();
+
+  if (normalized === null) {
+    const current = await readCell(db, taskId, date);
+    if (current === null) {
+      return null;
+    }
+    if (current.status === "recorded") {
+      await deleteCheckin(db, taskId, date);
+      return null;
+    }
+    await db.execute(
+      "UPDATE checkins SET value = NULL, updated_at = ? WHERE task_id = ? AND date = ?",
+      [now, taskId, date],
+    );
+    return readCell(db, taskId, date);
+  }
+
+  await db.execute(
+    "INSERT INTO checkins (id, task_id, date, status, value, note, updated_at) " +
+      "VALUES (?, ?, ?, 'recorded', ?, NULL, ?) " +
+      "ON CONFLICT(task_id, date) DO UPDATE SET " +
+      "value = excluded.value, updated_at = excluded.updated_at",
+    [crypto.randomUUID(), taskId, date, normalized, now],
   );
-  return checkinFromRow(rows[0]);
+
+  return readCell(db, taskId, date);
 }
 
 /** 点击循环回到空状态时删除该行。 */

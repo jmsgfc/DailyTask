@@ -8,6 +8,7 @@ const SYMBOLS: Record<CellState, string> = {
   done: "✓",
   missed: "✗",
   skipped: "–",
+  recorded: "•",
   pending: "",
   none: "",
 };
@@ -16,6 +17,7 @@ const LABEL_KEYS: Record<CellState, MessageKey> = {
   done: "checkin.done",
   missed: "checkin.missed",
   skipped: "checkin.skipped",
+  recorded: "checkin.recorded",
   pending: "checkin.pending",
   none: "checkin.none",
 };
@@ -26,6 +28,8 @@ const STATE_CLASS: Record<CellState, string> = {
   missed: "border-[var(--color-missed)] bg-transparent text-[var(--color-missed)]",
   skipped:
     "border-dashed border-[var(--color-border-strong)] bg-[var(--color-na)] text-[var(--color-text-muted)]",
+  recorded:
+    "border-[var(--color-border-strong)] bg-transparent text-[var(--color-text-muted)]",
   pending:
     "border-[var(--color-border-strong)] bg-transparent text-[var(--color-text)]",
   none: "border-[var(--color-border-strong)] bg-transparent text-[var(--color-text)] opacity-40",

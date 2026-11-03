@@ -1,7 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_SETTINGS, type Todo } from "../../../domain/types";
+import {
+  DEFAULT_SETTINGS,
+  type Checkin,
+  type Task,
+  type Todo,
+} from "../../../domain/types";
+import { checkinKey } from "../../../domain/keys";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
@@ -23,8 +29,7 @@ function todo(id: string, dueDate: string | null, done = false): Todo {
   };
 }
 
-describe("Today due todos", () => {
-  beforeEach(() => {
+describe("Today due todos", () => {  beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
 
@@ -60,5 +65,59 @@ describe("Today due todos", () => {
 
     expect(screen.queryByText("以后再说")).not.toBeInTheDocument();
     expect(screen.queryByText("已完成的待办")).not.toBeInTheDocument();
+  });
+});
+
+function task(): Task {
+  return {
+    id: "t1",
+    name: "引体向上",
+    category: "voluntary",
+    intervals: [{ id: "i1", taskId: "t1", start: "2026-11-01", end: null }],
+    order: 0,
+    createdAt: "2026-11-01T00:00:00.000Z",
+    updatedAt: "2026-11-01T00:00:00.000Z",
+  };
+}
+
+function valueCell(value: string | null): Checkin {
+  return {
+    id: "c1",
+    taskId: "t1",
+    date: TODAY,
+    status: value === null ? "done" : "recorded",
+    value,
+    note: null,
+    updatedAt: "2026-11-02T00:00:00.000Z",
+  };
+}
+
+describe("Today values", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+
+    useSettingsStore.setState({ settings: DEFAULT_SETTINGS });
+    useTasksStore.setState({ tasks: [task()] });
+    useCheckinsStore.setState({
+      byKey: new Map([[checkinKey("t1", TODAY), valueCell("3min")]]),
+    });
+    useTodosStore.setState({ todos: [] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders the free-form value next to the task", () => {
+    const { container } = render(<Today />);
+
+    expect(container.querySelector("[data-value]")).toHaveTextContent("3min");
+  });
+
+  it("keeps recorded cells out of the progress total", () => {
+    render(<Today />);
+
+    expect(screen.getByText(/已完成 0 \/ 0/)).toBeInTheDocument();
   });
 });

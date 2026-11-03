@@ -30,10 +30,13 @@ export const zhCN = {
   "today.dueToday": "今天",
   "today.skip": "今天不做",
   "today.unskip": "取消",
+  "today.addValue": "＋值",
+  "today.editValue": "记录值",
 
   "checkin.done": "已完成",
   "checkin.missed": "未完成",
   "checkin.skipped": "今天不做",
+  "checkin.recorded": "只记录",
   "checkin.pending": "未打卡",
   "checkin.none": "不适用",
   "checkin.aria": "{task}：{status}",

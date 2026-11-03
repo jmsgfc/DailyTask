@@ -33,6 +33,7 @@ function checkin(id: string, status: CheckinStatus): Checkin {
     taskId: id,
     date: TODAY,
     status,
+    value: null,
     note: null,
     updatedAt: "2026-11-02T00:00:00.000Z",
   };

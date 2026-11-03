@@ -21,6 +21,8 @@ import { useTodosStore } from "../todosStore";
 export interface TodayTask {
   task: Task;
   state: CellState;
+  /** 当天的自由值（次数 / 时长 / 文本），只展示不判定。 */
+  value: string | null;
 }
 
 export interface CategoryStat {
@@ -47,7 +49,9 @@ export interface TodayData {
 }
 
 function statOf(rows: TodayTask[]): CategoryStat {
-  const countable = rows.filter((row) => row.state !== "skipped");
+  const countable = rows.filter(
+    (row) => row.state !== "skipped" && row.state !== "recorded",
+  );
   return {
     done: countable.filter((row) => row.state === "done").length,
     total: countable.length,
@@ -64,16 +68,14 @@ export function buildToday(
   const today = logicalToday(now, settings.dayStartHour);
   const rows: TodayTask[] = applicableTasks(tasks, today)
     .sort((a, b) => a.order - b.order || a.createdAt.localeCompare(b.createdAt))
-    .map((task) => ({
-      task,
-      state: projectCell(
+    .map((task) => {
+      const checkin = checkins.get(checkinKey(task.id, today));
+      return {
         task,
-        today,
-        checkins.get(checkinKey(task.id, today)),
-        settings,
-        today,
-      ),
-    }));
+        state: projectCell(task, today, checkin, settings, today),
+        value: checkin?.value ?? null,
+      };
+    });
 
   const voluntary = rows.filter((row) => row.task.category === "voluntary");
   const forced = rows.filter((row) => row.task.category === "forced");
