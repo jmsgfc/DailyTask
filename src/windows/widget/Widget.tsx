@@ -1,3 +1,6 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, type ReactNode } from "react";
+
 import { emitWidgetExpand } from "../../shared/events";
 import { useCheckinsStore } from "../../stores/checkinsStore";
 import {
@@ -5,6 +8,7 @@ import {
   type DueTodoItem,
   type TodayTask,
 } from "../../stores/selectors/today";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useT } from "../../ui/useT";
 
 const RING_RADIUS = 17;
@@ -20,6 +24,28 @@ export function Widget() {
   const t = useT();
   const data = useTodayData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
+  const alwaysOnTop = useSettingsStore((state) => state.settings.alwaysOnTop);
+  const updateSettings = useSettingsStore((state) => state.update);
+
+  useEffect(() => {
+    void getCurrentWindow().setAlwaysOnTop(alwaysOnTop).catch((error: unknown) => {
+      console.error("[widget] 更新置顶状态失败", error);
+    });
+  }, [alwaysOnTop]);
+
+  const togglePin = () => {
+    void updateSettings({ alwaysOnTop: !alwaysOnTop }).catch(
+      (error: unknown) => {
+        console.error("[widget] 保存置顶设置失败", error);
+      },
+    );
+  };
+
+  const minimize = () => {
+    void getCurrentWindow().hide().catch((error: unknown) => {
+      console.error("[widget] 最小化挂件失败", error);
+    });
+  };
 
   const rows = [...data.voluntary, ...data.forced];
   const incomplete = rows.filter(
@@ -44,18 +70,18 @@ export function Widget() {
     <div className="h-full w-full p-2">
       <section className="paper-card group relative flex h-full flex-col overflow-hidden rounded-[var(--radius-widget)] border border-[var(--color-paper-edge)] bg-[var(--color-paper)] p-3 text-[var(--color-paper-text)] shadow-[var(--shadow-widget)]">
         <div className="relative z-[1] flex h-full flex-col">
-          <header
-            data-tauri-drag-region
-            className="flex h-5 shrink-0 items-center gap-1"
-          >
-            <span className="paper-date truncate text-[13px]">
-              {data.dateLabel}
-            </span>
-            <div className="ml-auto flex gap-px opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              <button
-                type="button"
-                title={t("widget.expand")}
-                aria-label={t("widget.expand")}
+          <header className="flex h-5 shrink-0 items-center gap-1">
+            <div
+              data-tauri-drag-region
+              className="flex h-full min-w-0 flex-1 items-center"
+            >
+              <span className="paper-date truncate text-[13px]">
+                {data.dateLabel}
+              </span>
+            </div>
+            <div className="flex shrink-0 gap-px opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <WidgetAction
+                label={t("widget.expand")}
                 onClick={() =>
                   void emitWidgetExpand({ source: "widget" }).catch(
                     (error: unknown) => {
@@ -63,22 +89,19 @@ export function Widget() {
                     },
                   )
                 }
-                className="grid size-[18px] place-items-center rounded-[4px] text-[color-mix(in_srgb,var(--color-paper-text)_55%,transparent)] hover:bg-black/[0.07] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
               >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M6.5 2.5h-4v4M9.5 13.5h4v-4M2.5 2.5l4.5 4.5M13.5 13.5L9 9" />
-                </svg>
-              </button>
+                <path d="M6.5 2.5h-4v4M9.5 13.5h4v-4M2.5 2.5l4.5 4.5M13.5 13.5L9 9" />
+              </WidgetAction>
+              <WidgetAction
+                label={t(alwaysOnTop ? "widget.unpin" : "widget.pin")}
+                active={alwaysOnTop}
+                onClick={togglePin}
+              >
+                <path d="M8 1.8v4.4M4.8 6.2h6.4L10 10H6L4.8 6.2zM8 10.2v4" />
+              </WidgetAction>
+              <WidgetAction label={t("widget.minimize")} onClick={minimize}>
+                <path d="M3.5 8h9" />
+              </WidgetAction>
             </div>
           </header>
 
@@ -163,6 +186,47 @@ export function Widget() {
         </div>
       </section>
     </div>
+  );
+}
+
+function WidgetAction({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={
+        active
+          ? "grid size-[18px] place-items-center rounded-[4px] bg-black/[0.08] text-[var(--color-paper-text)] hover:bg-black/[0.12] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          : "grid size-[18px] place-items-center rounded-[4px] text-[color-mix(in_srgb,var(--color-paper-text)_55%,transparent)] hover:bg-black/[0.07] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      }
+    >
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {children}
+      </svg>
+    </button>
   );
 }
 

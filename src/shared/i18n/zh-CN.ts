@@ -48,6 +48,9 @@ export const zhCN = {
   "widget.complete": "完成 {task}",
   "widget.empty": "今天没有任务",
   "widget.expand": "展开主窗口",
+  "widget.pin": "置顶",
+  "widget.unpin": "取消置顶",
+  "widget.minimize": "最小化挂件",
 
   "view.grid.title": "任务表",
   "view.grid.note": "M4 实现 · 日期列 + 任务行网格",
