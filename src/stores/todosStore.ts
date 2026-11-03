@@ -14,6 +14,8 @@ export interface TodosState {
   todos: Todo[];
   loaded: boolean;
   hydrate: (todos: Todo[]) => void;
+  /** 跨窗口收到失效信号后重查；只替换数据，不再回发事件。 */
+  reload: () => Promise<void>;
   create: (input: { title: string; dueDate: string | null }) => Promise<Todo>;
   update: (id: string, patch: { title?: string; dueDate?: string | null }) => Promise<void>;
   setDone: (id: string, done: boolean) => Promise<void>;
@@ -27,6 +29,11 @@ export const useTodosStore = create<TodosState>()((set, get) => ({
   loaded: false,
 
   hydrate: (todos) => set({ todos, loaded: true }),
+
+  reload: async () => {
+    const todos = await repo.listTodos(await getDb());
+    set({ todos, loaded: true });
+  },
 
   create: (input) =>
     enqueueWrite(async () => {

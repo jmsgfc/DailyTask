@@ -14,6 +14,8 @@ export interface TasksState {
   tasks: Task[];
   loaded: boolean;
   hydrate: (tasks: Task[]) => void;
+  /** 跨窗口收到失效信号后重查；只替换数据，不再回发事件。 */
+  reload: () => Promise<void>;
   create: (input: {
     name: string;
     category: TaskCategory;
@@ -35,6 +37,11 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
   loaded: false,
 
   hydrate: (tasks) => set({ tasks, loaded: true }),
+
+  reload: async () => {
+    const tasks = await repo.listTasks(await getDb());
+    set({ tasks, loaded: true });
+  },
 
   create: (input) =>
     enqueueWrite(async () => {

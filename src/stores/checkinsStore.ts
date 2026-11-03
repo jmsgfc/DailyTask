@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { deleteCheckin, upsertCheckin } from "../db/checkins";
+import { deleteCheckin, listCheckins, upsertCheckin } from "../db/checkins";
 import { getDb } from "../db/client";
 import { checkinKey } from "../domain/keys";
 import type { Checkin, CheckinStatus } from "../domain/types";
@@ -11,6 +11,8 @@ export interface CheckinsState {
   byKey: Map<string, Checkin>;
   loaded: boolean;
   hydrate: (checkins: Checkin[]) => void;
+  /** 跨窗口收到失效信号后重查；只替换数据，不再回发事件。 */
+  reload: () => Promise<void>;
   /** status = null 表示清空该格。 */
   setStatus: (
     taskId: string,
@@ -24,6 +26,12 @@ export const useCheckinsStore = create<CheckinsState>()((set, get) => ({
   loaded: false,
 
   hydrate: (checkins) => set({ byKey: toCheckinMapFromArray(checkins) }),
+
+  reload: async () => {
+    const db = await getDb();
+    const checkins = await listCheckins(db);
+    set({ byKey: toCheckinMapFromArray(checkins), loaded: true });
+  },
 
   setStatus: (taskId, date, status) => {
     const key = checkinKey(taskId, date);

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 
 import { initApp, type AppData } from "./app/init";
+import { startCrossWindowSync } from "./app/sync";
 import App from "./App";
 import { useCheckinsStore } from "./stores/checkinsStore";
 import { useSettingsStore } from "./stores/settingsStore";
@@ -40,6 +41,9 @@ void initApp()
     hydrate(data);
     setLocale(data.settings.language);
     applyTheme(data.settings.theme);
+    void startCrossWindowSync().catch((error: unknown) => {
+      console.error("[sync] 跨窗口同步启动失败", error);
+    });
     root.render(
       <React.StrictMode>
         {target === "widget" ? <Widget /> : <App />}
