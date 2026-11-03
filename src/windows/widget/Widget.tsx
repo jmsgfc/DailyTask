@@ -1,3 +1,4 @@
+import { emitWidgetExpand } from "../../shared/events";
 import { useCheckinsStore } from "../../stores/checkinsStore";
 import {
   useTodayData,
@@ -41,15 +42,44 @@ export function Widget() {
 
   return (
     <div className="h-full w-full p-2">
-      <section className="paper-card relative flex h-full flex-col overflow-hidden rounded-[var(--radius-widget)] border border-[var(--color-paper-edge)] bg-[var(--color-paper)] p-3 text-[var(--color-paper-text)] shadow-[var(--shadow-widget)]">
+      <section className="paper-card group relative flex h-full flex-col overflow-hidden rounded-[var(--radius-widget)] border border-[var(--color-paper-edge)] bg-[var(--color-paper)] p-3 text-[var(--color-paper-text)] shadow-[var(--shadow-widget)]">
         <div className="relative z-[1] flex h-full flex-col">
           <header
             data-tauri-drag-region
-            className="flex h-5 shrink-0 items-center"
+            className="flex h-5 shrink-0 items-center gap-1"
           >
             <span className="paper-date truncate text-[13px]">
               {data.dateLabel}
             </span>
+            <div className="ml-auto flex gap-px opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <button
+                type="button"
+                title={t("widget.expand")}
+                aria-label={t("widget.expand")}
+                onClick={() =>
+                  void emitWidgetExpand({ source: "widget" }).catch(
+                    (error: unknown) => {
+                      console.error("[widget] 展开主窗口失败", error);
+                    },
+                  )
+                }
+                className="grid size-[18px] place-items-center rounded-[4px] text-[color-mix(in_srgb,var(--color-paper-text)_55%,transparent)] hover:bg-black/[0.07] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M6.5 2.5h-4v4M9.5 13.5h4v-4M2.5 2.5l4.5 4.5M13.5 13.5L9 9" />
+                </svg>
+              </button>
+            </div>
           </header>
 
           <div className="my-1 flex h-11 shrink-0 items-center gap-2.5">

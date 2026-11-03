@@ -10,10 +10,15 @@ import {
   type Todo,
 } from "../../domain/types";
 import { useCheckinsStore } from "../../stores/checkinsStore";
+import { emitWidgetExpand } from "../../shared/events";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTasksStore } from "../../stores/tasksStore";
 import { useTodosStore } from "../../stores/todosStore";
 import { Widget } from "./Widget";
+
+vi.mock("../../shared/events", () => ({
+  emitWidgetExpand: vi.fn(async () => undefined),
+}));
 
 const NOW = new Date(2026, 10, 2, 9, 0, 0);
 const TODAY = "2026-11-02";
@@ -85,6 +90,7 @@ describe("Widget", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+    vi.mocked(emitWidgetExpand).mockClear();
     seedStores();
   });
 
@@ -120,6 +126,14 @@ describe("Widget", () => {
     fireEvent.click(screen.getByRole("button", { name: "完成 跑步" }));
 
     expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "done");
+  });
+
+  it("asks the main window to expand from the hover action", () => {
+    render(<Widget />);
+
+    fireEvent.click(screen.getByRole("button", { name: "展开主窗口" }));
+
+    expect(emitWidgetExpand).toHaveBeenCalledWith({ source: "widget" });
   });
 
   it("shows an empty state when nothing is scheduled", () => {

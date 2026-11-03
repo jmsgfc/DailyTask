@@ -3,5 +3,13 @@
   "identifier": "default",
   "description": "Capability for the main and widget windows",
   "windows": ["main", "widget"],
-  "permissions": ["core:default", "sql:default", "sql:allow-execute"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-focus",
+    "core:window:allow-start-dragging",
+    "sql:default",
+    "sql:allow-execute"
+  ]
 }
