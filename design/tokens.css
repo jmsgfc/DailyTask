@@ -31,12 +31,6 @@
   --state-selected: rgba(61, 154, 98, 0.10);
   --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-voluntary);
 
-  /* ---- 挂件纸感 ---- */
-  --color-paper: #FBF7EF;
-  --color-paper-edge: #E9DFC9;  /* [新增] 纸边 */
-  --color-paper-text: #2E2A24;  /* [新增] 纸面正文，不用主窗口的 #1A1A1A */
-  --color-paper-muted: #8B8171; /* [新增] 纸面次文字 */
-
   /* ---- 字体 ---- */
   --font-sans: "PingFang SC", "Microsoft YaHei", "Source Han Sans SC",
                system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -72,7 +66,7 @@
   /* ---- 阴影 ---- */
   --shadow-card: 0 1px 2px rgba(26, 26, 26, 0.04), 0 4px 12px rgba(26, 26, 26, 0.05);
   --shadow-popover: 0 8px 24px rgba(26, 26, 26, 0.12);
-  --shadow-widget: 0 6px 20px rgba(60, 50, 30, 0.14), 0 1px 2px rgba(60, 50, 30, 0.08);
+  --shadow-widget: 0 6px 20px rgba(0, 0, 0, 0.14), 0 1px 2px rgba(0, 0, 0, 0.08);
 
   /* ---- 布局尺寸 ---- */
   --nav-width: 200px;
@@ -104,11 +98,6 @@
   --state-active: rgba(255, 255, 255, 0.09);
   --state-selected: rgba(76, 175, 125, 0.14);
   --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-voluntary);
-
-  --color-paper: #2A2620;
-  --color-paper-edge: #3B352B;
-  --color-paper-text: #EFE8DA;
-  --color-paper-muted: #9C9280;
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.28);
   --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);

@@ -68,14 +68,14 @@ export function Widget() {
 
   return (
     <div className="h-full w-full p-2">
-      <section className="paper-card group relative flex h-full flex-col overflow-hidden rounded-[var(--radius-widget)] border border-[var(--color-paper-edge)] bg-[var(--color-paper)] p-3 text-[var(--color-paper-text)] shadow-[var(--shadow-widget)]">
+      <section className="group relative flex h-full flex-col overflow-hidden rounded-[var(--radius-widget)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-[var(--color-text)] shadow-[var(--shadow-widget)]">
         <div className="relative z-[1] flex h-full flex-col">
           <header className="flex h-5 shrink-0 items-center gap-1">
             <div
               data-tauri-drag-region
               className="flex h-full min-w-0 flex-1 items-center"
             >
-              <span className="paper-date truncate text-[13px]">
+              <span className="truncate text-[13px] font-semibold">
                 {data.dateLabel}
               </span>
             </div>
@@ -117,7 +117,7 @@ export function Widget() {
                   cy="20"
                   r={RING_RADIUS}
                   fill="none"
-                  stroke="color-mix(in srgb, var(--color-paper-text) 12%, transparent)"
+                  stroke="color-mix(in srgb, var(--color-text) 12%, transparent)"
                   strokeWidth="4"
                 />
                 <circle
@@ -142,7 +142,7 @@ export function Widget() {
               <b className="text-[13px] tabular-nums">
                 {completed} / {total}
               </b>
-              <span className="text-[10px] text-[var(--color-paper-muted)]">
+              <span className="text-[10px] text-[var(--color-text-muted)]">
                 {remaining > 0
                   ? t("widget.remaining", { count: remaining })
                   : t("widget.allDone")}
@@ -152,7 +152,7 @@ export function Widget() {
 
           <div className="min-h-0 flex-1">
             {visibleTasks.length === 0 ? (
-              <p className="m-0 py-2 text-center text-[11px] text-[var(--color-paper-muted)]">
+              <p className="m-0 py-2 text-center text-[11px] text-[var(--color-text-muted)]">
                 {t("widget.empty")}
               </p>
             ) : (
@@ -166,7 +166,7 @@ export function Widget() {
             )}
           </div>
 
-          <div className="mt-0.5 flex h-4 shrink-0 items-center gap-1 text-[10px] text-[var(--color-paper-muted)]">
+          <div className="mt-0.5 flex h-4 shrink-0 items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
             <span className="font-bold text-[var(--color-voluntary)]">✓</span>
             <span>{t("widget.completedCount", { count: completed })}</span>
             {hiddenTasks > 0 ? (
@@ -209,8 +209,8 @@ function WidgetAction({
       onClick={onClick}
       className={
         active
-          ? "grid size-[18px] place-items-center rounded-[4px] bg-black/[0.08] text-[var(--color-paper-text)] hover:bg-black/[0.12] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
-          : "grid size-[18px] place-items-center rounded-[4px] text-[color-mix(in_srgb,var(--color-paper-text)_55%,transparent)] hover:bg-black/[0.07] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          ? "grid size-[18px] place-items-center rounded-[4px] bg-[var(--state-active)] text-[var(--color-text)] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          : "grid size-[18px] place-items-center rounded-[4px] text-[color-mix(in_srgb,var(--color-text)_55%,transparent)] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       }
     >
       <svg
@@ -246,14 +246,14 @@ function WidgetTaskRow({
       data-state={row.state}
       aria-label={t("widget.complete", { task: row.task.name })}
       onClick={onComplete}
-      className="-mx-1 flex h-6 w-[calc(100%+8px)] items-center gap-[7px] rounded-[5px] px-1 text-left hover:bg-[color-mix(in_srgb,var(--color-paper-text)_6%,transparent)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      className="-mx-1 flex h-6 w-[calc(100%+8px)] items-center gap-[7px] rounded-[5px] px-1 text-left hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
     >
       <span
         aria-hidden="true"
         className={
           missed
             ? "grid size-4 shrink-0 place-items-center rounded-[4px] border-[1.4px] border-[var(--color-missed)] text-[10px] font-bold text-[var(--color-missed)]"
-            : "grid size-4 shrink-0 place-items-center rounded-[4px] border-[1.4px] border-[color-mix(in_srgb,var(--color-paper-text)_35%,transparent)] text-[10px] font-bold text-transparent"
+            : "grid size-4 shrink-0 place-items-center rounded-[4px] border-[1.4px] border-[var(--color-border-strong)] text-[10px] font-bold text-transparent"
         }
       >
         {missed ? "✗" : "✓"}
@@ -269,10 +269,10 @@ function WidgetTodoRow({ item }: { item: DueTodoItem }) {
   const overdue = overdueDays > 0;
 
   return (
-    <div className="-mx-1 flex h-6 items-center gap-1.5 rounded-[5px] px-1 text-[11px] hover:bg-[color-mix(in_srgb,var(--color-paper-text)_5%,transparent)]">
+    <div className="-mx-1 flex h-6 items-center gap-1.5 rounded-[5px] px-1 text-[11px] hover:bg-[var(--state-hover)]">
       <span
         aria-hidden="true"
-        className="size-2.5 shrink-0 rounded-full border-[1.3px] border-[color-mix(in_srgb,var(--color-paper-text)_30%,transparent)]"
+        className="size-2.5 shrink-0 rounded-full border-[1.3px] border-[var(--color-border-strong)]"
       />
       <span className="min-w-0 truncate">{todo.title}</span>
       <span

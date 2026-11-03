@@ -435,42 +435,35 @@
     width: 204px; height: 264px;
     padding: var(--space-3);
     display: flex; flex-direction: column;
-    background: var(--color-paper);
-    border: 1px solid var(--color-paper-edge);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-widget);
     box-shadow: var(--shadow-widget);
-    color: var(--color-paper-text);
+    color: var(--color-text);
     overflow: hidden;
   }
-  .widget-card::before {
-    content: ""; position: absolute; inset: 0; pointer-events: none;
-    border-radius: inherit;
-    opacity: .05; mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
-  }
-  :root[data-theme="dark"] .widget-card::before { mix-blend-mode: screen; opacity: .035; }
 
   .w-head { position: relative; z-index: 1; height: 20px; display: flex; align-items: center; gap: 6px; }
-  .w-date { font-family: "KaiTi", "Kaiti SC", "STKaiti", "KaiTi SC", serif; font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+  .w-date { font-size: 13px; font-weight: 600; letter-spacing: .2px; }
   .w-actions { margin-left: auto; display: flex; gap: 1px; opacity: 0; transition: opacity .15s; }
   .widget-card:hover .w-actions,
   .widget-card.is-hover .w-actions { opacity: 1; }
   .w-act {
     width: 18px; height: 18px; display: grid; place-items: center;
     border: 0; background: transparent; border-radius: 4px;
-    color: color-mix(in srgb, var(--color-paper-text) 55%, transparent); cursor: pointer;
+    color: color-mix(in srgb, var(--color-text) 55%, transparent); cursor: pointer;
   }
-  .w-act:hover { background: rgba(0, 0, 0, .07); }
+  .w-act:hover { background: var(--state-hover); }
   .w-act svg { width: 12px; height: 12px; }
 
   .w-ring-wrap { position: relative; z-index: 1; height: 44px; margin: 4px 0; display: flex; align-items: center; gap: 10px; }
   .w-ring-wrap svg { width: 40px; height: 40px; flex: none; }
   .w-ring-wrap circle { fill: none; stroke-width: 4; }
-  .w-ring-track { stroke: color-mix(in srgb, var(--color-paper-text) 12%, transparent); }
+  .w-ring-track { stroke: color-mix(in srgb, var(--color-text) 12%, transparent); }
   .w-ring-fg { stroke: var(--color-voluntary); stroke-linecap: round; transition: stroke-dashoffset .3s; }
   .w-ring-text { display: flex; flex-direction: column; gap: 1px; }
   .w-ring-text b { font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
-  .w-ring-text span { font-size: 10px; color: var(--color-paper-muted); }
+  .w-ring-text span { font-size: 10px; color: var(--color-text-muted); }
 
   .w-tasks { position: relative; z-index: 1; }
   .w-task {
@@ -478,30 +471,29 @@
     margin: 0 -4px; padding: 0 4px; border-radius: 5px;
     cursor: pointer; transition: opacity .18s, transform .18s;
   }
-  .w-task:hover { background: rgba(0, 0, 0, .045); }
-  :root[data-theme="dark"] .w-task:hover { background: rgba(255, 255, 255, .05); }
+  .w-task:hover { background: var(--state-hover); }
   .w-task.is-leaving { opacity: 0; transform: translateX(8px); }
   .w-check {
     width: 16px; height: 16px; flex: none;
     display: grid; place-items: center;
-    border: 1.4px solid color-mix(in srgb, var(--color-paper-text) 35%, transparent);
+    border: 1.4px solid var(--color-border-strong);
     border-radius: 4px;
     font-size: 10px; color: transparent;
   }
   .w-task.is-done .w-check { background: var(--color-voluntary); border-color: var(--color-voluntary); color: #fff; }
-  .w-task.is-done .w-name { text-decoration: line-through; color: var(--color-paper-muted); }
+  .w-task.is-done .w-name { text-decoration: line-through; color: var(--color-text-muted); }
   .w-name { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .w-fold { position: relative; z-index: 1; height: 16px; margin-top: 2px; display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--color-paper-muted); }
+  .w-fold { position: relative; z-index: 1; height: 16px; margin-top: 2px; display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--color-text-muted); }
   .w-fold svg { width: 9px; height: 9px; }
   .w-fold-check { color: var(--color-voluntary); font-weight: 700; }
 
   .w-todos { position: relative; z-index: 1; margin-top: 4px; }
   .w-todo { height: 24px; display: flex; align-items: center; gap: 6px; margin: 0 -4px; padding: 0 4px; border-radius: 5px; font-size: 11px; }
-  .w-todo:hover { background: rgba(0, 0, 0, .035); }
-  .w-dot { width: 10px; height: 10px; flex: none; border: 1.3px solid color-mix(in srgb, var(--color-paper-text) 30%, transparent); border-radius: 50%; }
+  .w-todo:hover { background: var(--state-hover); }
+  .w-dot { width: 10px; height: 10px; flex: none; border: 1.3px solid var(--color-border-strong); border-radius: 50%; }
   .w-todo .w-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .w-todo .w-meta { margin-left: auto; font-size: 9.5px; color: var(--color-paper-muted); white-space: nowrap; }
+  .w-todo .w-meta { margin-left: auto; font-size: 9.5px; color: var(--color-text-muted); white-space: nowrap; }
   .w-todo.is-overdue .w-meta { color: var(--color-missed); font-weight: 600; }
   .w-todo.is-today .w-meta { color: var(--color-warning); font-weight: 600; }
 
@@ -701,7 +693,7 @@
       <div class="note">
         <h3>留到 B / 需回写文档</h3>
         <ul>
-          <li>新增 token：<code>--color-warning</code>、<code>--color-paper-*</code>（§7.1 没给）</li>
+          <li>新增 token：<code>--color-warning</code>（§7.1 没给；挂件直接复用主窗色板）</li>
           <li>任务列宽 <b>160px</b> 已进 token，M4 验证 30 列时确认</li>
           <li>日期列两档 <b>32 / 16</b>、今日列高亮做法 → B 定</li>
           <li>挂件 220×280 排版与悬停按钮位置 → B 定</li>
@@ -800,7 +792,7 @@
 <!-- ================= 挂件 ================= -->
 <section class="stage" data-stage="widget">
   <div class="stage-inner">
-    <p class="frame-caption"><b>挂件</b> 220 × 280 · 含 8px 透明边距 · 纸卡 204×264 · 棋盘格 = 透明区</p>
+    <p class="frame-caption"><b>挂件</b> 220 × 280 · 含 8px 透明边距 · 卡片 204×264 · 棋盘格 = 透明区</p>
 
     <div class="widget-stage">
       <div class="widget-slot">
@@ -831,7 +823,7 @@
           <li>任务最多 4 条、待办最多 2 条，超出显示 <b>+N</b></li>
           <li>「展开详情」从底部移进标题区，才腾出第 2 条待办的位置</li>
           <li>点任务即时完成，划掉并计入折叠行（本例 4/8 → 5/8）</li>
-          <li>纸纹 <code>feTurbulence</code> 透明度 0.05，日期用楷体</li>
+          <li>卡面沿用主窗色板，无纸纹，日期用无衬线</li>
         </ul>
       </div>
     </div>
