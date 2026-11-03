@@ -21,6 +21,24 @@ describe("CheckCell", () => {
     expect(screen.getByRole("button")).toHaveAttribute("data-state", "skipped");
   });
 
+  it("keeps skipped visually distinct from missed", () => {
+    const { rerender } = render(<CheckCell state="missed" taskName="跑步" />);
+    const missedClass = screen.getByRole("button").className;
+
+    rerender(<CheckCell state="skipped" taskName="跑步" />);
+    const skipped = screen.getByRole("button");
+
+    expect(skipped).toHaveTextContent("–");
+    expect(skipped.className).toContain("border-dashed");
+    expect(skipped.className).not.toBe(missedClass);
+    expect(
+      screen.getByRole("button", { name: "跑步：今天不做" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "跑步：未完成" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("labels the cell for screen readers", () => {
     render(<CheckCell state="done" taskName="跑步" />);
 
