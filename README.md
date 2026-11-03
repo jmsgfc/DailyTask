@@ -3,8 +3,8 @@
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
 A local-first desktop app for daily habit check-ins and todos, built to replace the
-"one Excel sheet per habit set" workflow. It runs on Windows with a paper-like
-floating widget and a dense, spreadsheet-style task grid.
+"one Excel sheet per habit set" workflow. It runs on Windows with a floating
+widget that matches the main window palette and a dense, spreadsheet-style task grid.
 
 <a id="overview"></a>
 ## Overview
@@ -15,7 +15,7 @@ pausing, or resuming a habit only appends interval data and never rewrites the p
 
 The product has two windows:
 
-- **Widget** — always-on-top paper card with today's progress and quick check-ins.
+- **Widget** — always-on-top card matching the main window palette, with today's progress and quick check-ins.
 - **Main window** — sidebar navigation with Today, Task Grid, Todos, Manage, Stats,
   and Settings.
 

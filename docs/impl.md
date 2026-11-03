@@ -12,7 +12,7 @@
 |---|---|---|
 | 外壳 | **Tauri 2** | 双窗口（主窗口 + 悬浮挂件）、置顶、透明、开机自启均为一等能力；安装包约 5–8 MB |
 | 前端 | React 19 + TypeScript + Vite | 两套皮肤共用组件与色板 |
-| 样式 | Tailwind CSS 4 + CSS 变量 | 变量承载 §7.1 色板，纸感/圆角/间距用 token，不引 UI 组件库 |
+| 样式 | Tailwind CSS 4 + CSS 变量 | 变量承载 §7.1 色板，挂件色板/圆角/间距用 token，不引 UI 组件库 |
 | 状态 | Zustand 5 | 数据缓存与 UI 状态分离；按窗口各自实例化 |
 | 存储 | **SQLite**（`tauri-plugin-sql`，sqlx） | 区间查询、唯一约束、增量迁移都由数据库兜底 |
 | 更新 | `tauri-plugin-updater` + GitHub Releases | 静态 `latest.json` 做更新源；签名不可关闭（见 §8 M6） |
@@ -100,10 +100,10 @@ DailyTask/
 | 任务列宽 | 160px（`--task-col-width`） |
 | 网格 cellSize | 详细 32 / 概览 16（缩放区间仍 [14, 44]） |
 
-`Requirements.md` §7.1 没给、设计稿被迫补的两类色，已收成命名 token，禁止裸写十六进制：
+`Requirements.md` §7.1 没给、设计稿被迫补的颜色，已收成命名 token，禁止裸写十六进制：
 
 - `--color-warning`：待办「今天到期」黄
-- `--color-paper-edge` / `--color-paper-text` / `--color-paper-muted`：挂件纸面的边、正文、次文字
+- 挂件不再单独定义纸面色，直接复用主窗 §7.1 的 `--color-surface` / `--color-border` / `--color-text` / `--color-text-muted`
 
 ---
 
@@ -258,7 +258,7 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 | 区块 | 高 |
 |---|---|
-| 窗口 220×280 − 8px 透明边距 → 纸卡 204×264 − padding 12 → 内容 | **240** |
+| 窗口 220×280 − 8px 透明边距 → 卡片 204×264 − padding 12 → 内容 | **240** |
 | 标题行（日期 + 悬停按钮） | 20 |
 | 进度环 | 44 |
 | 未完成任务 4 × 24 | 96 |
@@ -269,9 +269,9 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 - 挂件只渲染：今日进度环、未完成项、今日到期待办、已完成折叠行；数据源与主窗口相同的 store/selector。
 - 溢出优先级：**逾期待办 > 未完成任务 > 今天到期**。任务最多 4 条、待办最多 2 条，超出显示 `+N`；本周和以后不进挂件。
 - 待办上限是 2 条不是 3 条：220×280 的内容只有 240px，放下 4 条任务后只剩两行。为此把「展开详情」从底部移进标题区（悬停出现的展开按钮），否则第 2 条待办没有位置。
-- 纸感：纸底 `#FBF7EF` + base64 `feTurbulence` 噪点（透明度 0.05）；日期用楷体，正文保持无衬线。
+- 外观：卡面、边框、文字沿用主窗 §7.1 色板；保留 16px 圆角、8px 透明边距和中性浮动阴影。日期与正文统一使用系统无衬线，标题加粗。
 - **不做系统通知/到期提醒**（本期）：避免 Windows 通知权限、免打扰与点击跳转的额外复杂度，待办只在应用内展示。
-- 两窗口共用 `ui/tokens.css`；挂件额外挂 `.theme-paper`（纸底 `#FBF7EF` + 轻噪点纹理，用 1 张 base64 SVG 代替位图）。
+- 两窗口共用 `ui/tokens.css`；挂件不再挂纸感主题类，也不生成噪点纹理。
 - 托盘菜单：显示主窗口 / 显示挂件 / 今日进度 / 退出。
 
 ### 5.1 跨窗口事件契约
