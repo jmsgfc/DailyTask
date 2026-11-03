@@ -5,6 +5,7 @@ import { useCheckinsStore } from "../../../stores/checkinsStore";
 import {
   useTodayData,
   type CategoryStat,
+  type DueTodoItem,
   type TodayTask,
 } from "../../../stores/selectors/today";
 import { CheckCell } from "../../../ui/CheckCell";
@@ -110,37 +111,51 @@ export default function Today() {
               {t("common.itemCount", { count: data.dueTodos.length })}
             </span>
           </div>
-          {data.dueTodos.map(({ todo, overdueDays }) => (
-            <div
-              key={todo.id}
-              data-overdue={overdueDays > 0 ? "" : undefined}
-              className={`relative flex h-[34px] items-center gap-3 rounded-[var(--radius-control)] px-2 hover:bg-[var(--state-hover)] ${
-                overdueDays > 0
-                  ? "pl-5 before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-[3px] before:rounded-[2px] before:bg-[var(--color-missed)]"
-                  : ""
-              }`}
-            >
-              <span className="size-3.5 shrink-0 rounded-full border-[1.5px] border-[var(--color-border-strong)]" />
-              <span className="truncate">{todo.title}</span>
-              <span className="ml-auto flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <span>{format(parseISO(todo.dueDate as string), "MM/dd")}</span>
-                <span
-                  className={
-                    overdueDays > 0
-                      ? "rounded-[var(--radius-pill)] bg-[color-mix(in_srgb,var(--color-missed)_12%,transparent)] px-[7px] py-px text-[var(--text-2xs)] font-semibold text-[var(--color-missed)]"
-                      : "rounded-[var(--radius-pill)] bg-[color-mix(in_srgb,var(--color-warning)_14%,transparent)] px-[7px] py-px text-[var(--text-2xs)] font-semibold text-[var(--color-warning)]"
-                  }
-                >
-                  {overdueDays > 0
-                    ? t("today.overdueDays", { days: overdueDays })
-                    : t("today.dueToday")}
-                </span>
-              </span>
-            </div>
+          {data.overdueTodos.map((item) => (
+            <DueTodoRow key={item.todo.id} item={item} />
+          ))}
+          {data.todayTodos.map((item) => (
+            <DueTodoRow key={item.todo.id} item={item} />
           ))}
         </section>
       ) : null}
     </>
+  );
+}
+
+/** 单区块内按「逾期 → 今天」排列，红条/红 chip 与黄 chip 做视觉分组。 */
+function DueTodoRow({ item }: { item: DueTodoItem }) {
+  const t = useT();
+  const { todo, overdueDays } = item;
+  const overdue = overdueDays > 0;
+
+  return (
+    <div
+      data-group={overdue ? "overdue" : "today"}
+      data-overdue={overdue ? "" : undefined}
+      className={`relative flex h-[34px] items-center gap-3 rounded-[var(--radius-control)] px-2 hover:bg-[var(--state-hover)] ${
+        overdue
+          ? "pl-5 before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-[3px] before:rounded-[2px] before:bg-[var(--color-missed)]"
+          : ""
+      }`}
+    >
+      <span className="size-3.5 shrink-0 rounded-full border-[1.5px] border-[var(--color-border-strong)]" />
+      <span className="truncate">{todo.title}</span>
+      <span className="ml-auto flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+        <span>{format(parseISO(todo.dueDate as string), "MM/dd")}</span>
+        <span
+          className={
+            overdue
+              ? "rounded-[var(--radius-pill)] bg-[color-mix(in_srgb,var(--color-missed)_12%,transparent)] px-[7px] py-px text-[var(--text-2xs)] font-semibold text-[var(--color-missed)]"
+              : "rounded-[var(--radius-pill)] bg-[color-mix(in_srgb,var(--color-warning)_14%,transparent)] px-[7px] py-px text-[var(--text-2xs)] font-semibold text-[var(--color-warning)]"
+          }
+        >
+          {overdue
+            ? t("today.overdueDays", { days: overdueDays })
+            : t("today.dueToday")}
+        </span>
+      </span>
+    </div>
   );
 }
 

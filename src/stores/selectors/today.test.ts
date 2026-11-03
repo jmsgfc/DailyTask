@@ -98,6 +98,9 @@ describe("buildToday", () => {
     expect(data.overdueTodos.map((item) => item.todo.id)).toEqual(["overdue"]);
     expect(data.overdueTodos[0].overdueDays).toBe(2);
     expect(data.todayTodos.map((item) => item.todo.id)).toEqual(["today"]);
-    expect(data.dueTodos).toHaveLength(2);
+    expect(data.dueTodos.map((item) => item.todo.id)).toEqual([
+      "overdue",
+      "today",
+    ]);
   });
 });
