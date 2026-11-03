@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkinKey } from "../../domain/keys";
@@ -6,6 +6,7 @@ import {
   DEFAULT_SETTINGS,
   type Checkin,
   type CheckinStatus,
+  type Settings,
   type Task,
   type Todo,
 } from "../../domain/types";
@@ -15,6 +16,15 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { useTasksStore } from "../../stores/tasksStore";
 import { useTodosStore } from "../../stores/todosStore";
 import { Widget } from "./Widget";
+
+const windowApi = vi.hoisted(() => ({
+  setAlwaysOnTop: vi.fn(async () => undefined),
+  hide: vi.fn(async () => undefined),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => windowApi,
+}));
 
 vi.mock("../../shared/events", () => ({
   emitWidgetExpand: vi.fn(async () => undefined),
@@ -91,6 +101,8 @@ describe("Widget", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     vi.mocked(emitWidgetExpand).mockClear();
+    windowApi.setAlwaysOnTop.mockClear();
+    windowApi.hide.mockClear();
     seedStores();
   });
 
@@ -134,6 +146,33 @@ describe("Widget", () => {
     fireEvent.click(screen.getByRole("button", { name: "展开主窗口" }));
 
     expect(emitWidgetExpand).toHaveBeenCalledWith({ source: "widget" });
+  });
+
+  it("toggles always-on-top and hides the widget", async () => {
+    vi.useRealTimers();
+    const update = vi.fn(async (patch: Partial<Settings>) => {
+      useSettingsStore.setState({
+        settings: { ...useSettingsStore.getState().settings, ...patch },
+      });
+    });
+    useSettingsStore.setState({ update });
+
+    render(<Widget />);
+
+    await waitFor(() =>
+      expect(windowApi.setAlwaysOnTop).toHaveBeenCalledWith(true),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "取消置顶" }));
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith({ alwaysOnTop: false }),
+    );
+    await waitFor(() =>
+      expect(windowApi.setAlwaysOnTop).toHaveBeenCalledWith(false),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "最小化挂件" }));
+    expect(windowApi.hide).toHaveBeenCalledTimes(1);
   });
 
   it("shows an empty state when nothing is scheduled", () => {
