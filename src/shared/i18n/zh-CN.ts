@@ -44,6 +44,13 @@ export const zhCN = {
   "todos.noDue": "无截止日",
   "todos.overdueDays": "逾期 {days} 天",
   "todos.dueToday": "今天",
+  "todos.addPlaceholder": "添加待办，回车保存",
+  "todos.add": "添加",
+  "todos.dueLabel": "截止日期",
+  "todos.markDone": "完成 {title}",
+  "todos.markUndone": "取消完成 {title}",
+  "todos.rename": "重命名",
+  "todos.deleteAria": "删除 {title}",
 
   "checkin.done": "已完成",
   "checkin.missed": "未完成",

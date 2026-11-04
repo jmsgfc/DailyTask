@@ -25,9 +25,18 @@ function todo(
 }
 
 describe("Todos", () => {
+  const create = vi.fn(async () => ({}) as Todo);
+  const update = vi.fn(async () => undefined);
+  const setDone = vi.fn(async () => undefined);
+  const remove = vi.fn(async () => undefined);
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+    create.mockClear();
+    update.mockClear();
+    setDone.mockClear();
+    remove.mockClear();
 
     useSettingsStore.setState({ settings: DEFAULT_SETTINGS });
     useTodosStore.setState({
@@ -41,6 +50,10 @@ describe("Todos", () => {
           completedAt: "2026-11-04T01:00:00.000Z",
         }),
       ],
+      create,
+      update,
+      setDone,
+      remove,
     });
   });
 
@@ -96,13 +109,83 @@ describe("Todos", () => {
     expect(container.querySelector('[data-todo="写周报"]')).toBeInTheDocument();
   });
 
-  it("shows an empty state when nothing is pending", () => {
-    useTodosStore.setState({
-      todos: [todo("写周报", "2026-11-04", { done: true })],
+  it("adds a todo from the quick form", () => {
+    const { container } = render(<Todos />);
+    const input = screen.getByLabelText("添加待办，回车保存");
+
+    fireEvent.change(input, { target: { value: "  买菜  " } });
+    fireEvent.change(container.querySelector("[data-todo-due]") as Element, {
+      target: { value: "2026-11-05" },
     });
+    fireEvent.click(container.querySelector("[data-todo-add]") as Element);
+
+    expect(create).toHaveBeenCalledWith({
+      title: "买菜",
+      dueDate: "2026-11-05",
+    });
+    expect(input).toHaveValue("");
+  });
+
+  it("submits with Enter and blocks blank titles", () => {
+    const { container } = render(<Todos />);
+    const input = screen.getByLabelText("添加待办，回车保存");
+
+    expect(container.querySelector("[data-todo-add]")).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "倒垃圾" } });
+    fireEvent.submit(container.querySelector("[data-todo-form]") as Element);
+
+    expect(create).toHaveBeenCalledWith({
+      title: "倒垃圾",
+      dueDate: null,
+    });
+  });
+
+  it("toggles a todo done inline", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-todo="买猫粮"] [data-toggle-done]',
+      ) as Element,
+    );
+
+    expect(setDone).toHaveBeenCalledWith("买猫粮", true);
+  });
+
+  it("renames a todo in place", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-todo="买猫粮"] [data-todo-rename]',
+      ) as Element,
+    );
+    const input = screen.getByRole("textbox", { name: "重命名" });
+    fireEvent.change(input, { target: { value: "买狗粮" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(update).toHaveBeenCalledWith("买猫粮", { title: "买狗粮" });
+  });
+
+  it("deletes a todo", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-todo="换灯泡"] [data-todo-delete]',
+      ) as Element,
+    );
+
+    expect(remove).toHaveBeenCalledWith("换灯泡");
+  });
+
+  it("shows an empty state when there are no todos at all", () => {
+    useTodosStore.setState({ todos: [] });
 
     render(<Todos />);
 
     expect(screen.getByText("还没有待办")).toBeInTheDocument();
+    expect(screen.getByLabelText("添加待办，回车保存")).toBeInTheDocument();
   });
 });
