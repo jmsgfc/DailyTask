@@ -13,4 +13,5 @@ src-tauri/gen/schemas/
 
 *.xlsx
 shots/
+latest.json
 

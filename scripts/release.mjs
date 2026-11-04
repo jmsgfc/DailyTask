@@ -1,0 +1,130 @@
+#!/usr/bin/env node
+/**
+ * 一条命令发版：bump → 签名构建 → GitHub Release → latest.json。
+ * 用法：node scripts/release.mjs 0.1.1 [--dry-run] [--notes "更新说明"]
+ */
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const args = process.argv.slice(2);
+const version = args.find((arg) => !arg.startsWith("-"));
+const dryRun = args.includes("--dry-run");
+const notesIndex = args.indexOf("--notes");
+const notes =
+  notesIndex >= 0 && args[notesIndex + 1]
+    ? args[notesIndex + 1]
+    : `DailyTask v${version ?? ""}`;
+
+if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
+  console.error("用法: node scripts/release.mjs <x.y.z> [--dry-run] [--notes \"...\"]");
+  process.exit(1);
+}
+
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const gh = process.platform === "win32" ? "gh.exe" : "gh";
+
+function run(command, commandArgs) {
+  console.log(`\n$ ${command} ${commandArgs.join(" ")}`);
+  execFileSync(command, commandArgs, { cwd: root, stdio: "inherit" });
+}
+
+function bumpJson(relativePath, mutate) {
+  const path = join(root, relativePath);
+  const data = JSON.parse(readFileSync(path, "utf8"));
+  mutate(data);
+  writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+bumpJson("package.json", (pkg) => {
+  pkg.version = version;
+});
+bumpJson("src-tauri/tauri.conf.json", (conf) => {
+  conf.version = version;
+});
+
+const cargoPath = join(root, "src-tauri/Cargo.toml");
+const cargo = readFileSync(cargoPath, "utf8").replace(
+  /^version = "[^"]*"$/m,
+  `version = "${version}"`,
+);
+writeFileSync(cargoPath, cargo);
+
+if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
+  console.warn(
+    "警告：未检测到 TAURI_SIGNING_PRIVATE_KEY，updater 产物会缺少签名。",
+  );
+}
+
+run(npm, ["run", "tauri", "build"]);
+
+const artifact = join(
+  root,
+  "src-tauri/target/release/bundle/nsis",
+  `DailyTask_${version}_x64-setup.exe`,
+);
+const signaturePath = `${artifact}.sig`;
+if (!existsSync(artifact) || !existsSync(signaturePath)) {
+  console.error(`构建产物缺失：${artifact} 或 .sig`);
+  process.exit(1);
+}
+
+const latest = {
+  version,
+  notes,
+  pub_date: new Date().toISOString(),
+  platforms: {
+    "windows-x86_64": {
+      signature: readFileSync(signaturePath, "utf8").trim(),
+      url: `https://github.com/yearzen1/DailyTask/releases/download/v${version}/DailyTask_${version}_x64-setup.exe`,
+    },
+  },
+};
+writeFileSync(join(root, "latest.json"), `${JSON.stringify(latest, null, 2)}\n`);
+
+if (dryRun) {
+  console.log("\n[dry-run] latest.json:");
+  console.log(JSON.stringify(latest, null, 2));
+  process.exit(0);
+}
+
+run("git", [
+  "add",
+  "package.json",
+  "package-lock.json",
+  "src-tauri/tauri.conf.json",
+  "src-tauri/Cargo.toml",
+  "src-tauri/Cargo.lock",
+]);
+
+// 版本号没变（重发同版本）时不产生空提交。
+const staged = spawnSync("git", ["diff", "--cached", "--quiet"], { cwd: root });
+if (staged.status !== 0) {
+  run("git", ["commit", "-m", `chore(release): v${version}`]);
+  run("git", ["push"]);
+} else {
+  console.log("版本号未变，跳过版本提交");
+}
+
+run(gh, [
+  "release",
+  "create",
+  `v${version}`,
+  artifact,
+  signaturePath,
+  "--title",
+  `v${version}`,
+  "--notes",
+  notes,
+]);
+run(gh, [
+  "release",
+  "upload",
+  `v${version}`,
+  join(root, "latest.json"),
+  "--clobber",
+]);
+
+console.log(`\n发布完成：v${version}`);
