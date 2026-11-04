@@ -1,0 +1,101 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+
+import { describe, expect, it } from "vitest";
+
+import type { SqlDatabase } from "./client";
+import { listCheckins, upsertCheckin } from "./checkins";
+import {
+  appendInterval,
+  closeOpenInterval,
+  listTasks,
+  updateIntervalDates,
+} from "./tasks";
+
+const MIGRATION = readFileSync(
+  resolve(process.cwd(), "src-tauri/migrations/001_init.sql"),
+  "utf8",
+);
+
+const MIGRATION_002 = readFileSync(
+  resolve(process.cwd(), "src-tauri/migrations/002_checkin_value.sql"),
+  "utf8",
+);
+
+/** 真实 SQLite：验证停用/重新启用只追加区间，历史区间与打卡行都不动。 */
+function createDb(): SqlDatabase {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(MIGRATION);
+  sqlite.exec(MIGRATION_002);
+  sqlite.exec(
+    "INSERT INTO tasks (id, name, category, sort_order, created_at, updated_at) " +
+      "VALUES ('t1', '跑步', 'voluntary', 0, '2026-10-01', '2026-10-01')",
+  );
+  sqlite.exec(
+    "INSERT INTO task_intervals (id, task_id, start_date, end_date) " +
+      "VALUES ('i1', 't1', '2026-10-01', NULL)",
+  );
+
+  type BindValue = string | number | bigint | null | Uint8Array;
+
+  return {
+    select: async <T>(query: string, values: unknown[] = []) => {
+      return sqlite.prepare(query).all(...(values as BindValue[])) as T;
+    },
+    execute: async (query: string, values: unknown[] = []) => {
+      const result = sqlite.prepare(query).run(...(values as BindValue[]));
+      return { rowsAffected: Number(result.changes) };
+    },
+  };
+}
+
+describe("interval history", () => {
+  it("keeps earlier intervals and checkins when stopping and resuming", async () => {
+    const db = createDb();
+    await upsertCheckin(db, {
+      taskId: "t1",
+      date: "2026-10-15",
+      status: "done",
+      note: "只跑了 1km",
+    });
+
+    await closeOpenInterval(db, "t1", "2026-11-04");
+    await appendInterval(db, "t1", "2026-11-10");
+
+    const [task] = await listTasks(db);
+    expect(task.intervals.map((interval) => interval.start)).toEqual([
+      "2026-10-01",
+      "2026-11-10",
+    ]);
+    expect(task.intervals[0].end).toBe("2026-11-04");
+    expect(task.intervals[1].end).toBeNull();
+
+    const checkins = await listCheckins(db);
+    expect(checkins).toHaveLength(1);
+    expect(checkins[0]).toMatchObject({
+      taskId: "t1",
+      date: "2026-10-15",
+      status: "done",
+      note: "只跑了 1km",
+    });
+  });
+
+  it("editing the latest interval leaves the earlier segment untouched", async () => {
+    const db = createDb();
+    await closeOpenInterval(db, "t1", "2026-11-04");
+    const second = await appendInterval(db, "t1", "2026-11-10");
+
+    await updateIntervalDates(db, second.id, "2026-11-12", "2026-12-01");
+
+    const [task] = await listTasks(db);
+    expect(task.intervals).toEqual([
+      expect.objectContaining({ id: "i1", start: "2026-10-01", end: "2026-11-04" }),
+      expect.objectContaining({
+        id: second.id,
+        start: "2026-11-12",
+        end: "2026-12-01",
+      }),
+    ]);
+  });
+});
