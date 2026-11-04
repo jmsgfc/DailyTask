@@ -27,7 +27,7 @@ const closeInterval = vi.fn(async (taskId: string, endDate: string) => {
 });
 
 const appendInterval = vi.fn(
-  async (taskId: string, startDate: string): Promise<Interval> => {
+  async (taskId: string, startDate: string): Promise<void> => {
     const interval: Interval = {
       id: `${taskId}-new`,
       taskId,
@@ -35,7 +35,37 @@ const appendInterval = vi.fn(
       end: null,
     };
     withIntervals(taskId, (task) => [...task.intervals, interval]);
-    return interval;
+  },
+);
+
+const update = vi.fn(
+  async (
+    taskId: string,
+    patch: { name?: string; category?: Task["category"]; order?: number },
+  ) => {
+    useTasksStore.setState({
+      tasks: useTasksStore
+        .getState()
+        .tasks.map((task) =>
+          task.id === taskId ? { ...task, ...patch } : task,
+        ),
+    });
+  },
+);
+
+const updateInterval = vi.fn(
+  async (
+    intervalId: string,
+    patch: { start: string; end: string | null },
+  ) => {
+    useTasksStore.setState({
+      tasks: useTasksStore.getState().tasks.map((task) => ({
+        ...task,
+        intervals: task.intervals.map((interval) =>
+          interval.id === intervalId ? { ...interval, ...patch } : interval,
+        ),
+      })),
+    });
   },
 );
 
@@ -92,6 +122,8 @@ describe("Manage", () => {
     create.mockClear();
     closeInterval.mockClear();
     appendInterval.mockClear();
+    update.mockClear();
+    updateInterval.mockClear();
 
     useSettingsStore.setState({ settings: DEFAULT_SETTINGS, loaded: true });
     useTasksStore.setState({
@@ -99,6 +131,8 @@ describe("Manage", () => {
       create,
       closeInterval,
       appendInterval,
+      update,
+      updateInterval,
       tasks: [
         task("t1", "跑步", "voluntary", 0, [
           { start: "2026-09-01", end: "2026-10-01" },
@@ -166,7 +200,7 @@ describe("Manage", () => {
       target: { value: "阅读" },
     });
     fireEvent.click(
-      container.querySelector('[data-new-category="forced"]') as Element,
+      container.querySelector('[data-category-option="forced"]') as Element,
     );
     fireEvent.click(container.querySelector("[data-new-submit]") as Element);
 
@@ -236,5 +270,71 @@ describe("Manage", () => {
     const row = container.querySelector('[data-manage-row="t3"]') as HTMLElement;
     expect(row).toHaveTextContent("2 段");
     expect(row).toHaveAttribute("data-status", "active");
+  });
+
+  it("edits the latest interval and keeps earlier segments read-only", () => {
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t1"] [data-manage-action="edit"]',
+      ) as Element,
+    );
+
+    expect(container.querySelector("[data-edit-start]")).toHaveValue(
+      "2026-10-16",
+    );
+    expect(container.querySelector("[data-edit-open]")).toBeChecked();
+    expect(container.querySelector("[data-edit-end]")).toBeDisabled();
+    expect(screen.getByText("09/01 – 10/01")).toBeInTheDocument();
+
+    fireEvent.change(container.querySelector("[data-edit-name]") as Element, {
+      target: { value: "晨跑" },
+    });
+    fireEvent.change(container.querySelector("[data-edit-start]") as Element, {
+      target: { value: "2026-10-20" },
+    });
+    fireEvent.click(container.querySelector("[data-edit-submit]") as Element);
+
+    expect(update).toHaveBeenCalledWith("t1", {
+      name: "晨跑",
+      category: "voluntary",
+    });
+    expect(updateInterval).toHaveBeenCalledWith("t1-1", {
+      start: "2026-10-20",
+      end: null,
+    });
+    expect(
+      container.querySelector('[data-manage-row="t1"]'),
+    ).toHaveTextContent("晨跑");
+  });
+
+  it("rejects an end before the start and an overlapping start", () => {
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t1"] [data-manage-action="edit"]',
+      ) as Element,
+    );
+    fireEvent.click(container.querySelector("[data-edit-open]") as Element);
+    fireEvent.change(container.querySelector("[data-edit-start]") as Element, {
+      target: { value: "2026-11-10" },
+    });
+    fireEvent.change(container.querySelector("[data-edit-end]") as Element, {
+      target: { value: "2026-11-01" },
+    });
+
+    expect(screen.getByText("停用日期不能早于启用日期")).toBeInTheDocument();
+    expect(container.querySelector("[data-edit-submit]")).toBeDisabled();
+
+    fireEvent.change(container.querySelector("[data-edit-start]") as Element, {
+      target: { value: "2026-10-01" },
+    });
+    expect(
+      screen.getByText("启用日期必须晚于上一段结束日"),
+    ).toBeInTheDocument();
+    expect(container.querySelector("[data-edit-submit]")).toBeDisabled();
+    expect(update).not.toHaveBeenCalled();
   });
 });

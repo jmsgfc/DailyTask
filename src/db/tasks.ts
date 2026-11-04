@@ -206,3 +206,16 @@ export async function appendInterval(
   );
   return interval;
 }
+
+/** 编辑单段区间的起止日期（M5 D65）；历史区间默认只读，由 UI 限定。 */
+export async function updateIntervalDates(
+  db: SqlDatabase,
+  intervalId: string,
+  startDate: string,
+  endDate: string | null,
+): Promise<void> {
+  await db.execute(
+    "UPDATE task_intervals SET start_date = ?, end_date = ? WHERE id = ?",
+    [startDate, endDate, intervalId],
+  );
+}

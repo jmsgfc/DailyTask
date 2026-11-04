@@ -1,8 +1,9 @@
 import { format, parseISO } from "date-fns";
 import { useState, type FormEvent, type ReactNode } from "react";
 
+import { validateInterval, type IntervalError } from "../../../domain/intervals";
 import type { MessageKey } from "../../../shared/i18n";
-import type { TaskCategory } from "../../../domain/types";
+import type { Task, TaskCategory } from "../../../domain/types";
 import {
   useManageRows,
   type ManageRow,
@@ -168,38 +169,11 @@ function CreateTaskDialog({
           />
         </label>
 
-        <fieldset className="m-0 border-0 p-0">
-          <legend className="mb-1 p-0 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-            {t("manage.field.category")}
-          </legend>
-          <div className="flex gap-2">
-            {(["voluntary", "forced"] as const).map((value) => (
-              <label
-                key={value}
-                className={`flex-1 cursor-pointer rounded-[var(--radius-control)] border px-2 py-1 text-center text-xs ${
-                  category === value
-                    ? "border-[var(--color-voluntary)] bg-[color-mix(in_srgb,var(--color-voluntary)_10%,transparent)] font-semibold"
-                    : "border-[var(--color-border)]"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="category"
-                  value={value}
-                  data-new-category={value}
-                  checked={category === value}
-                  onChange={() => setCategory(value)}
-                  className="sr-only"
-                />
-                {t(
-                  value === "voluntary"
-                    ? "manage.category.voluntary"
-                    : "manage.category.forced",
-                )}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <CategoryPicker
+          value={category}
+          onChange={setCategory}
+          variant="new"
+        />
 
         <label className="flex flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
           {t("manage.field.start")}
@@ -235,7 +209,227 @@ function CreateTaskDialog({
   );
 }
 
-/** 停用 / 重新启用共用：生效日期只能选今天及以后。 */
+/** 类型二选一，新建与编辑共用。 */
+function CategoryPicker({
+  value,
+  onChange,
+  variant,
+}: {
+  value: TaskCategory;
+  onChange: (value: TaskCategory) => void;
+  variant: "new" | "edit";
+}) {
+  const t = useT();
+
+  return (
+    <fieldset className="m-0 border-0 p-0">
+      <legend className="mb-1 p-0 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+        {t("manage.field.category")}
+      </legend>
+      <div className="flex gap-2">
+        {(["voluntary", "forced"] as const).map((option) => (
+          <label
+            key={option}
+            className={`flex-1 cursor-pointer rounded-[var(--radius-control)] border px-2 py-1 text-center text-xs ${
+              value === option
+                ? "border-[var(--color-voluntary)] bg-[color-mix(in_srgb,var(--color-voluntary)_10%,transparent)] font-semibold"
+                : "border-[var(--color-border)]"
+            }`}
+          >
+            <input
+              type="radio"
+              name={`${variant}-category`}
+              value={option}
+              data-category-option={option}
+              checked={value === option}
+              onChange={() => onChange(option)}
+              className="sr-only"
+            />
+            {t(
+              option === "voluntary"
+                ? "manage.category.voluntary"
+                : "manage.category.forced",
+            )}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+const INTERVAL_ERROR_KEY: Record<IntervalError, MessageKey> = {
+  emptyStart: "manage.error.emptyStart",
+  endBeforeStart: "manage.error.endBeforeStart",
+  overlapsPrevious: "manage.error.overlapsPrevious",
+};
+
+/** 编辑任务：名称/类型 + 最新一段区间；更早区间只读，历史打卡不碰。 */
+function EditTaskDialog({
+  task,
+  onClose,
+}: {
+  task: Task;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const update = useTasksStore((state) => state.update);
+  const updateInterval = useTasksStore((state) => state.updateInterval);
+  const sorted = [...task.intervals].sort((a, b) =>
+    a.start.localeCompare(b.start),
+  );
+  const latest = sorted[sorted.length - 1] ?? null;
+  const previousEnd = sorted.length > 1 ? sorted[sorted.length - 2].end : null;
+
+  const [name, setName] = useState(task.name);
+  const [category, setCategory] = useState(task.category);
+  const [start, setStart] = useState(latest?.start ?? "");
+  const [end, setEnd] = useState(latest?.end ?? "");
+  const [openEnded, setOpenEnded] = useState(latest?.end === null);
+
+  const error = validateInterval(
+    start,
+    openEnded ? null : end || null,
+    previousEnd,
+  );
+  const canSubmit = name.trim().length > 0 && error === null;
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!canSubmit) {
+      return;
+    }
+    void update(task.id, { name: name.trim(), category });
+    if (latest) {
+      void updateInterval(latest.id, {
+        start,
+        end: openEnded ? null : end || null,
+      });
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <button
+        type="button"
+        aria-label={t("manage.cancel")}
+        tabIndex={-1}
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-black/25"
+      />
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("manage.editTitle", { name: task.name })}
+        data-edit-task
+        onSubmit={submit}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+        className="relative z-10 flex w-[380px] flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-popover)]"
+      >
+        <h2 className="m-0 text-sm font-semibold">
+          {t("manage.editTitle", { name: task.name })}
+        </h2>
+
+        <label className="flex flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+          {t("manage.field.name")}
+          <input
+            autoFocus
+            data-edit-name
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          />
+        </label>
+
+        <CategoryPicker value={category} onChange={setCategory} variant="edit" />
+
+        {sorted.length > 1 ? (
+          <div className="text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+            <p className="m-0 mb-1">{t("manage.history")}</p>
+            <ul className="m-0 flex list-none flex-col gap-0.5 p-0 tabular-nums">
+              {sorted.slice(0, -1).map((interval) => (
+                <li key={interval.id} data-history-interval={interval.id}>
+                  {format(parseISO(interval.start), "MM/dd")} –{" "}
+                  {interval.end
+                    ? format(parseISO(interval.end), "MM/dd")
+                    : t("manage.ongoing")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="flex gap-2">
+          <label className="flex flex-1 flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+            {t("manage.field.start")}
+            <input
+              type="date"
+              data-edit-start
+              value={start}
+              onChange={(event) => setStart(event.target.value)}
+              className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
+            />
+          </label>
+          <label className="flex flex-1 flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+            {t("manage.field.end")}
+            <input
+              type="date"
+              data-edit-end
+              value={end}
+              min={start}
+              disabled={openEnded}
+              onChange={(event) => setEnd(event.target.value)}
+              className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)] disabled:opacity-40"
+            />
+          </label>
+        </div>
+
+        <label className="flex items-center gap-1.5 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+          <input
+            type="checkbox"
+            data-edit-open
+            checked={openEnded}
+            onChange={(event) => setOpenEnded(event.target.checked)}
+          />
+          {t("manage.field.openEnded")}
+        </label>
+
+        {error ? (
+          <p
+            data-edit-error
+            className="m-0 text-[var(--text-2xs)] text-[var(--color-missed)]"
+          >
+            {t(INTERVAL_ERROR_KEY[error])}
+          </p>
+        ) : null}
+
+        <div className="mt-1 flex justify-end gap-1.5">
+          <button
+            type="button"
+            data-edit-cancel
+            onClick={onClose}
+            className="rounded-[var(--radius-control)] px-2.5 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+          >
+            {t("manage.cancel")}
+          </button>
+          <button
+            type="submit"
+            data-edit-submit
+            disabled={!canSubmit}
+            className="rounded-[var(--radius-control)] bg-[var(--color-voluntary)] px-2.5 py-1 text-[var(--text-2xs)] font-semibold text-white disabled:opacity-40"
+          >
+            {t("manage.save")}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 function IntervalDialog({
   task,
   mode,
@@ -362,7 +556,9 @@ function ManageTableRow({ row, today }: { row: ManageRow; today: string }) {
   const t = useT();
   const meta = STATUS_META[row.status];
   const retired = row.status === "disabled";
-  const [dialog, setDialog] = useState<"stop" | "resume" | null>(null);
+  const [dialog, setDialog] = useState<"stop" | "resume" | "edit" | null>(
+    null,
+  );
 
   return (
     <tr
@@ -426,22 +622,34 @@ function ManageTableRow({ row, today }: { row: ManageRow; today: string }) {
         </div>
       </td>
       <td className="px-3">
-        <button
-          type="button"
-          data-manage-action={retired ? "resume" : "stop"}
-          onClick={() => setDialog(retired ? "resume" : "stop")}
-          className="rounded-[var(--radius-control)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-active)]"
-        >
-          {t(retired ? "manage.resume" : "manage.stop")}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            data-manage-action={retired ? "resume" : "stop"}
+            onClick={() => setDialog(retired ? "resume" : "stop")}
+            className="rounded-[var(--radius-control)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-active)]"
+          >
+            {t(retired ? "manage.resume" : "manage.stop")}
+          </button>
+          <button
+            type="button"
+            data-manage-action="edit"
+            onClick={() => setDialog("edit")}
+            className="rounded-[var(--radius-control)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-active)]"
+          >
+            {t("manage.edit")}
+          </button>
+        </div>
 
-        {dialog ? (
+        {dialog === "stop" || dialog === "resume" ? (
           <IntervalDialog
             task={row.task}
             mode={dialog}
             today={today}
             onClose={() => setDialog(null)}
           />
+        ) : dialog === "edit" ? (
+          <EditTaskDialog task={row.task} onClose={() => setDialog(null)} />
         ) : null}
       </td>
     </tr>

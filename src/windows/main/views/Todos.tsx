@@ -80,16 +80,17 @@ export default function Todos() {
     if (!menu) {
       return;
     }
-    const close = (event: KeyboardEvent) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenu(null);
       }
     };
-    window.addEventListener("keydown", close);
-    window.addEventListener("scroll", close, true);
+    const onScroll = () => setMenu(null);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
-      window.removeEventListener("keydown", close);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [menu]);
 
