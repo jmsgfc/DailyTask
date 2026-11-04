@@ -190,8 +190,8 @@
 | D72 | 01/11 一 | M6 · JSON 导入 + 冲突策略 | 导出→导入一致 | ☑（实际：`parseImportBundle` 校验 version=1、实体字段与状态枚举，坏文件直接拒绝；按 id upsert（打卡按 `task_id+date`），本地多余行保留、流程幂等；真实 SQLite 往返用例证明导出→导入→再导出的 bundle 完全相等；设置导入后四个 store 依次 reload） |
 | D73 | 01/12 二 | M6 · 备份：每日轮转 + 更新前快照 | 旧备份自动清理 | ☑（实际：启动时（仅主窗）把数据库复制到 `AppData/backup/dailytask-YYYYMMDD.db`，同一天不重复；只保留最近 7 份，`pre-update-*` 不参与清理；复制前 `PRAGMA wal_checkpoint(TRUNCATE)` 合并 WAL；真机启动已生成 `dailytask-20261104.db`，5 个用例） |
 | D74 | 01/13 三 | M6 · 托盘菜单（主窗/挂件/进度/退出） | 四项可用 | ☑（实际：托盘菜单 = 今日进度（禁用项，动态文案）+ 分隔线 + 显示主窗口 + 显示挂件 + 退出；主窗 `useTrayProgress` 在打卡/任务变化时 `invoke("set_tray_progress")`，`MenuItem::set_text` 更新；Rust 编译通过，JS 侧 2 个用例覆盖 0/3→2/3） |
-| D75 | 01/14 四 | M6 · 应用图标 + NSIS 打包 | 产出安装包 | ☐ |
-| D76 | 01/15 五 | M6 · 更新器：生成签名密钥 + updater 配置 + capabilities | `check()` 正常返回 | ☐ |
+| D75 | 01/14 四 | M6 · 应用图标 + NSIS 打包 | 产出安装包 | ☑（实际：`design/app-icon.png`（绿底白勾）经 `tauri icon` 生成全套图标；NSIS 用 currentUser + 简中/英文；构建产出 `DailyTask_0.1.0_x64-setup.exe`（3.22 MiB）与 `.sig`。首次打包卡在 NSIS 下载超时，预热缓存后通过） |
+| D76 | 01/15 五 | M6 · 更新器：生成签名密钥 + updater 配置 + capabilities | `check()` 正常返回 | ☑（实际：`tauri signer generate` 生成 `%USERPROFILE%\.tauri\dailytask.key`，40 位随机密码写入用户环境变量与同目录密码文件（都不进仓库）；公钥进 `plugins.updater.pubkey`，端点 `/releases/latest/download/latest.json`；`createUpdaterArtifacts: true`，capability 加 `updater:default` / `process:default`；本次构建已产出签名文件） |
 | D77 | 01/16 六 | M6 · 更新提示 UI（静默检查 + 红点 + 安装并重启） | 手动检查可用 | ☐ |
 
 ### 第 12 周 · 01/17–01/23 ｜ M6 发布
