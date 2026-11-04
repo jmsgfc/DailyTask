@@ -199,7 +199,7 @@
 | # | 日期 | 任务（40 分钟） | 完成标志 | 状态 |
 |---|---|---|---|---|
 | D78 | 01/17 日 | 复盘⑫ · 升级实测准备：备份路径、回退步骤 | 复盘记录已写 | ☑（实际：新增 `docs/upgrade.md`——产物与签名位置、私钥与密码保管、发版命令、应用内升级流程、`backup/` 两类快照、手动回退 5 步（退出→还原 DB→卸载→装旧版→核对），并注明更新器不支持降级） |
-| D79 | 01/18 一 | M6 · 发布脚本 `release.mjs`（bump → 签名 → release → latest.json） | 一条命令发版 | ☑（实际：`scripts/release.mjs` 按 bump 三处版本 → 签名构建 → 生成 latest.json → 有变更才提交推送 → `gh release create` 上传安装包/签名 → `gh release upload latest.json` 的顺序执行；支持 `--dry-run` 与 `--notes`；已用它实发 v0.1.0，Release 含安装包、`.sig`、`latest.json` 三个资产） |
+| D79 | 01/18 一 | M6 · 发布脚本 `release.mjs`（bump → 签名 → release → latest.json） | 一条命令发版 | ☑（实际：`scripts/release.mjs` 按 bump 三处版本 → 签名构建 → 生成 latest.json → 有变更才提交推送 → `gh release create` 上传安装包/签名 → `gh release upload latest.json` 的顺序执行；支持 `--dry-run`；发布说明固定中英双语，`--notes` 与 `--notes-en` 缺一即退出；已用它实发 v0.1.0 / v0.1.1，Release 含安装包、`.sig`、`latest.json` 三个资产） |
 | D80 | 01/19 二 | M6 · 安装更新前 DB 快照 + 回退文档 | 快照成功落下 | ☑（实际：安装 0.1.1 前自动写入 `backup/pre-update-0.1.1.db`（81920 B），快照失败会中止安装；回退步骤（退出→还原 DB→卸载→装旧版→核对）已写进 `docs/upgrade.md`） |
 | D81 | 01/20 三 | M6 · 安装版验证：自启 / 置顶 / 透明窗口 | 三项通过 | ☑（实际：NSIS `/S` 安装到 `%LOCALAPPDATA%\DailyTask`；自启开关写入 `HKCU\...\Run\DailyTask` 指向安装后 exe（Windows 会弹启动项提示）；置顶后重启挂件 `WS_EX_TOPMOST=true`；全屏截图确认 220×280 圆角透明卡片浮在 VS Code 上。v0.1.0 暴露「设置改动不跨窗口实时生效」，已补 `settings:changed` 事件，随 v0.1.1 修复） |
 | D82 | 01/21 四 | M6 · 跨版本升级实测：v0.1.0 → v0.1.1 | 检测、升级、数据完整 | ☑（实际：安装版 v0.1.0 在设置页检查到 v0.1.1 → 安装并重启；重启后 exe 文件版本与页脚均为 0.1.1，tasks/checkins/todos 仍为 6/35/5、gridZoom=24，`pre-update-0.1.1.db` 已生成） |

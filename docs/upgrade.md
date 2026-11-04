@@ -19,17 +19,21 @@
 ## 2. 发版
 
 ```bash
-node scripts/release.mjs 0.1.1
+node scripts/release.mjs 0.1.2 \
+  --notes "中文说明：本次改了什么" \
+  --notes-en "English notes: what changed"
 ```
 
-脚本按顺序执行：改版本（package.json / tauri.conf.json / Cargo.toml）→ 签名构建 →
-生成 `latest.json` → 提交并推送版本号 → 创建 GitHub Release 上传安装包与签名 →
-把 `latest.json` 传到同一个 Release。
+发布说明必须中英双语，缺任意一侧脚本会直接退出。脚本按顺序执行：改版本
+（package.json / tauri.conf.json / Cargo.toml）→ 签名构建 → 生成 `latest.json` →
+提交并推送版本号 → 创建 GitHub Release 上传安装包与签名 → 把 `latest.json` 传到同一个 Release。
 
 先看要发什么，不执行：
 
 ```bash
-node scripts/release.mjs 0.1.1 --dry-run
+node scripts/release.mjs 0.1.2 --dry-run \
+  --notes "中文说明" \
+  --notes-en "English notes"
 ```
 
 ## 3. 应用内升级

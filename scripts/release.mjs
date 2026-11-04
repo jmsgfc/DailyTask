@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * 一条命令发版：bump → 签名构建 → GitHub Release → latest.json。
- * 用法：node scripts/release.mjs 0.1.1 [--dry-run] [--notes "更新说明"]
+ * 用法：node scripts/release.mjs 0.1.2 [--dry-run] \
+ *         --notes "中文说明" --notes-en "English notes"
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -13,13 +14,19 @@ const args = process.argv.slice(2);
 const version = args.find((arg) => !arg.startsWith("-"));
 const dryRun = args.includes("--dry-run");
 const notesIndex = args.indexOf("--notes");
-const notes =
-  notesIndex >= 0 && args[notesIndex + 1]
-    ? args[notesIndex + 1]
-    : `DailyTask v${version ?? ""}`;
+const notesEnIndex = args.indexOf("--notes-en");
+const notesZh = notesIndex >= 0 ? (args[notesIndex + 1] ?? "") : "";
+const notesEn = notesEnIndex >= 0 ? (args[notesEnIndex + 1] ?? "") : "";
+const notes = `### 中文\n${notesZh}\n\n### English\n${notesEn}`;
+const usage =
+  'node scripts/release.mjs <x.y.z> [--dry-run] --notes "中文说明" --notes-en "English notes"';
 
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
-  console.error("用法: node scripts/release.mjs <x.y.z> [--dry-run] [--notes \"...\"]");
+  console.error(`用法: ${usage}`);
+  process.exit(1);
+}
+if (!notesZh || !notesEn) {
+  console.error(`发布说明必须中英双语：${usage}`);
   process.exit(1);
 }
 
