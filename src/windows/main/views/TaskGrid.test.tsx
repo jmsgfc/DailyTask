@@ -48,7 +48,11 @@ function doneToday(): Checkin {
 
 describe("TaskGrid", () => {
   const setStatus = vi.fn(async () => undefined);
-  const updateSettings = vi.fn(async () => undefined);
+  const updateSettings = vi.fn(
+    async (patch: Partial<typeof DEFAULT_SETTINGS>) => {
+      void patch;
+    },
+  );
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -151,6 +155,32 @@ describe("TaskGrid", () => {
     fireEvent.scroll(scroller);
 
     expect(container).toHaveTextContent("2026 年 12 月");
+  });
+
+  it("switches between detail and overview modes", () => {
+    const { container } = render(<TaskGrid />);
+    expect(container.querySelector('[data-mode="detail"]')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "概览" }));
+    expect(updateSettings).toHaveBeenCalledWith({ gridZoom: 16 });
+  });
+
+  it("returns to detail on an overview block click", () => {
+    useSettingsStore.setState({
+      settings: { ...DEFAULT_SETTINGS, gridZoom: 16 },
+      update: updateSettings,
+    });
+    const { container } = render(<TaskGrid />);
+
+    expect(container.querySelector('[data-mode="overview"]')).toBeInTheDocument();
+    fireEvent.click(
+      container.querySelector(
+        `[data-task="t1"][data-date="${TODAY}"]`,
+      ) as Element,
+    );
+
+    const patch = updateSettings.mock.calls.at(-1)?.[0];
+    expect(patch?.gridZoom).toBe(32);
   });
 
   it("zooms with Ctrl + wheel and persists gridZoom", () => {

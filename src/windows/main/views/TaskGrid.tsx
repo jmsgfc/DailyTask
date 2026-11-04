@@ -60,6 +60,9 @@ export default function TaskGrid() {
   const setStatus = useCheckinsStore((state) => state.setStatus);
 
   const cellSize = Math.min(44, Math.max(14, data.settings.gridZoom));
+  const overview = cellSize < 24;
+  const rowHeight = overview ? 18 : TASK_ROW_HEIGHT;
+  const groupHeight = overview ? 18 : GROUP_ROW_HEIGHT;
   const dates = data.axis.dates;
   const totalWidth = TASK_COL_WIDTH + dates.length * cellSize;
 
@@ -199,6 +202,29 @@ export default function TaskGrid() {
     void setStatus(row.task.id, date, nextCellState(state));
   };
 
+  /** 概览点击：回到详细缩放，并把该日期放到可视区中间。 */
+  const zoomToDate = (date: string) => {
+    const index = dates.indexOf(date);
+    if (index < 0) {
+      return;
+    }
+    const element = scrollerRef.current;
+    const width = element?.clientWidth || effectiveWidth;
+    const dateViewport = Math.max(0, width - TASK_COL_WIDTH);
+    const nextSize = 32;
+    const target = Math.max(0, index * nextSize - dateViewport / 2);
+
+    if (element) {
+      element.scrollLeft = target;
+    }
+    setScrollLeft(target);
+    void useSettingsStore.getState().update({ gridZoom: nextSize });
+  };
+
+  const setZoom = (next: number) => {
+    void useSettingsStore.getState().update({ gridZoom: next });
+  };
+
   const rangeLabel = t("grid.range", {
     start: format(parseISO(data.axis.start), "MM/dd"),
     end: format(parseISO(data.axis.end), "MM/dd"),
@@ -214,13 +240,47 @@ export default function TaskGrid() {
         <span className="text-sm text-[var(--color-text-muted)]">
           {rangeLabel}
         </span>
-        <button
-          type="button"
-          onClick={jumpToToday}
-          className="ml-auto rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
-        >
-          {t("grid.today")}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <div
+            role="group"
+            aria-label={t("grid.mode.aria")}
+            className="flex gap-0.5 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-bg)] p-0.5"
+          >
+            <button
+              type="button"
+              aria-pressed={!overview}
+              onClick={() => setZoom(32)}
+              className={clsx(
+                "rounded-[var(--radius-pill)] px-2.5 py-0.5 text-[var(--text-2xs)]",
+                !overview
+                  ? "bg-[var(--color-surface)] text-[var(--color-text)] shadow-[0_1px_2px_rgba(0,0,0,.06)]"
+                  : "text-[var(--color-text-muted)]",
+              )}
+            >
+              {t("grid.mode.detail")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={overview}
+              onClick={() => setZoom(16)}
+              className={clsx(
+                "rounded-[var(--radius-pill)] px-2.5 py-0.5 text-[var(--text-2xs)]",
+                overview
+                  ? "bg-[var(--color-surface)] text-[var(--color-text)] shadow-[0_1px_2px_rgba(0,0,0,.06)]"
+                  : "text-[var(--color-text-muted)]",
+              )}
+            >
+              {t("grid.mode.overview")}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={jumpToToday}
+            className="rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+          >
+            {t("grid.today")}
+          </button>
+        </div>
       </header>
 
       {allRows.length === 0 ? (
@@ -232,9 +292,10 @@ export default function TaskGrid() {
       ) : (
         <section
           data-grid-zoom={cellSize}
+          data-mode={overview ? "overview" : "detail"}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
         >
-          <div className="pointer-events-none absolute left-[160px] top-0 z-30 flex h-[22px] items-center border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[10px] text-[var(--color-text-muted)]">
+          <div className="pointer-events-none absolute left-[160px] top-0 z-30 flex h-[22px] items-center border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[10px] text-[var(--color-text-muted)]">
             {monthLabel}
           </div>
 
@@ -290,6 +351,7 @@ export default function TaskGrid() {
                     date={date}
                     width={cellSize}
                     isToday={date === data.today}
+                    overview={overview}
                     language={data.settings.language}
                   />
                 ))}
@@ -313,9 +375,13 @@ export default function TaskGrid() {
                   rightPad={viewportWindow.rightPad}
                   totalWidth={totalWidth}
                   cellSize={cellSize}
+                  rowHeight={rowHeight}
+                  groupHeight={groupHeight}
+                  overview={overview}
                   today={data.today}
                   states={data.states}
                   onCycle={cycle}
+                  onZoomDate={zoomToDate}
                 />
               ))}
             </div>
@@ -337,11 +403,13 @@ function DateHeader({
   date,
   width,
   isToday,
+  overview,
   language,
 }: {
   date: string;
   width: number;
   isToday: boolean;
+  overview: boolean;
   language: Language;
 }) {
   const parsed = parseISO(date);
@@ -350,7 +418,8 @@ function DateHeader({
       data-date-header={date}
       data-today={isToday ? "" : undefined}
       className={clsx(
-        "flex shrink-0 flex-col items-center justify-center gap-px border-b border-l text-[var(--text-2xs)] tabular-nums",
+        "flex shrink-0 flex-col items-center justify-center gap-px border-b border-l tabular-nums",
+        overview ? "text-[9px]" : "text-[var(--text-2xs)]",
         isToday
           ? "font-bold text-[var(--color-voluntary)]"
           : "text-[var(--color-text)]",
@@ -366,9 +435,11 @@ function DateHeader({
       }}
     >
       <b className="font-medium leading-none">{format(parsed, "d")}</b>
-      <small className="text-[9px] font-normal leading-none text-[var(--color-text-muted)]">
-        {format(parsed, "EEEEE", { locale: dateLocale(language) })}
-      </small>
+      {overview ? null : (
+        <small className="text-[9px] font-normal leading-none text-[var(--color-text-muted)]">
+          {format(parsed, "EEEEEE", { locale: dateLocale(language) })}
+        </small>
+      )}
     </div>
   );
 }
@@ -383,9 +454,13 @@ function GridGroup({
   rightPad,
   totalWidth,
   cellSize,
+  rowHeight,
+  groupHeight,
+  overview,
   today,
   states,
   onCycle,
+  onZoomDate,
 }: {
   groupKey: GroupKey;
   rows: GridRow[];
@@ -396,9 +471,13 @@ function GridGroup({
   rightPad: number;
   totalWidth: number;
   cellSize: number;
+  rowHeight: number;
+  groupHeight: number;
+  overview: boolean;
   today: string;
   states: Map<string, CellState>;
   onCycle: (row: GridRow, date: string) => void;
+  onZoomDate: (date: string) => void;
 }) {
   const t = useT();
   const meta = GROUP_META[groupKey];
@@ -406,10 +485,7 @@ function GridGroup({
 
   return (
     <>
-      <div
-        className="flex"
-        style={{ width: totalWidth, height: GROUP_ROW_HEIGHT }}
-      >
+      <div className="flex" style={{ width: totalWidth, height: groupHeight }}>
         <button
           type="button"
           data-group-header={groupKey}
@@ -418,7 +494,8 @@ function GridGroup({
             group: label,
           })}
           onClick={onToggle}
-          className="sticky left-0 z-10 flex h-[26px] w-[160px] shrink-0 items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[var(--text-2xs)] font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+          style={{ height: groupHeight }}
+          className="sticky left-0 z-10 flex w-[160px] shrink-0 items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[var(--text-2xs)] font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
         >
           <span className="w-2 text-[9px]">{open ? "▾" : "▸"}</span>
           <i
@@ -431,8 +508,8 @@ function GridGroup({
           </span>
         </button>
         <div
-          className="h-[26px] flex-1 border-b border-[var(--color-border)] bg-[var(--color-surface)]"
-          style={{ minWidth: 0 }}
+          className="flex-1 border-b border-[var(--color-border)] bg-[var(--color-surface)]"
+          style={{ minWidth: 0, height: groupHeight }}
         />
       </div>
 
@@ -443,11 +520,13 @@ function GridGroup({
               data-grid-row={row.task.id}
               data-disabled={row.disabled ? "" : undefined}
               className="flex"
-              style={{ width: totalWidth, height: TASK_ROW_HEIGHT }}
+              style={{ width: totalWidth, height: rowHeight }}
             >
               <div
+                style={{ height: rowHeight }}
                 className={clsx(
-                  "sticky left-0 z-10 flex w-[160px] shrink-0 items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs",
+                  "sticky left-0 z-10 flex w-[160px] shrink-0 items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2",
+                  overview ? "text-[var(--text-2xs)]" : "text-xs",
                   row.disabled && "text-[var(--color-text-muted)]",
                 )}
               >
@@ -466,7 +545,8 @@ function GridGroup({
 
               <div style={{ width: leftPad }} />
               {dates.map((date) => {
-                const state = states.get(`${row.task.id}|${date}`) ?? "none";
+                const state =
+                  states.get(checkinKey(row.task.id, date)) ?? "none";
                 return (
                   <GridCell
                     key={date}
@@ -475,9 +555,17 @@ function GridGroup({
                     date={date}
                     state={state}
                     width={cellSize}
+                    height={rowHeight}
                     isToday={date === today}
-                    disabled={row.disabled || state === "none"}
-                    onCycle={() => onCycle(row, date)}
+                    overview={overview}
+                    disabled={
+                      row.disabled || (!overview && state === "none")
+                    }
+                    onActivate={
+                      overview
+                        ? () => onZoomDate(date)
+                        : () => onCycle(row, date)
+                    }
                   />
                 );
               })}
@@ -489,27 +577,58 @@ function GridGroup({
   );
 }
 
+const TODAY_TINT =
+  "color-mix(in srgb, var(--color-voluntary) 8%, transparent)";
+
+function overviewBackground(state: CellState): string | undefined {
+  switch (state) {
+    case "done":
+      return "var(--color-voluntary)";
+    case "missed":
+      return "color-mix(in srgb, var(--color-missed) 55%, var(--color-surface))";
+    case "skipped":
+      return "color-mix(in srgb, var(--color-forced) 35%, var(--color-surface))";
+    case "recorded":
+      return "color-mix(in srgb, var(--color-text-muted) 35%, var(--color-surface))";
+    case "none":
+      return "var(--color-na)";
+    case "pending":
+      return undefined;
+  }
+}
+
 function GridCell({
   taskId,
   taskName,
   date,
   state,
   width,
+  height,
   isToday,
+  overview,
   disabled,
-  onCycle,
+  onActivate,
 }: {
   taskId: string;
   taskName: string;
   date: string;
   state: CellState;
   width: number;
+  height: number;
   isToday: boolean;
+  overview: boolean;
   disabled: boolean;
-  onCycle: () => void;
+  onActivate: () => void;
 }) {
   const t = useT();
   const symbol = state === "none" ? "▫" : CELL_SYMBOLS[state];
+
+  const detailBackground = isToday ? TODAY_TINT : undefined;
+  const background = overview
+    ? (overviewBackground(state) ??
+      (isToday ? TODAY_TINT : undefined))
+    : (detailBackground ??
+      (state === "none" ? "var(--color-na)" : undefined));
 
   return (
     <button
@@ -524,25 +643,29 @@ function GridCell({
         task: taskName,
         status: t(CELL_LABEL_KEYS[state]),
       })}
-      onClick={onCycle}
+      onClick={onActivate}
       className={clsx(
-        "flex h-[34px] shrink-0 items-center justify-center border-b border-l text-xs tabular-nums",
-        state === "done" && "font-semibold text-[var(--color-voluntary)]",
-        state === "missed" && "text-[var(--color-missed)]",
-        (state === "skipped" || state === "recorded") &&
+        "flex shrink-0 items-center justify-center border-b border-l tabular-nums",
+        overview ? "text-[0px]" : "text-xs",
+        !overview && state === "done" &&
+          "font-semibold text-[var(--color-voluntary)]",
+        !overview && state === "missed" && "text-[var(--color-missed)]",
+        !overview &&
+          (state === "skipped" || state === "recorded") &&
           "text-[var(--color-text-muted)]",
-        state === "pending" && "text-[var(--color-text)]",
-        disabled ? "cursor-not-allowed" : "cursor-pointer hover:bg-[var(--state-hover)]",
+        !overview && state === "pending" && "text-[var(--color-text)]",
+        disabled
+          ? "cursor-not-allowed"
+          : overview
+            ? "cursor-zoom-in hover:brightness-105"
+            : "cursor-pointer hover:bg-[var(--state-hover)]",
       )}
       style={{
         width,
-        background: isToday
-          ? "color-mix(in srgb, var(--color-voluntary) 8%, transparent)"
-          : state === "none"
-            ? "var(--color-na)"
-            : undefined,
+        height,
+        background,
         color:
-          state === "none"
+          !overview && state === "none"
             ? "color-mix(in srgb, var(--color-text) 28%, transparent)"
             : undefined,
         boxShadow: isToday
@@ -554,7 +677,7 @@ function GridCell({
           "color-mix(in srgb, var(--color-border) 50%, transparent)",
       }}
     >
-      <span aria-hidden="true">{symbol}</span>
+      <span aria-hidden="true">{overview ? "" : symbol}</span>
     </button>
   );
 }
