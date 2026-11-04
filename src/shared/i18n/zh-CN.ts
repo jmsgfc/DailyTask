@@ -136,6 +136,10 @@ export const zhCN = {
   "settings.exportHint": "任务、区间、打卡、待办与设置",
   "settings.exportDone": "已导出到 {path}",
   "settings.exportFailed": "导出失败，请重试",
+  "settings.import": "导入 JSON",
+  "settings.importHint": "按 id 合并，本地多出的数据保留",
+  "settings.importDone": "已导入 {tasks} 个任务 / {checkins} 条打卡 / {todos} 条待办",
+  "settings.importFailed": "导入失败：文件格式不正确或数据不完整",
 
   "checkin.done": "已完成",
   "checkin.missed": "未完成",

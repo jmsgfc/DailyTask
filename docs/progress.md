@@ -186,8 +186,8 @@
 
 | # | 日期 | 任务（40 分钟） | 完成标志 | 状态 |
 |---|---|---|---|---|
-| D71 | 01/10 日 | 复盘⑪ · 发布流水线预演：签名密钥、gh 权限、latest.json | 复盘记录已写 | ☐ |
-| D72 | 01/11 一 | M6 · JSON 导入 + 冲突策略 | 导出→导入一致 | ☐ |
+| D71 | 01/10 日 | 复盘⑪ · 发布流水线预演：签名密钥、gh 权限、latest.json | 复盘记录已写 | ☑（实际：`gh` 已登录 yearzen1（scope: repo/gist/read:org），`yearzen1/DailyTask` 为 public、默认分支 main；更新端点定为 `https://github.com/yearzen1/DailyTask/releases/latest/download/latest.json`；`TAURI_SIGNING_PRIVATE_KEY` 当前缺失，D76 生成前需确认私钥落盘位置与密码；NSIS target 与图标已就绪，发布顺序按 D64 的统计→设置→打包→更新器→脚本→实测） |
+| D72 | 01/11 一 | M6 · JSON 导入 + 冲突策略 | 导出→导入一致 | ☑（实际：`parseImportBundle` 校验 version=1、实体字段与状态枚举，坏文件直接拒绝；按 id upsert（打卡按 `task_id+date`），本地多余行保留、流程幂等；真实 SQLite 往返用例证明导出→导入→再导出的 bundle 完全相等；设置导入后四个 store 依次 reload） |
 | D73 | 01/12 二 | M6 · 备份：每日轮转 + 更新前快照 | 旧备份自动清理 | ☐ |
 | D74 | 01/13 三 | M6 · 托盘菜单（主窗/挂件/进度/退出） | 四项可用 | ☐ |
 | D75 | 01/14 四 | M6 · 应用图标 + NSIS 打包 | 产出安装包 | ☐ |

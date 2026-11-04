@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../domain/types";
+import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
+import { useTasksStore } from "../../../stores/tasksStore";
+import { useTodosStore } from "../../../stores/todosStore";
 import { useTransferStore } from "../../../stores/transferStore";
 import Settings from "./Settings";
 
@@ -21,10 +24,17 @@ describe("Settings", () => {
     void patch;
   });
   const exportToFile = vi.fn(async () => "C:/Users/me/dailytask.json" as string | null);
+  const importFromFile = vi.fn(async () => ({
+    path: "C:/Users/me/backup.json",
+    counts: { tasks: 2, intervals: 3, checkins: 4, todos: 5 },
+  }));
+  const reload = vi.fn(async () => undefined);
 
   beforeEach(() => {
     update.mockClear();
     exportToFile.mockClear();
+    importFromFile.mockClear();
+    reload.mockClear();
     autostart.isEnabled.mockReset().mockResolvedValue(false);
     autostart.enable.mockClear();
     autostart.disable.mockClear();
@@ -33,8 +43,17 @@ describe("Settings", () => {
       settings: DEFAULT_SETTINGS,
       loaded: true,
       update,
+      reload,
     });
-    useTransferStore.setState({ exporting: false, exportToFile });
+    useTasksStore.setState({ reload });
+    useCheckinsStore.setState({ reload });
+    useTodosStore.setState({ reload });
+    useTransferStore.setState({
+      exporting: false,
+      importing: false,
+      exportToFile,
+      importFromFile,
+    });
   });
 
   afterEach(() => {
@@ -157,6 +176,36 @@ describe("Settings", () => {
       expect(
         container.querySelector("[data-transfer-note]"),
       ).toHaveTextContent("导出失败，请重试"),
+    );
+    consoleError.mockRestore();
+  });
+
+  it("imports a backup and reloads every store", async () => {
+    const { container } = render(<Settings />);
+
+    fireEvent.click(container.querySelector("[data-import-json]") as Element);
+
+    await waitFor(() =>
+      expect(
+        container.querySelector("[data-transfer-note]"),
+      ).toHaveTextContent("已导入 2 个任务 / 4 条打卡 / 5 条待办"),
+    );
+    expect(reload).toHaveBeenCalledTimes(4);
+  });
+
+  it("reports a failed import", async () => {
+    importFromFile.mockRejectedValueOnce(new Error("invalid-json"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const { container } = render(<Settings />);
+
+    fireEvent.click(container.querySelector("[data-import-json]") as Element);
+
+    await waitFor(() =>
+      expect(
+        container.querySelector("[data-transfer-note]"),
+      ).toHaveTextContent("导入失败"),
     );
     consoleError.mockRestore();
   });

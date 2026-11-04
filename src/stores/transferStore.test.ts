@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const dialog = vi.hoisted(() => ({ save: vi.fn() }));
-const files = vi.hoisted(() => ({ writeTextFile: vi.fn() }));
-const transfer = vi.hoisted(() => ({ exportData: vi.fn() }));
+const dialog = vi.hoisted(() => ({ save: vi.fn(), open: vi.fn() }));
+const files = vi.hoisted(() => ({
+  writeTextFile: vi.fn(),
+  readTextFile: vi.fn(),
+}));
+const transfer = vi.hoisted(() => ({
+  exportData: vi.fn(),
+  parseImportBundle: vi.fn(),
+  importData: vi.fn(),
+}));
 
 vi.mock("@tauri-apps/plugin-dialog", () => dialog);
 vi.mock("@tauri-apps/plugin-fs", () => files);
@@ -18,9 +25,13 @@ import { useTransferStore } from "./transferStore";
 describe("transferStore", () => {
   beforeEach(() => {
     dialog.save.mockReset();
+    dialog.open.mockReset();
     files.writeTextFile.mockReset();
+    files.readTextFile.mockReset();
     transfer.exportData.mockReset();
-    useTransferStore.setState({ exporting: false });
+    transfer.parseImportBundle.mockReset();
+    transfer.importData.mockReset();
+    useTransferStore.setState({ exporting: false, importing: false });
   });
 
   it("does nothing when the save dialog is cancelled", async () => {
@@ -55,5 +66,52 @@ describe("transferStore", () => {
       "disk full",
     );
     expect(useTransferStore.getState().exporting).toBe(false);
+  });
+
+  it("does nothing when the open dialog is cancelled", async () => {
+    dialog.open.mockResolvedValue(null);
+
+    await expect(
+      useTransferStore.getState().importFromFile(),
+    ).resolves.toBeNull();
+
+    expect(files.readTextFile).not.toHaveBeenCalled();
+    expect(transfer.importData).not.toHaveBeenCalled();
+  });
+
+  it("reads, parses and imports the selected file", async () => {
+    dialog.open.mockResolvedValue("C:/Users/me/backup.json");
+    files.readTextFile.mockResolvedValue('{"version":1}');
+    const bundle = { version: 1 };
+    transfer.parseImportBundle.mockReturnValue(bundle);
+    transfer.importData.mockResolvedValue({
+      tasks: 2,
+      intervals: 3,
+      checkins: 4,
+      todos: 5,
+    });
+
+    const result = await useTransferStore.getState().importFromFile();
+
+    expect(result).toEqual({
+      path: "C:/Users/me/backup.json",
+      counts: { tasks: 2, intervals: 3, checkins: 4, todos: 5 },
+    });
+    expect(transfer.parseImportBundle).toHaveBeenCalledWith('{"version":1}');
+    expect(transfer.importData).toHaveBeenCalledWith({}, bundle);
+    expect(useTransferStore.getState().importing).toBe(false);
+  });
+
+  it("resets the importing flag when the file is invalid", async () => {
+    dialog.open.mockResolvedValue("C:/Users/me/broken.json");
+    files.readTextFile.mockResolvedValue("not json");
+    transfer.parseImportBundle.mockImplementation(() => {
+      throw new Error("invalid-json");
+    });
+
+    await expect(
+      useTransferStore.getState().importFromFile(),
+    ).rejects.toThrow("invalid-json");
+    expect(useTransferStore.getState().importing).toBe(false);
   });
 });

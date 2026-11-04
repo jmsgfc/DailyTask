@@ -2,7 +2,10 @@ import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useEffect, useState, type ReactNode } from "react";
 
 import type { Theme } from "../../../domain/types";
+import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
+import { useTasksStore } from "../../../stores/tasksStore";
+import { useTodosStore } from "../../../stores/todosStore";
 import { useTransferStore } from "../../../stores/transferStore";
 import { applyTheme } from "../../../ui/theme";
 import { useT } from "../../../ui/useT";
@@ -22,6 +25,12 @@ export default function Settings() {
   const [autoLaunchReady, setAutoLaunchReady] = useState(true);
   const exportToFile = useTransferStore((state) => state.exportToFile);
   const exporting = useTransferStore((state) => state.exporting);
+  const importFromFile = useTransferStore((state) => state.importFromFile);
+  const importing = useTransferStore((state) => state.importing);
+  const reloadSettings = useSettingsStore((state) => state.reload);
+  const reloadTasks = useTasksStore((state) => state.reload);
+  const reloadCheckins = useCheckinsStore((state) => state.reload);
+  const reloadTodos = useTodosStore((state) => state.reload);
   const [transferNote, setTransferNote] = useState<string | null>(null);
 
   // 自启状态以系统为准：设置表只是缓存。
@@ -79,6 +88,33 @@ export default function Settings() {
       .catch((error: unknown) => {
         console.error("[settings] 导出失败", error);
         setTransferNote(t("settings.exportFailed"));
+      });
+  };
+
+  const onImport = () => {
+    setTransferNote(null);
+    void importFromFile()
+      .then(async (result) => {
+        if (!result) {
+          return;
+        }
+        await Promise.all([
+          reloadSettings(),
+          reloadTasks(),
+          reloadCheckins(),
+          reloadTodos(),
+        ]);
+        setTransferNote(
+          t("settings.importDone", {
+            tasks: result.counts.tasks,
+            checkins: result.counts.checkins,
+            todos: result.counts.todos,
+          }),
+        );
+      })
+      .catch((error: unknown) => {
+        console.error("[settings] 导入失败", error);
+        setTransferNote(t("settings.importFailed"));
       });
   };
 
@@ -235,6 +271,21 @@ export default function Settings() {
               className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs text-[var(--color-text)] hover:bg-[var(--state-hover)] disabled:opacity-40"
             >
               {t("settings.export")}
+            </button>
+          </SettingRow>
+
+          <SettingRow
+            label={t("settings.import")}
+            hint={t("settings.importHint")}
+          >
+            <button
+              type="button"
+              data-import-json
+              disabled={importing}
+              onClick={onImport}
+              className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs text-[var(--color-text)] hover:bg-[var(--state-hover)] disabled:opacity-40"
+            >
+              {t("settings.import")}
             </button>
           </SettingRow>
 

@@ -7,7 +7,7 @@ import type {
 } from "../domain/types";
 import type { SqlDatabase } from "./client";
 import { listCheckins } from "./checkins";
-import { getSettings } from "./settings";
+import { getSettings, sanitizeSettings, setSettings } from "./settings";
 import { listTasks } from "./tasks";
 import { listTodos } from "./todos";
 
@@ -74,4 +74,192 @@ export async function exportData(
   ]);
 
   return buildExportBundle(tasks, checkins, todos, settings, now);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+const CHECKIN_STATUSES = ["done", "missed", "skipped", "recorded"] as const;
+
+function isExportTask(value: unknown): value is ExportTask {
+  return (
+    isRecord(value) &&
+    isString(value.id) &&
+    isString(value.name) &&
+    (value.category === "voluntary" || value.category === "forced") &&
+    typeof value.order === "number" &&
+    isString(value.createdAt) &&
+    isString(value.updatedAt)
+  );
+}
+
+function isInterval(value: unknown): value is Interval {
+  return (
+    isRecord(value) &&
+    isString(value.id) &&
+    isString(value.taskId) &&
+    isString(value.start) &&
+    isNullableString(value.end)
+  );
+}
+
+function isCheckin(value: unknown): value is Checkin {
+  return (
+    isRecord(value) &&
+    isString(value.id) &&
+    isString(value.taskId) &&
+    isString(value.date) &&
+    CHECKIN_STATUSES.includes(value.status as (typeof CHECKIN_STATUSES)[number]) &&
+    isNullableString(value.value) &&
+    isNullableString(value.note) &&
+    isString(value.updatedAt)
+  );
+}
+
+function isTodo(value: unknown): value is Todo {
+  return (
+    isRecord(value) &&
+    isString(value.id) &&
+    isString(value.title) &&
+    isNullableString(value.dueDate) &&
+    typeof value.done === "boolean" &&
+    isNullableString(value.completedAt) &&
+    isString(value.createdAt) &&
+    isString(value.updatedAt)
+  );
+}
+
+function arrayOf<T>(
+  value: unknown,
+  guard: (item: unknown) => item is T,
+): T[] {
+  if (!Array.isArray(value) || !value.every(guard)) {
+    throw new Error("invalid-structure");
+  }
+  return value;
+}
+
+/** 导入前的结构校验：版本不对或字段缺失一律拒绝，避免半截数据进库。 */
+export function parseImportBundle(text: string): ExportBundle {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error("invalid-json");
+  }
+  if (!isRecord(raw)) {
+    throw new Error("invalid-structure");
+  }
+  if (raw.version !== 1) {
+    throw new Error("unsupported-version");
+  }
+
+  return {
+    version: 1,
+    exportedAt: isString(raw.exportedAt) ? raw.exportedAt : new Date().toISOString(),
+    tasks: arrayOf(raw.tasks, isExportTask),
+    intervals: arrayOf(raw.intervals, isInterval),
+    checkins: arrayOf(raw.checkins, isCheckin),
+    todos: arrayOf(raw.todos, isTodo),
+    settings: sanitizeSettings(isRecord(raw.settings) ? raw.settings : {}),
+  };
+}
+
+export interface ImportCounts {
+  tasks: number;
+  intervals: number;
+  checkins: number;
+  todos: number;
+}
+
+/**
+ * 导入冲突策略：按主键 upsert，本地多出来的行一律保留；
+ * 打卡以 (task_id, date) 为语义键，保留本地 id。
+ * 全流程幂等，失败后重试同一文件不会产生重复数据。
+ */
+export async function importData(
+  db: SqlDatabase,
+  bundle: ExportBundle,
+): Promise<ImportCounts> {
+  for (const task of bundle.tasks) {
+    await db.execute(
+      "INSERT INTO tasks (id, name, category, sort_order, created_at, updated_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET " +
+        "name = excluded.name, category = excluded.category, " +
+        "sort_order = excluded.sort_order, updated_at = excluded.updated_at",
+      [
+        task.id,
+        task.name,
+        task.category,
+        task.order,
+        task.createdAt,
+        task.updatedAt,
+      ],
+    );
+  }
+
+  for (const interval of bundle.intervals) {
+    await db.execute(
+      "INSERT INTO task_intervals (id, task_id, start_date, end_date) " +
+        "VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET " +
+        "task_id = excluded.task_id, start_date = excluded.start_date, " +
+        "end_date = excluded.end_date",
+      [interval.id, interval.taskId, interval.start, interval.end],
+    );
+  }
+
+  for (const checkin of bundle.checkins) {
+    await db.execute(
+      "INSERT INTO checkins (id, task_id, date, status, value, note, updated_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(task_id, date) DO UPDATE SET " +
+        "status = excluded.status, value = excluded.value, " +
+        "note = excluded.note, updated_at = excluded.updated_at",
+      [
+        checkin.id,
+        checkin.taskId,
+        checkin.date,
+        checkin.status,
+        checkin.value,
+        checkin.note,
+        checkin.updatedAt,
+      ],
+    );
+  }
+
+  for (const todo of bundle.todos) {
+    await db.execute(
+      "INSERT INTO todos (id, title, due_date, done, completed_at, created_at, updated_at) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET " +
+        "title = excluded.title, due_date = excluded.due_date, " +
+        "done = excluded.done, completed_at = excluded.completed_at, " +
+        "updated_at = excluded.updated_at",
+      [
+        todo.id,
+        todo.title,
+        todo.dueDate,
+        todo.done ? 1 : 0,
+        todo.completedAt,
+        todo.createdAt,
+        todo.updatedAt,
+      ],
+    );
+  }
+
+  await setSettings(db, bundle.settings);
+
+  return {
+    tasks: bundle.tasks.length,
+    intervals: bundle.intervals.length,
+    checkins: bundle.checkins.length,
+    todos: bundle.todos.length,
+  };
 }
