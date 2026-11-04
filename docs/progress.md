@@ -189,7 +189,7 @@
 | D71 | 01/10 日 | 复盘⑪ · 发布流水线预演：签名密钥、gh 权限、latest.json | 复盘记录已写 | ☑（实际：`gh` 已登录 yearzen1（scope: repo/gist/read:org），`yearzen1/DailyTask` 为 public、默认分支 main；更新端点定为 `https://github.com/yearzen1/DailyTask/releases/latest/download/latest.json`；`TAURI_SIGNING_PRIVATE_KEY` 当前缺失，D76 生成前需确认私钥落盘位置与密码；NSIS target 与图标已就绪，发布顺序按 D64 的统计→设置→打包→更新器→脚本→实测） |
 | D72 | 01/11 一 | M6 · JSON 导入 + 冲突策略 | 导出→导入一致 | ☑（实际：`parseImportBundle` 校验 version=1、实体字段与状态枚举，坏文件直接拒绝；按 id upsert（打卡按 `task_id+date`），本地多余行保留、流程幂等；真实 SQLite 往返用例证明导出→导入→再导出的 bundle 完全相等；设置导入后四个 store 依次 reload） |
 | D73 | 01/12 二 | M6 · 备份：每日轮转 + 更新前快照 | 旧备份自动清理 | ☑（实际：启动时（仅主窗）把数据库复制到 `AppData/backup/dailytask-YYYYMMDD.db`，同一天不重复；只保留最近 7 份，`pre-update-*` 不参与清理；复制前 `PRAGMA wal_checkpoint(TRUNCATE)` 合并 WAL；真机启动已生成 `dailytask-20261104.db`，5 个用例） |
-| D74 | 01/13 三 | M6 · 托盘菜单（主窗/挂件/进度/退出） | 四项可用 | ☐ |
+| D74 | 01/13 三 | M6 · 托盘菜单（主窗/挂件/进度/退出） | 四项可用 | ☑（实际：托盘菜单 = 今日进度（禁用项，动态文案）+ 分隔线 + 显示主窗口 + 显示挂件 + 退出；主窗 `useTrayProgress` 在打卡/任务变化时 `invoke("set_tray_progress")`，`MenuItem::set_text` 更新；Rust 编译通过，JS 侧 2 个用例覆盖 0/3→2/3） |
 | D75 | 01/14 四 | M6 · 应用图标 + NSIS 打包 | 产出安装包 | ☐ |
 | D76 | 01/15 五 | M6 · 更新器：生成签名密钥 + updater 配置 + capabilities | `check()` 正常返回 | ☐ |
 | D77 | 01/16 六 | M6 · 更新提示 UI（静默检查 + 红点 + 安装并重启） | 手动检查可用 | ☐ |

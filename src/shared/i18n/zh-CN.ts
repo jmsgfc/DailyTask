@@ -13,6 +13,7 @@ export const zhCN = {
   "app.loading": "正在加载…",
   "app.initFailed": "初始化失败，请重启应用。",
   "app.initFailedHint": "详情见开发者工具控制台。",
+  "tray.progress": "今日进度 {done}/{total}",
 
   "today.title": "今日",
   "today.doneOfTotal": "已完成 {done} / {total} 项",
