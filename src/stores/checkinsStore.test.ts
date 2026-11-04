@@ -62,6 +62,7 @@ describe("useCheckinsStore", () => {
     expect(useCheckinsStore.getState().byKey.get("t1|2026-11-02")).toEqual(
       checkin,
     );
+    expect(useCheckinsStore.getState().loaded).toBe(true);
   });
 
   it("writes a status, updates the map and emits changed", async () => {

@@ -43,7 +43,8 @@ export const useCheckinsStore = create<CheckinsState>()((set, get) => ({
   byKey: new Map(),
   loaded: false,
 
-  hydrate: (checkins) => set({ byKey: toCheckinMapFromArray(checkins) }),
+  hydrate: (checkins) =>
+    set({ byKey: toCheckinMapFromArray(checkins), loaded: true }),
 
   reload: async () => {
     const db = await getDb();
