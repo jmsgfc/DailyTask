@@ -15,7 +15,7 @@ import { emitWidgetExpand } from "../../shared/events";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTasksStore } from "../../stores/tasksStore";
 import { useTodosStore } from "../../stores/todosStore";
-import { CAPSULE_STORAGE_KEY } from "./capsule";
+import { CAPSULE_SIDE_KEY, CAPSULE_STORAGE_KEY } from "./capsule";
 import { Widget } from "./Widget";
 
 const windowApi = vi.hoisted(() => ({
@@ -29,7 +29,6 @@ const windowApi = vi.hoisted(() => ({
   setPosition: vi.fn(async (position: { x: number; y: number }) => {
     void position;
   }),
-  startDragging: vi.fn(async () => undefined),
 }));
 
 const monitorApi = vi.hoisted(() => ({
@@ -143,9 +142,9 @@ describe("Widget", () => {
     windowApi.outerSize.mockClear();
     windowApi.setSize.mockClear();
     windowApi.setPosition.mockClear();
-    windowApi.startDragging.mockClear();
     monitorApi.currentMonitor.mockClear();
     localStorage.removeItem(CAPSULE_STORAGE_KEY);
+    localStorage.removeItem(CAPSULE_SIDE_KEY);
     seedStores();
   });
 
@@ -199,16 +198,19 @@ describe("Widget", () => {
     fireEvent.click(screen.getByRole("button", { name: "收起挂件" }));
     await act(async () => undefined);
 
-    // 200% DPI：44×120 逻辑像素 → 88×240 物理像素，贴右边。
+    // 200% DPI：96×36 逻辑像素 → 192×72 物理像素，贴右边。
     expect(windowApi.setSize.mock.calls.at(-1)?.[0]).toMatchObject({
-      width: 88,
-      height: 240,
+      width: 192,
+      height: 72,
     });
     expect(windowApi.setPosition.mock.calls.at(-1)?.[0]).toMatchObject({
-      x: 1920 - 88,
+      x: 1920 - 192,
       y: 300,
     });
     expect(localStorage.getItem(CAPSULE_STORAGE_KEY)).toBe("1");
+    expect(
+      screen.getByRole("button", { name: /展开挂件/ }),
+    ).toHaveAttribute("data-widget-side", "right");
 
     fireEvent.click(screen.getByRole("button", { name: /展开挂件/ }));
     await act(async () => undefined);
@@ -223,30 +225,51 @@ describe("Widget", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("restores the capsule on mount when the preference is set", async () => {
+  it("restores the capsule on the saved side", async () => {
     localStorage.setItem(CAPSULE_STORAGE_KEY, "1");
+    localStorage.setItem(CAPSULE_SIDE_KEY, "left");
     render(<Widget />);
     await act(async () => undefined);
 
     expect(windowApi.setSize).toHaveBeenCalledWith(
-      expect.objectContaining({ width: 88, height: 240 }),
+      expect.objectContaining({ width: 192, height: 72 }),
+    );
+    expect(windowApi.setPosition).toHaveBeenCalledWith(
+      expect.objectContaining({ x: 0, y: 300 }),
     );
     expect(
       screen.getByRole("button", { name: /展开挂件/ }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("data-widget-side", "left");
   });
 
-  it("drags the capsule instead of expanding when the pointer moves", () => {
+  it("drags the capsule instead of expanding when the pointer moves", async () => {
     render(<Widget />);
     fireEvent.click(screen.getByRole("button", { name: "收起挂件" }));
 
     const capsule = screen.getByRole("button", { name: /展开挂件/ });
-    fireEvent.pointerDown(capsule, { button: 0, clientX: 10, clientY: 10 });
-    fireEvent.pointerMove(capsule, { clientX: 40, clientY: 10 });
+    const pointer = (type: string, x: number, y: number) => {
+      const event = new Event(type, { bubbles: true });
+      Object.defineProperties(event, {
+        screenX: { value: x },
+        screenY: { value: y },
+        clientX: { value: x },
+        clientY: { value: y },
+        button: { value: 0 },
+        pointerId: { value: 1 },
+      });
+      return event;
+    };
 
-    expect(windowApi.startDragging).toHaveBeenCalledTimes(1);
+    fireEvent(capsule, pointer("pointerdown", 100, 100));
+    await act(async () => undefined);
+    fireEvent(capsule, pointer("pointermove", 220, 100));
 
-    fireEvent.pointerUp(capsule);
+    expect(windowApi.setPosition).toHaveBeenCalledWith(
+      expect.objectContaining({ x: 1600, y: 300 }),
+    );
+
+    fireEvent(capsule, pointer("pointerup", 220, 100));
+    await act(async () => undefined);
     fireEvent.click(capsule);
 
     // 拖动后的 click 不应触发展开。

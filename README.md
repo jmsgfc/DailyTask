@@ -54,7 +54,8 @@ Implemented today:
   todos, and one-click check-ins with optimistic updates.
 - **Floating widget** — a 220×280 always-on-top card with the same palette, inline
   check-ins, and sync to the main window in under 200 ms. It can collapse into a
-  draggable 44×120 edge capsule and restore on click.
+  draggable 96×36 edge capsule that snaps to the left or right edge and restores on
+  click.
 - **Task grid** — sticky headers, a one-year date axis, `Ctrl + wheel` zoom, detail
   and overview modes, keyboard navigation, notes, filters, and drag sorting inside
   a group.

@@ -1,4 +1,4 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { PhysicalPosition, getCurrentWindow } from "@tauri-apps/api/window";
 import {
   useEffect,
   useRef,
@@ -20,7 +20,10 @@ import { useT } from "../../ui/useT";
 import {
   applyWidgetLayout,
   readCollapsedPreference,
+  readSidePreference,
   writeCollapsedPreference,
+  writeSidePreference,
+  type WidgetSide,
 } from "./capsule";
 
 const RING_RADIUS = 17;
@@ -40,7 +43,9 @@ export function Widget() {
   const theme = useSettingsStore((state) => state.settings.theme);
   const updateSettings = useSettingsStore((state) => state.update);
   const [collapsed, setCollapsed] = useState(readCollapsedPreference);
+  const [side, setSide] = useState<WidgetSide>(readSidePreference);
   const initialCollapsed = useRef(collapsed);
+  const initialSide = useRef(side);
 
   useEffect(() => {
     void getCurrentWindow().setAlwaysOnTop(alwaysOnTop).catch((error: unknown) => {
@@ -53,21 +58,44 @@ export function Widget() {
     applyTheme(theme);
   }, [theme]);
 
-  // 启动时如果上次是胶囊态，直接贴到当前显示器右边。
+  // 启动时如果上次是胶囊态，直接贴到记住的一侧。
   useEffect(() => {
     if (initialCollapsed.current) {
-      void applyWidgetLayout(true, true).catch((error: unknown) => {
-        console.error("[widget] 恢复胶囊态失败", error);
-      });
+      void applyWidgetLayout(true, initialSide.current).catch(
+        (error: unknown) => {
+          console.error("[widget] 恢复胶囊态失败", error);
+        },
+      );
     }
   }, []);
 
   const setCapsule = (next: boolean) => {
     writeCollapsedPreference(next);
     setCollapsed(next);
-    void applyWidgetLayout(next).catch((error: unknown) => {
-      console.error("[widget] 调整挂件尺寸失败", error);
-    });
+    void applyWidgetLayout(next, next ? undefined : side)
+      .then((used) => {
+        if (used) {
+          writeSidePreference(used);
+          setSide(used);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("[widget] 调整挂件尺寸失败", error);
+      });
+  };
+
+  /** 拖动结束后吸附到最近的左/右边缘。 */
+  const snapCapsule = () => {
+    void applyWidgetLayout(true)
+      .then((used) => {
+        if (used) {
+          writeSidePreference(used);
+          setSide(used);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("[widget] 吸附胶囊失败", error);
+      });
   };
 
   const togglePin = () => {
@@ -112,10 +140,11 @@ export function Widget() {
       <WidgetCapsule
         done={completed}
         total={total}
-        ratio={ratio}
+        side={side}
         label={t("widget.expandCapsule", { done: completed, total })}
         hint={t("widget.capsuleHint")}
         onExpand={() => setCapsule(false)}
+        onDragEnd={snapCapsule}
       />
     );
   }
@@ -252,21 +281,23 @@ export function Widget() {
 function WidgetCapsule({
   done,
   total,
-  ratio,
+  side,
   label,
   hint,
   onExpand,
+  onDragEnd,
 }: {
   done: number;
   total: number;
-  ratio: number;
+  side: WidgetSide;
   label: string;
   hint: string;
   onExpand: () => void;
+  onDragEnd: () => void;
 }) {
-  const radius = 10;
-  const circumference = 2 * Math.PI * radius;
+  const t = useT();
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const startWindow = useRef<{ x: number; y: number } | null>(null);
   const dragged = useRef(false);
   const suppressClick = useRef(false);
 
@@ -274,29 +305,58 @@ function WidgetCapsule({
     if (event.button > 0) {
       return;
     }
-    dragStart.current = { x: event.clientX, y: event.clientY };
+    dragStart.current = {
+      x: event.screenX || event.clientX,
+      y: event.screenY || event.clientY,
+    };
+    startWindow.current = null;
     dragged.current = false;
     suppressClick.current = false;
+    // 捕获指针，保证移动超出胶囊范围后仍能收到 pointermove。
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    void getCurrentWindow()
+      .outerPosition()
+      .then((position) => {
+        startWindow.current = { x: position.x, y: position.y };
+      })
+      .catch((error: unknown) => {
+        console.error("[widget] 读取挂件位置失败", error);
+      });
   };
 
   const handlePointerMove = (event: ReactPointerEvent) => {
     const start = dragStart.current;
-    if (!start || dragged.current) {
+    const origin = startWindow.current;
+    if (!start || !origin) {
       return;
     }
-    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 4) {
+    const dx = (event.screenX || event.clientX) - start.x;
+    const dy = (event.screenY || event.clientY) - start.y;
+    if (!dragged.current && Math.hypot(dx, dy) < 4) {
       return;
     }
     dragged.current = true;
     suppressClick.current = true;
-    dragStart.current = null;
-    void getCurrentWindow().startDragging().catch((error: unknown) => {
-      console.error("[widget] 拖动挂件失败", error);
-    });
+    const scale = window.devicePixelRatio || 1;
+    void getCurrentWindow()
+      .setPosition(
+        new PhysicalPosition(
+          Math.round(origin.x + dx * scale),
+          Math.round(origin.y + dy * scale),
+        ),
+      )
+      .catch((error: unknown) => {
+        console.error("[widget] 拖动挂件失败", error);
+      });
   };
 
   const handlePointerUp = () => {
     dragStart.current = null;
+    startWindow.current = null;
+    if (dragged.current) {
+      dragged.current = false;
+      onDragEnd();
+    }
   };
 
   const handleClick = () => {
@@ -307,50 +367,38 @@ function WidgetCapsule({
     onExpand();
   };
 
+  const rounded =
+    side === "right"
+      ? "rounded-l-[var(--radius-pill)]"
+      : "rounded-r-[var(--radius-pill)]";
+
   return (
-    <div className="h-full w-full p-2">
+    <div className="h-full w-full p-1">
       <button
         type="button"
         data-widget-capsule
+        data-widget-side={side}
         aria-label={label}
         title={hint}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         onClick={handleClick}
-        className="flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-[var(--radius-widget)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[var(--shadow-widget)] transition-colors hover:border-[var(--color-voluntary)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+        className={`flex h-full w-full items-center justify-center gap-1.5 border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[var(--color-text)] shadow-[var(--shadow-widget)] transition-colors hover:border-[var(--color-voluntary)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${rounded}`}
       >
-        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-          <circle
-            cx="13"
-            cy="13"
-            r={radius}
-            fill="none"
-            stroke="color-mix(in srgb, var(--color-text) 12%, transparent)"
-            strokeWidth="3"
-          />
-          <circle
-            cx="13"
-            cy="13"
-            r={radius}
-            fill="none"
-            stroke="var(--color-voluntary)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={circumference * (1 - ratio)}
-            transform="rotate(-90 13 13)"
-          />
-        </svg>
-        <b className="text-[10px] leading-none tabular-nums">
-          {done}/{total}
-        </b>
         <span
           aria-hidden="true"
           className="text-[10px] leading-none text-[var(--color-text-muted)]"
         >
-          ‹
+          {side === "right" ? "‹" : "›"}
         </span>
+        <span className="text-[11px] leading-none">
+          {t("widget.capsuleExpand")}
+        </span>
+        <b className="text-[10px] leading-none tabular-nums text-[var(--color-text-muted)]">
+          {done}/{total}
+        </b>
       </button>
     </div>
   );

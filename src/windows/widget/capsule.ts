@@ -5,12 +5,15 @@ import {
   getCurrentWindow,
 } from "@tauri-apps/api/window";
 
-/** 胶囊态：贴右边的一条；展开态：原挂件尺寸。 */
-export const CAPSULE_WIDTH = 44;
-export const CAPSULE_HEIGHT = 120;
+/** 胶囊态：横向小标签；展开态：原挂件尺寸。 */
+export const CAPSULE_WIDTH = 96;
+export const CAPSULE_HEIGHT = 36;
 export const EXPANDED_WIDTH = 220;
 export const EXPANDED_HEIGHT = 280;
 export const CAPSULE_STORAGE_KEY = "dailytask.widget.collapsed";
+export const CAPSULE_SIDE_KEY = "dailytask.widget.side";
+
+export type WidgetSide = "left" | "right";
 
 export interface WorkArea {
   x: number;
@@ -26,14 +29,24 @@ export interface WidgetPlacement {
   y: number;
 }
 
+/** 窗口中心落在工作区左半 → 左停靠，否则右停靠。 */
+export function nearestSide(
+  left: number,
+  width: number,
+  workArea: WorkArea,
+): WidgetSide {
+  const center = left + width / 2;
+  return center < workArea.x + workArea.width / 2 ? "left" : "right";
+}
+
 /**
- * 物理像素计算：以当前窗口右边缘为锚点缩放（向左长/收），
- * 横向和纵向都夹在工作区内；首次贴边时由调用方传入工作区右边缘。
+ * 物理像素计算：贴住指定侧的屏幕边缘，纵向沿用当前 y 并夹在工作区内。
+ * 收起/展开只改尺寸；边缘那条边始终固定。
  */
 export function computeWidgetPlacement(
   workArea: WorkArea,
   scaleFactor: number,
-  rightEdge: number,
+  side: WidgetSide,
   currentY: number,
   collapsed: boolean,
 ): WidgetPlacement {
@@ -43,11 +56,8 @@ export function computeWidgetPlacement(
   const height = Math.round(
     (collapsed ? CAPSULE_HEIGHT : EXPANDED_HEIGHT) * scaleFactor,
   );
-  const maxX = workArea.x + workArea.width - width;
-  const x = Math.min(
-    Math.max(rightEdge - width, workArea.x),
-    Math.max(workArea.x, maxX),
-  );
+  const x =
+    side === "right" ? workArea.x + workArea.width - width : workArea.x;
   const maxY = workArea.y + workArea.height - height;
   const y = Math.min(Math.max(currentY, workArea.y), Math.max(workArea.y, maxY));
 
@@ -70,32 +80,51 @@ export function writeCollapsedPreference(collapsed: boolean): void {
   }
 }
 
-/** 把窗口调成胶囊或展开尺寸；默认以当前窗口右边缘为锚点。 */
+export function readSidePreference(): WidgetSide {
+  try {
+    return localStorage.getItem(CAPSULE_SIDE_KEY) === "left" ? "left" : "right";
+  } catch {
+    return "right";
+  }
+}
+
+export function writeSidePreference(side: WidgetSide): void {
+  try {
+    localStorage.setItem(CAPSULE_SIDE_KEY, side);
+  } catch {
+    // 同上。
+  }
+}
+
+/**
+ * 把窗口调成胶囊或展开尺寸并贴到指定侧；不传 side 时按当前窗口中心判断。
+ * 返回实际使用的停靠侧，供调用方持久化。
+ */
 export async function applyWidgetLayout(
   collapsed: boolean,
-  dockToEdge = false,
-): Promise<void> {
+  requestedSide?: WidgetSide,
+): Promise<WidgetSide | null> {
   const monitor = await currentMonitor();
   if (!monitor) {
-    return;
+    return null;
   }
 
   const window = getCurrentWindow();
   const position = await window.outerPosition();
   const size = await window.outerSize();
   const workArea = monitor.workArea;
-  const rightEdge = dockToEdge
-    ? workArea.position.x + workArea.size.width
-    : position.x + size.width;
+  const area: WorkArea = {
+    x: workArea.position.x,
+    y: workArea.position.y,
+    width: workArea.size.width,
+    height: workArea.size.height,
+  };
+  const side =
+    requestedSide ?? nearestSide(position.x, size.width, area);
   const placement = computeWidgetPlacement(
-    {
-      x: workArea.position.x,
-      y: workArea.position.y,
-      width: workArea.size.width,
-      height: workArea.size.height,
-    },
+    area,
     monitor.scaleFactor,
-    rightEdge,
+    side,
     position.y,
     collapsed,
   );
@@ -104,4 +133,6 @@ export async function applyWidgetLayout(
     new PhysicalSize(placement.width, placement.height),
   );
   await window.setPosition(new PhysicalPosition(placement.x, placement.y));
+
+  return side;
 }
