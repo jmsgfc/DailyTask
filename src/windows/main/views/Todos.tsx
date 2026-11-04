@@ -15,6 +15,7 @@ import {
   type TodoItem,
 } from "../../../stores/selectors/todos";
 import { useTodosStore } from "../../../stores/todosStore";
+import { DateField } from "../../../ui/DateField";
 import { useT } from "../../../ui/useT";
 
 const CARD =
@@ -187,11 +188,12 @@ export default function Todos() {
             </p>
             <label className="flex items-center gap-1.5 px-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
               {t("todos.menu.date")}
-              <input
-                type="date"
+              <DateField
                 data-menu-date
-                value={dueDraft}
-                onChange={(event) => setDueDraft(event.target.value)}
+                value={dueDraft || null}
+                onChange={(next) => setDueDraft(next ?? "")}
+                aria-label={t("todos.menu.date")}
+                align="right"
                 className="min-w-0 flex-1 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
               />
             </label>
@@ -260,13 +262,13 @@ function TodoForm() {
         onChange={(event) => setTitle(event.target.value)}
         className="min-w-0 flex-1 bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus-visible:outline-none"
       />
-      <input
-        type="date"
+      <DateField
         data-todo-due
-        value={dueDate}
+        value={dueDate || null}
+        onChange={(next) => setDueDate(next ?? "")}
         aria-label={t("todos.dueLabel")}
-        onChange={(event) => setDueDate(event.target.value)}
-        className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+        allowClear
+        className="w-[132px] rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
       />
       <button
         type="submit"

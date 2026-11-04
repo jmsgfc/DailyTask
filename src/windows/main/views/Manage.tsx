@@ -11,6 +11,7 @@ import {
   type ManageStatus,
 } from "../../../stores/selectors/manage";
 import { useTasksStore } from "../../../stores/tasksStore";
+import { DateField } from "../../../ui/DateField";
 import { useT } from "../../../ui/useT";
 
 const CARD =
@@ -188,11 +189,11 @@ function CreateTaskDialog({
 
         <label className="flex flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
           {t("manage.field.start")}
-          <input
-            type="date"
+          <DateField
             data-new-start
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
+            value={startDate || null}
+            onChange={(next) => setStartDate(next ?? "")}
+            aria-label={t("manage.field.start")}
             className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
           />
         </label>
@@ -378,23 +379,24 @@ function EditTaskDialog({
         <div className="flex gap-2">
           <label className="flex flex-1 flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
             {t("manage.field.start")}
-            <input
-              type="date"
+            <DateField
               data-edit-start
-              value={start}
-              onChange={(event) => setStart(event.target.value)}
+              value={start || null}
+              onChange={(next) => setStart(next ?? "")}
+              aria-label={t("manage.field.start")}
               className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
             />
           </label>
           <label className="flex flex-1 flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
             {t("manage.field.end")}
-            <input
-              type="date"
+            <DateField
               data-edit-end
-              value={end}
-              min={start}
+              value={end || null}
+              min={start || undefined}
               disabled={openEnded}
-              onChange={(event) => setEnd(event.target.value)}
+              onChange={(next) => setEnd(next ?? "")}
+              aria-label={t("manage.field.end")}
+              align="right"
               className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)] disabled:opacity-40"
             />
           </label>
@@ -534,12 +536,12 @@ function IntervalDialog({
 
         <label className="flex flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
           {t("manage.effectiveDate")}
-          <input
-            type="date"
+          <DateField
             data-interval-date
-            min={minDate}
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
+            min={minDate || undefined}
+            value={date || null}
+            onChange={(next) => setDate(next ?? "")}
+            aria-label={t("manage.effectiveDate")}
             className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
           />
         </label>

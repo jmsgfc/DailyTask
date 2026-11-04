@@ -12,7 +12,7 @@ import {
 import type { GridRow } from "../../../domain/grid";
 import { monthTicks } from "../../../domain/grid";
 import { checkinKey } from "../../../domain/keys";
-import { nextCellState, type CellState } from "../../../domain/settle";
+import type { CellState } from "../../../domain/settle";
 import type { Checkin, CheckinStatus, Language } from "../../../domain/types";
 import type { MessageKey } from "../../../shared/i18n";
 import { dateLocale } from "../../../shared/i18n";
@@ -21,6 +21,7 @@ import { useGridData } from "../../../stores/selectors/grid";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
 import { useUiStore } from "../../../stores/uiStore";
+import { DateField } from "../../../ui/DateField";
 import {
   CELL_LABEL_KEYS,
   CELL_SYMBOLS,
@@ -244,23 +245,7 @@ export default function TaskGrid() {
       return;
     }
     const onWheel = (event: WheelEvent) => {
-      // 触控板的横向手势保持原生行为。
-      if (event.deltaX !== 0) {
-        return;
-      }
-      if (!event.ctrlKey) {
-        if (event.deltaY === 0) {
-          return;
-        }
-        event.preventDefault();
-        if (event.shiftKey) {
-          element.scrollTop += event.deltaY;
-        } else {
-          element.scrollLeft += event.deltaY;
-        }
-        return;
-      }
-      if (event.deltaY === 0) {
+      if (!event.ctrlKey || event.deltaY === 0) {
         return;
       }
       event.preventDefault();
@@ -522,28 +507,7 @@ export default function TaskGrid() {
         month: monthDate.getMonth() + 1,
       })
     : "";
-
-  /** 跳到上/下一月的第一天；越界时夹到轴首尾。 */
-  const jumpMonth = (delta: number) => {
-    if (!monthDate) {
-      return;
-    }
-    const target = format(
-      new Date(monthDate.getFullYear(), monthDate.getMonth() + delta, 1),
-      "yyyy-MM-dd",
-    );
-    let index = dates.findIndex((date) => date >= target);
-    if (index < 0) {
-      index = dates.length - 1;
-    }
-    scrollTo(index * cellSize);
-  };
   const ticks = monthTicks(dates);
-
-  const cycle = (row: GridRow, date: string) => {
-    const state = data.states.get(checkinKey(row.task.id, date)) ?? "none";
-    void setStatus(row.task.id, date, nextCellState(state));
-  };
 
   const openEditor = (taskId: string, date: string, taskName: string) => {
     const cell = scrollerRef.current?.querySelector<HTMLElement>(
@@ -744,26 +708,24 @@ export default function TaskGrid() {
 
         <label className="flex items-center gap-1">
           {t("grid.filter.from")}
-          <input
-            type="date"
+          <DateField
             data-filter-from
-            value={filter.from ?? ""}
-            onChange={(event) =>
-              setGridFilter({ from: event.target.value || null })
-            }
-            className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+            value={filter.from}
+            onChange={(next) => setGridFilter({ from: next })}
+            aria-label={t("grid.filter.from")}
+            allowClear
+            className="w-[112px] rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
           />
         </label>
         <label className="flex items-center gap-1">
           {t("grid.filter.to")}
-          <input
-            type="date"
+          <DateField
             data-filter-to
-            value={filter.to ?? ""}
-            onChange={(event) =>
-              setGridFilter({ to: event.target.value || null })
-            }
-            className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+            value={filter.to}
+            onChange={(next) => setGridFilter({ to: next })}
+            aria-label={t("grid.filter.to")}
+            allowClear
+            className="w-[112px] rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
           />
         </label>
 
@@ -813,24 +775,8 @@ export default function TaskGrid() {
           data-mode={overview ? "overview" : "detail"}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
         >
-          <div className="absolute left-[160px] top-0 z-30 flex h-[22px] items-center gap-1 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-1 text-[10px] text-[var(--color-text-muted)]">
-            <button
-              type="button"
-              aria-label={t("grid.month.prev")}
-              onClick={() => jumpMonth(-1)}
-              className="grid size-3.5 place-items-center rounded-[3px] hover:bg-[var(--state-hover)]"
-            >
-              ‹
-            </button>
-            <span className="px-0.5 tabular-nums">{monthLabel}</span>
-            <button
-              type="button"
-              aria-label={t("grid.month.next")}
-              onClick={() => jumpMonth(1)}
-              className="grid size-3.5 place-items-center rounded-[3px] hover:bg-[var(--state-hover)]"
-            >
-              ›
-            </button>
+          <div className="pointer-events-none absolute left-[160px] top-0 z-30 flex h-[22px] items-center border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[10px] text-[var(--color-text-muted)]">
+            {monthLabel}
           </div>
 
           <div
@@ -924,7 +870,6 @@ export default function TaskGrid() {
                     handleReorder(group.key, fromId, toId)
                   }
                   dragEnabled={!filterActive}
-                  onCycle={cycle}
                   onZoomDate={zoomToDate}
                 />
               ))}
@@ -1153,7 +1098,6 @@ function GridGroup({
   onOpenEditor,
   onReorder,
   dragEnabled,
-  onCycle,
   onZoomDate,
 }: {
   groupKey: GroupKey;
@@ -1177,7 +1121,6 @@ function GridGroup({
   onOpenEditor: (taskId: string, date: string, taskName: string) => void;
   onReorder: (fromId: string, toId: string) => void;
   dragEnabled: boolean;
-  onCycle: (row: GridRow, date: string) => void;
   onZoomDate: (date: string) => void;
 }) {
   const t = useT();
@@ -1360,9 +1303,7 @@ function GridGroup({
                       onOpenEditor(row.task.id, date, row.task.name)
                     }
                     onActivate={
-                      overview
-                        ? () => onZoomDate(date)
-                        : () => onCycle(row, date)
+                      overview ? () => onZoomDate(date) : undefined
                     }
                   />
                 );
@@ -1428,7 +1369,7 @@ function GridCell({
   disabled: boolean;
   onFocus: () => void;
   onOpenEditor: () => void;
-  onActivate: () => void;
+  onActivate?: () => void;
 }) {
   const t = useT();
   const symbol = state === "none" ? "▫" : CELL_SYMBOLS[state];
@@ -1495,7 +1436,7 @@ function GridCell({
             ? "cursor-not-allowed"
             : overview
               ? "cursor-zoom-in hover:brightness-105"
-              : "cursor-pointer hover:bg-[var(--state-hover)]",
+              : "cursor-default hover:bg-[var(--state-hover)]",
         )}
         style={{
           background,

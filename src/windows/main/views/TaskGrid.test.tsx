@@ -139,16 +139,20 @@ describe("TaskGrid", () => {
     expect(todayCell).toHaveAttribute("data-today");
   });
 
-  it("cycles the projected state through setStatus", () => {
+  it("only focuses a cell on click and never writes a check-in", () => {
     const { container } = render(<TaskGrid />);
+    const cell = container.querySelector(
+      `[data-task="t1"][data-date="${TODAY}"]`,
+    ) as HTMLElement;
 
-    fireEvent.click(
-      container.querySelector(
-        `[data-task="t1"][data-date="${TODAY}"]`,
-      ) as Element,
-    );
+    cell.focus();
+    fireEvent.click(cell);
 
-    expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "missed");
+    expect(setStatus).not.toHaveBeenCalled();
+    expect(cell).toHaveFocus();
+    expect(
+      container.querySelector("[data-cell-editor]"),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps out-of-range cells grey and non-clickable", () => {
@@ -337,37 +341,6 @@ describe("TaskGrid", () => {
     expect(
       container.querySelector("[data-cell-editor]"),
     ).not.toBeInTheDocument();
-  });
-
-  it("scrolls dates with the wheel and rows with shift", () => {
-    const { container } = render(<TaskGrid />);
-    const scroller = container.querySelector(
-      "[data-grid-scroller]",
-    ) as HTMLElement;
-
-    scroller.scrollLeft = 100;
-    fireEvent.wheel(scroller, { deltaY: 320 });
-    expect(scroller.scrollLeft).toBe(420);
-
-    scroller.scrollTop = 0;
-    fireEvent.wheel(scroller, { deltaY: 80, shiftKey: true });
-    expect(scroller.scrollTop).toBe(80);
-  });
-
-  it("jumps a month with the pill arrows", () => {
-    const { container } = render(<TaskGrid />);
-    expect(container).toHaveTextContent("2026 年 10 月");
-
-    fireEvent.click(screen.getByRole("button", { name: "下一月" }));
-
-    expect(container).toHaveTextContent("2026 年 11 月");
-    expect(
-      Number(
-        container
-          .querySelector("[data-grid-scroll]")
-          ?.getAttribute("data-grid-scroll"),
-      ),
-    ).toBeGreaterThan(0);
   });
 
   it("only offers notes on cells that already have a record", () => {    const { container } = render(<TaskGrid />);
