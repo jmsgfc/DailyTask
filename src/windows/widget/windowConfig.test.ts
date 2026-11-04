@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { CAPSULE_HEIGHT, CAPSULE_WIDTH } from "./capsule";
+
 interface WindowConfig {
   label: string;
   width: number;
@@ -42,8 +44,8 @@ describe("widget window config", () => {
     );
 
     expect(widget).toMatchObject({
-      width: 220,
-      height: 280,
+      width: CAPSULE_WIDTH,
+      height: CAPSULE_HEIGHT,
       url: "index.html?window=widget",
       resizable: false,
       decorations: false,

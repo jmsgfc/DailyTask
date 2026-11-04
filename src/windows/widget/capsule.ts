@@ -80,6 +80,11 @@ export function writeCollapsedPreference(collapsed: boolean): void {
   }
 }
 
+/** 每次应用启动时把挂件恢复为胶囊态（停靠侧仍沿用上次）。 */
+export function prepareWidgetStartup(): void {
+  writeCollapsedPreference(true);
+}
+
 export function readSidePreference(): WidgetSide {
   try {
     return localStorage.getItem(CAPSULE_SIDE_KEY) === "left" ? "left" : "right";

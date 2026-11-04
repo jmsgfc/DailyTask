@@ -167,7 +167,7 @@ export function Widget() {
                 label={t("widget.expand")}
                 onClick={() =>
                   void emitWidgetExpand({ source: "widget" })
-                    .then(() => getCurrentWindow().hide())
+                    .then(() => setCapsule(true))
                     .catch((error: unknown) => {
                       console.error("[widget] 展开主窗口失败", error);
                     })

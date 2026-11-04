@@ -5,7 +5,8 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { initApp, type AppData } from "./app/init";
 import { startCrossWindowSync } from "./app/sync";
 import App from "./App";
-import { rotateDailyBackup } from "./db/backup";import { useCheckinsStore } from "./stores/checkinsStore";
+import { rotateDailyBackup } from "./db/backup";
+import { prepareWidgetStartup } from "./windows/widget/capsule";import { useCheckinsStore } from "./stores/checkinsStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useTasksStore } from "./stores/tasksStore";
 import { setLocale, t } from "./shared/i18n";
@@ -25,6 +26,8 @@ function hydrate(data: AppData): void {
 const target = windowTarget(window.location.search);
 if (target === "widget") {
   document.documentElement.dataset.window = "widget";
+  // 每次启动都从胶囊开始；停靠侧仍读上次记住的值。
+  prepareWidgetStartup();
 }
 
 // 开发构建带 Dev 后缀，任务栏里能和安装版区分开。

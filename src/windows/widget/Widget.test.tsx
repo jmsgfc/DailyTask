@@ -182,14 +182,20 @@ describe("Widget", () => {
     expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "done");
   });
 
-  it("asks the main window to expand and hides the widget", async () => {
+  it("asks the main window to expand and collapses the widget", async () => {
     render(<Widget />);
 
     fireEvent.click(screen.getByRole("button", { name: "展开主窗口" }));
 
     expect(emitWidgetExpand).toHaveBeenCalledWith({ source: "widget" });
     await act(async () => undefined);
-    expect(windowApi.hide).toHaveBeenCalledTimes(1);
+    expect(windowApi.hide).not.toHaveBeenCalled();
+    expect(windowApi.setSize).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 192, height: 72 }),
+    );
+    expect(
+      screen.getByRole("button", { name: /展开挂件/ }),
+    ).toBeInTheDocument();
   });
 
   it("collapses to a right-edge capsule and expands on click", async () => {

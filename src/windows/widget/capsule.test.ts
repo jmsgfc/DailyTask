@@ -9,6 +9,7 @@ import {
   EXPANDED_HEIGHT,
   EXPANDED_WIDTH,
   nearestSide,
+  prepareWidgetStartup,
   readCollapsedPreference,
   readSidePreference,
   writeCollapsedPreference,
@@ -116,5 +117,13 @@ describe("preferences", () => {
     writeSidePreference("left");
     expect(localStorage.getItem(CAPSULE_SIDE_KEY)).toBe("left");
     expect(readSidePreference()).toBe("left");
+  });
+
+  it("forces the capsule state on app startup", () => {
+    writeCollapsedPreference(false);
+
+    prepareWidgetStartup();
+
+    expect(readCollapsedPreference()).toBe(true);
   });
 });
