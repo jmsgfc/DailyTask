@@ -1,5 +1,6 @@
 import type { MessageKey } from "../../shared/i18n";
 import { useUiStore, type ViewName } from "../../stores/uiStore";
+import { useUpdateStore } from "../../stores/updateStore";
 import { Icon, type IconName } from "../../ui/Icon";
 import { useT } from "../../ui/useT";
 import Manage from "./views/Manage";
@@ -39,6 +40,7 @@ export function MainLayout() {
   const t = useT();
   const view = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
+  const hasUpdate = useUpdateStore((state) => state.available !== null);
 
   return (
     <div className="flex h-full bg-[var(--color-bg)] text-[var(--color-text)]">
@@ -60,13 +62,20 @@ export function MainLayout() {
               >
                 <Icon name={item.icon} />
                 {t(item.labelKey)}
+                {item.view === "settings" && hasUpdate ? (
+                  <span
+                    data-update-dot
+                    aria-label={t("update.dot")}
+                    className="ml-auto size-1.5 shrink-0 rounded-full bg-[var(--color-missed)]"
+                  />
+                ) : null}
               </button>
             );
           })}
         </nav>
 
         <div className="mt-auto px-2 py-2 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-          {t("app.footer", { version: "0.1.0" })}
+          {t("app.footer", { version: __APP_VERSION__ })}
         </div>
       </aside>
 

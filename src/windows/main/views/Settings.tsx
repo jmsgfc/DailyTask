@@ -7,6 +7,7 @@ import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
 import { useTodosStore } from "../../../stores/todosStore";
 import { useTransferStore } from "../../../stores/transferStore";
+import { useUpdateStore } from "../../../stores/updateStore";
 import { applyTheme } from "../../../ui/theme";
 import { useT } from "../../../ui/useT";
 
@@ -32,6 +33,13 @@ export default function Settings() {
   const reloadCheckins = useCheckinsStore((state) => state.reload);
   const reloadTodos = useTodosStore((state) => state.reload);
   const [transferNote, setTransferNote] = useState<string | null>(null);
+  const updateInfo = useUpdateStore((state) => state.available);
+  const checkingUpdate = useUpdateStore((state) => state.checking);
+  const installingUpdate = useUpdateStore((state) => state.installing);
+  const updateChecked = useUpdateStore((state) => state.checked);
+  const updateError = useUpdateStore((state) => state.error);
+  const checkForUpdate = useUpdateStore((state) => state.checkForUpdate);
+  const installUpdate = useUpdateStore((state) => state.install);
 
   // 自启状态以系统为准：设置表只是缓存。
   useEffect(() => {
@@ -300,8 +308,83 @@ export default function Settings() {
           ) : null}
         </section>
 
+        <section data-settings-section="update" className={`${CARD} p-4`}>
+          <h2 className="m-0 mb-3 text-xs font-semibold text-[var(--color-text-muted)]">
+            {t("settings.section.update")}
+          </h2>
+
+          <SettingRow label={t("settings.currentVersion")}>
+            <span className="text-xs tabular-nums text-[var(--color-text-muted)]">
+              v{__APP_VERSION__}
+            </span>
+          </SettingRow>
+
+          <SettingRow
+            label={t("settings.update")}
+            hint={t("settings.updateHint")}
+          >
+            <button
+              type="button"
+              data-check-update
+              disabled={checkingUpdate || installingUpdate}
+              onClick={() => void checkForUpdate()}
+              className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs text-[var(--color-text)] hover:bg-[var(--state-hover)] disabled:opacity-40"
+            >
+              {t(
+                checkingUpdate ? "settings.checking" : "settings.checkUpdate",
+              )}
+            </button>
+          </SettingRow>
+
+          {updateInfo ? (
+            <div
+              data-update-available
+              className="mt-1 flex items-center gap-3 rounded-[var(--radius-control)] bg-[color-mix(in_srgb,var(--color-warning)_10%,transparent)] px-3 py-2 text-xs"
+            >
+              <span>
+                {t("settings.updateAvailable", {
+                  version: updateInfo.version,
+                })}
+              </span>
+              <button
+                type="button"
+                data-install-update
+                disabled={installingUpdate}
+                onClick={() => void installUpdate()}
+                className="ml-auto rounded-[var(--radius-control)] bg-[var(--color-voluntary)] px-2.5 py-1 font-semibold text-white disabled:opacity-40"
+              >
+                {t(
+                  installingUpdate
+                    ? "settings.installing"
+                    : "settings.installUpdate",
+                )}
+              </button>
+            </div>
+          ) : updateChecked && !updateError ? (
+            <p
+              data-update-latest
+              className="m-0 mt-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]"
+            >
+              {t("settings.upToDate")}
+            </p>
+          ) : null}
+
+          {updateError ? (
+            <p
+              data-update-error
+              className="m-0 mt-1 text-[var(--text-2xs)] text-[var(--color-missed)]"
+            >
+              {t(
+                updateError === "check"
+                  ? "settings.updateCheckFailed"
+                  : "settings.updateInstallFailed",
+              )}
+            </p>
+          ) : null}
+        </section>
+
         <p className="mt-auto text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-          {t("settings.version", { version: "0.1.0" })}
+          {t("settings.version", { version: __APP_VERSION__ })}
         </p>
       </div>
     </>

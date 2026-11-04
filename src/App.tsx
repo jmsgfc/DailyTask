@@ -6,6 +6,7 @@ import { applyTheme, watchSystemTheme } from "./ui/theme";
 import { MainLayout } from "./windows/main/MainLayout";
 import { useMainWindowBridge } from "./windows/main/useMainWindowBridge";
 import { useTrayProgress } from "./app/useTrayProgress";
+import { useUpdateCheck } from "./app/useUpdateCheck";
 
 export default function App() {
   const theme = useSettingsStore((state) => state.settings.theme);
@@ -13,6 +14,7 @@ export default function App() {
 
   useMainWindowBridge();
   useTrayProgress();
+  useUpdateCheck();
 
   useEffect(() => {
     setLocale(language);

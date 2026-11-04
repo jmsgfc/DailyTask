@@ -7,6 +7,14 @@ vi.mock("./windows/main/useMainWindowBridge", () => ({
   useMainWindowBridge: () => undefined,
 }));
 
+vi.mock("./app/useUpdateCheck", () => ({
+  useUpdateCheck: () => undefined,
+}));
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(async () => undefined),
+}));
+
 describe("App", () => {
   it("renders the main layout with today view", () => {
     render(<App />);

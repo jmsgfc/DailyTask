@@ -7,6 +7,7 @@ import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
 import { useTodosStore } from "../../../stores/todosStore";
 import { useTransferStore } from "../../../stores/transferStore";
+import { useUpdateStore } from "../../../stores/updateStore";
 import Settings from "./Settings";
 
 const autostart = vi.hoisted(() => ({
@@ -29,12 +30,16 @@ describe("Settings", () => {
     counts: { tasks: 2, intervals: 3, checkins: 4, todos: 5 },
   }));
   const reload = vi.fn(async () => undefined);
+  const checkForUpdate = vi.fn(async () => undefined);
+  const installUpdate = vi.fn(async () => undefined);
 
   beforeEach(() => {
     update.mockClear();
     exportToFile.mockClear();
     importFromFile.mockClear();
     reload.mockClear();
+    checkForUpdate.mockClear();
+    installUpdate.mockClear();
     autostart.isEnabled.mockReset().mockResolvedValue(false);
     autostart.enable.mockClear();
     autostart.disable.mockClear();
@@ -53,6 +58,16 @@ describe("Settings", () => {
       importing: false,
       exportToFile,
       importFromFile,
+    });
+    useUpdateStore.setState({
+      available: null,
+      checking: false,
+      installing: false,
+      checked: false,
+      error: null,
+      pending: null,
+      checkForUpdate,
+      install: installUpdate,
     });
   });
 
@@ -208,5 +223,40 @@ describe("Settings", () => {
       ).toHaveTextContent("导入失败"),
     );
     consoleError.mockRestore();
+  });
+
+  it("checks for updates and installs an available one", () => {
+    const { container, rerender } = render(<Settings />);
+
+    fireEvent.click(container.querySelector("[data-check-update]") as Element);
+    expect(checkForUpdate).toHaveBeenCalled();
+
+    useUpdateStore.setState({
+      available: { version: "0.1.1", notes: null },
+      checked: true,
+    });
+    rerender(<Settings />);
+
+    expect(container.querySelector("[data-update-available]")).toHaveTextContent(
+      "发现新版本 v0.1.1",
+    );
+    fireEvent.click(container.querySelector("[data-install-update]") as Element);
+    expect(installUpdate).toHaveBeenCalled();
+  });
+
+  it("shows the up-to-date hint and check errors", () => {
+    useUpdateStore.setState({ checked: true });
+    const { container, rerender } = render(<Settings />);
+
+    expect(container.querySelector("[data-update-latest]")).toHaveTextContent(
+      "已是最新版本",
+    );
+
+    useUpdateStore.setState({ error: "check", checked: false });
+    rerender(<Settings />);
+
+    expect(container.querySelector("[data-update-error]")).toHaveTextContent(
+      "检查更新失败",
+    );
   });
 });
