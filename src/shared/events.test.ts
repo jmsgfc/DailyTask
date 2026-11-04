@@ -1,12 +1,19 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import {
   currentSource,
   emitCheckinsChanged,
+  emitTasksChanged,
+  emitTodosChanged,
+  emitWidgetExpand,
   Events,
   onCheckinsChanged,
+  type CheckinsChanged,
+  type TasksChanged,
+  type TodosChanged,
+  type WidgetExpand,
 } from "./events";
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -54,5 +61,48 @@ describe("events", () => {
   it("derives source from the current window label", () => {
     expect(currentSource()).toBe("widget");
     expect(getCurrentWindow().label).toBe("widget");
+  });
+
+  it("keeps one unique name per event", () => {
+    const names = Object.values(Events);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toEqual([
+      "checkins:changed",
+      "tasks:changed",
+      "todos:changed",
+      "widget:expand",
+    ]);
+  });
+
+  it("emits every event with a source-only invalidation payload", async () => {
+    await emitTasksChanged({ source: "main" });
+    await emitTodosChanged({ source: "widget" });
+    await emitWidgetExpand({ source: "main" });
+
+    expect(emit).toHaveBeenNthCalledWith(1, Events.tasksChanged, {
+      source: "main",
+    });
+    expect(emit).toHaveBeenNthCalledWith(2, Events.todosChanged, {
+      source: "widget",
+    });
+    expect(emit).toHaveBeenNthCalledWith(3, Events.widgetExpand, {
+      source: "main",
+    });
+  });
+
+  it("keeps the payload contract at compile time", () => {
+    expectTypeOf<CheckinsChanged>().toEqualTypeOf<{
+      date: string;
+      source: "main" | "widget";
+    }>();
+    expectTypeOf<TasksChanged>().toEqualTypeOf<{
+      source: "main" | "widget";
+    }>();
+    expectTypeOf<TodosChanged>().toEqualTypeOf<{
+      source: "main" | "widget";
+    }>();
+    expectTypeOf<WidgetExpand>().toEqualTypeOf<{
+      source: "main" | "widget";
+    }>();
   });
 });
