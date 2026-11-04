@@ -394,7 +394,13 @@ function EditTaskDialog({
             type="checkbox"
             data-edit-open
             checked={openEnded}
-            onChange={(event) => setOpenEnded(event.target.checked)}
+            onChange={(event) => {
+              const open = event.target.checked;
+              setOpenEnded(open);
+              if (!open && !end) {
+                setEnd(start);
+              }
+            }}
           />
           {t("manage.field.openEnded")}
         </label>
