@@ -157,6 +157,38 @@ describe("TaskGrid", () => {
     expect(container).toHaveTextContent("2026 年 12 月");
   });
 
+  it("moves the focused cell with arrows and returns Home to today", () => {
+    const { container } = render(<TaskGrid />);
+    const todayCell = container.querySelector(
+      `[data-task="t1"][data-date="${TODAY}"]`,
+    ) as HTMLElement;
+
+    expect(todayCell).toHaveAttribute("tabindex", "0");
+    todayCell.focus();
+    expect(todayCell).toHaveFocus();
+
+    fireEvent.keyDown(todayCell, { key: "ArrowLeft" });
+    const previousDay = container.querySelector(
+      '[data-task="t1"][data-date="2026-11-01"]',
+    ) as HTMLElement;
+    expect(previousDay).toHaveFocus();
+
+    fireEvent.keyDown(previousDay, { key: "ArrowDown" });
+    const forcedRow = container.querySelector(
+      '[data-task="t2"][data-date="2026-11-01"]',
+    ) as HTMLElement;
+    expect(forcedRow).toHaveFocus();
+
+    fireEvent.keyDown(forcedRow, { key: "Home" });
+    const todayForced = container.querySelector(
+      `[data-task="t2"][data-date="${TODAY}"]`,
+    ) as HTMLElement;
+    expect(todayForced).toHaveFocus();
+
+    fireEvent.keyDown(todayForced, { key: "Escape" });
+    expect(container.querySelector("[data-focused]")).not.toBeInTheDocument();
+  });
+
   it("switches between detail and overview modes", () => {
     const { container } = render(<TaskGrid />);
     expect(container.querySelector('[data-mode="detail"]')).toBeInTheDocument();

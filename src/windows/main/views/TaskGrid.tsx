@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type KeyboardEvent,
 } from "react";
 
 import type { GridRow } from "../../../domain/grid";
@@ -88,6 +89,11 @@ export default function TaskGrid() {
     forced: false,
     disabled: true,
   });
+  const [focused, setFocused] = useState<{
+    taskId: string;
+    date: string;
+  } | null>(null);
+  const pendingFocus = useRef(false);
 
   const jumpToToday = useCallback(() => {
     const element = scrollerRef.current;
@@ -168,6 +174,30 @@ export default function TaskGrid() {
     return () => element.removeEventListener("wheel", onWheel);
   }, []);
 
+  /** 键盘移动后把目标日期保持在视口内（左右各留 2 列）。 */
+  const ensureDateVisible = (index: number) => {
+    const element = scrollerRef.current;
+    if (!element) {
+      return;
+    }
+    const width = element.clientWidth || effectiveWidth;
+    const dateViewport = Math.max(0, width - TASK_COL_WIDTH);
+    const left = index * cellSize;
+    const right = left + cellSize;
+    let next = element.scrollLeft;
+
+    if (left < next + cellSize * 2) {
+      next = Math.max(0, left - cellSize * 2);
+    } else if (right > next + dateViewport - cellSize * 2) {
+      next = Math.max(0, right - dateViewport + cellSize * 2);
+    }
+
+    if (next !== element.scrollLeft) {
+      element.scrollLeft = next;
+      setScrollLeft(next);
+    }
+  };
+
   const handleScroll = () => {
     const element = scrollerRef.current;
     if (element) {
@@ -183,6 +213,115 @@ export default function TaskGrid() {
   const groups = allGroups.filter((group) => group.rows.length > 0);
 
   const allRows = groups.flatMap((group) => group.rows);
+  const visibleRows = groups
+    .filter((group) => !collapsed[group.key])
+    .flatMap((group) => group.rows);
+  const defaultFocus =
+    visibleRows.length > 0
+      ? { taskId: visibleRows[0].task.id, date: data.today }
+      : null;
+  const clampIndex = (value: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, value));
+
+  const moveFocus = (dateDelta: number, rowDelta: number) => {
+    if (visibleRows.length === 0) {
+      return;
+    }
+    const current = focused ?? defaultFocus;
+    if (!current) {
+      return;
+    }
+    const dateIndex = clampIndex(
+      dates.indexOf(current.date) + dateDelta,
+      0,
+      dates.length - 1,
+    );
+    const rowIndex = clampIndex(
+      visibleRows.findIndex((row) => row.task.id === current.taskId) +
+        rowDelta,
+      0,
+      visibleRows.length - 1,
+    );
+    setFocused({
+      taskId: visibleRows[rowIndex].task.id,
+      date: dates[dateIndex],
+    });
+    pendingFocus.current = true;
+    ensureDateVisible(dateIndex);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (visibleRows.length === 0) {
+      return;
+    }
+    switch (event.key) {
+      case "ArrowLeft":
+        event.preventDefault();
+        moveFocus(-1, 0);
+        break;
+      case "ArrowRight":
+        event.preventDefault();
+        moveFocus(1, 0);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        moveFocus(0, -1);
+        break;
+      case "ArrowDown":
+        event.preventDefault();
+        moveFocus(0, 1);
+        break;
+      case "Home": {
+        event.preventDefault();
+        const current = focused ?? defaultFocus;
+        if (!current) {
+          return;
+        }
+        const rowIndex = Math.max(
+          0,
+          visibleRows.findIndex((row) => row.task.id === current.taskId),
+        );
+        setFocused({
+          taskId: visibleRows[rowIndex].task.id,
+          date: data.today,
+        });
+        pendingFocus.current = true;
+        jumpToToday();
+        break;
+      }
+      case "Escape":
+        event.preventDefault();
+        pendingFocus.current = false;
+        setFocused(null);
+        (document.activeElement as HTMLElement | null)?.blur();
+        break;
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (!pendingFocus.current || !focused) {
+      return;
+    }
+    const element =
+      scrollerRef.current?.querySelector<HTMLElement>(
+        `[data-task="${focused.taskId}"][data-date="${focused.date}"]`,
+      );
+    if (element) {
+      element.focus({ preventScroll: true });
+      pendingFocus.current = false;
+    }
+  }, [focused, scrollLeft, viewportWindow.start, viewportWindow.end]);
+
+  const focusRowVisible = focused
+    ? visibleRows.some((row) => row.task.id === focused.taskId)
+    : true;
+
+  useEffect(() => {
+    if (focused && !focusRowVisible) {
+      setFocused(null);
+    }
+  }, [focused, focusRowVisible]);
+
   const firstVisibleIndex = Math.min(
     dates.length - 1,
     Math.max(0, Math.floor(scrollLeft / cellSize)),
@@ -302,6 +441,7 @@ export default function TaskGrid() {
           <div
             ref={scrollerRef}
             onScroll={handleScroll}
+            onKeyDown={handleKeyDown}
             className="relative z-0 min-h-0 flex-1 overflow-auto"
             data-grid-scroller
           >
@@ -380,6 +520,9 @@ export default function TaskGrid() {
                   overview={overview}
                   today={data.today}
                   states={data.states}
+                  focused={focused}
+                  defaultFocus={defaultFocus}
+                  onFocusCell={(taskId, date) => setFocused({ taskId, date })}
                   onCycle={cycle}
                   onZoomDate={zoomToDate}
                 />
@@ -459,6 +602,9 @@ function GridGroup({
   overview,
   today,
   states,
+  focused,
+  defaultFocus,
+  onFocusCell,
   onCycle,
   onZoomDate,
 }: {
@@ -476,6 +622,9 @@ function GridGroup({
   overview: boolean;
   today: string;
   states: Map<string, CellState>;
+  focused: { taskId: string; date: string } | null;
+  defaultFocus: { taskId: string; date: string } | null;
+  onFocusCell: (taskId: string, date: string) => void;
   onCycle: (row: GridRow, date: string) => void;
   onZoomDate: (date: string) => void;
 }) {
@@ -547,6 +696,12 @@ function GridGroup({
               {dates.map((date) => {
                 const state =
                   states.get(checkinKey(row.task.id, date)) ?? "none";
+                const isFocused =
+                  focused?.taskId === row.task.id &&
+                  focused.date === date;
+                const isDefault =
+                  defaultFocus?.taskId === row.task.id &&
+                  defaultFocus.date === date;
                 return (
                   <GridCell
                     key={date}
@@ -558,9 +713,12 @@ function GridGroup({
                     height={rowHeight}
                     isToday={date === today}
                     overview={overview}
+                    focused={isFocused}
+                    tabIndex={isFocused || (!focused && isDefault) ? 0 : -1}
                     disabled={
                       row.disabled || (!overview && state === "none")
                     }
+                    onFocus={() => onFocusCell(row.task.id, date)}
                     onActivate={
                       overview
                         ? () => onZoomDate(date)
@@ -606,7 +764,10 @@ function GridCell({
   height,
   isToday,
   overview,
+  focused,
+  tabIndex,
   disabled,
+  onFocus,
   onActivate,
 }: {
   taskId: string;
@@ -617,7 +778,10 @@ function GridCell({
   height: number;
   isToday: boolean;
   overview: boolean;
+  focused: boolean;
+  tabIndex: number;
   disabled: boolean;
+  onFocus: () => void;
   onActivate: () => void;
 }) {
   const t = useT();
@@ -638,14 +802,17 @@ function GridCell({
       data-date={date}
       data-state={state}
       data-today={isToday ? "" : undefined}
+      data-focused={focused ? "" : undefined}
+      tabIndex={tabIndex}
       disabled={disabled}
       aria-label={t("checkin.aria", {
         task: taskName,
         status: t(CELL_LABEL_KEYS[state]),
       })}
+      onFocus={onFocus}
       onClick={onActivate}
       className={clsx(
-        "flex shrink-0 items-center justify-center border-b border-l tabular-nums",
+        "flex shrink-0 items-center justify-center border-b border-l tabular-nums outline-none",
         overview ? "text-[0px]" : "text-xs",
         !overview && state === "done" &&
           "font-semibold text-[var(--color-voluntary)]",
@@ -668,9 +835,11 @@ function GridCell({
           !overview && state === "none"
             ? "color-mix(in srgb, var(--color-text) 28%, transparent)"
             : undefined,
-        boxShadow: isToday
-          ? "inset -1px 0 0 color-mix(in srgb, var(--color-voluntary) 45%, transparent)"
-          : undefined,
+        boxShadow: focused
+          ? "inset 0 0 0 2px var(--color-voluntary)"
+          : isToday
+            ? "inset -1px 0 0 color-mix(in srgb, var(--color-voluntary) 45%, transparent)"
+            : undefined,
         borderLeftColor:
           "color-mix(in srgb, var(--color-border) 50%, transparent)",
         borderBottomColor:
