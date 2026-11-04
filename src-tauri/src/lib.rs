@@ -57,6 +57,10 @@ pub fn run() {
     ];
 
     tauri::Builder::default()
+        // 必须最先注册：第二个实例在这里直接退出并把主窗唤回。
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_main(app);
+        }))
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations(DB_URL, migrations)
@@ -129,6 +133,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![set_tray_progress])
+        // 主窗关闭 = 隐藏到托盘（impl.md §5），单实例回调才能把它再唤回来。
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
