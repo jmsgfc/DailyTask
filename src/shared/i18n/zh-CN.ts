@@ -180,6 +180,8 @@ export const zhCN = {
   "widget.pin": "置顶",
   "widget.unpin": "取消置顶",
   "widget.minimize": "最小化挂件",
+  "widget.collapse": "收起挂件",
+  "widget.expandCapsule": "展开挂件，今日进度 {done}/{total}",
 
   "grid.title": "任务表",
   "grid.range": "{start} – {end} · {days} 天",

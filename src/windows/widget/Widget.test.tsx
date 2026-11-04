@@ -15,15 +15,48 @@ import { emitWidgetExpand } from "../../shared/events";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTasksStore } from "../../stores/tasksStore";
 import { useTodosStore } from "../../stores/todosStore";
+import { CAPSULE_STORAGE_KEY } from "./capsule";
 import { Widget } from "./Widget";
 
 const windowApi = vi.hoisted(() => ({
   setAlwaysOnTop: vi.fn(async () => undefined),
   hide: vi.fn(async () => undefined),
+  outerPosition: vi.fn(async () => ({ x: 0, y: 300 })),
+  setSize: vi.fn(async (size: { width: number; height: number }) => {
+    void size;
+  }),
+  setPosition: vi.fn(async (position: { x: number; y: number }) => {
+    void position;
+  }),
+}));
+
+const monitorApi = vi.hoisted(() => ({
+  currentMonitor: vi.fn(async () => ({
+    size: { width: 1920, height: 1080 },
+    position: { x: 0, y: 0 },
+    workArea: {
+      position: { x: 0, y: 0 },
+      size: { width: 1920, height: 1040 },
+    },
+    scaleFactor: 2,
+  })),
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => windowApi,
+  currentMonitor: monitorApi.currentMonitor,
+  PhysicalSize: class {
+    constructor(
+      public width: number,
+      public height: number,
+    ) {}
+  },
+  PhysicalPosition: class {
+    constructor(
+      public x: number,
+      public y: number,
+    ) {}
+  },
 }));
 
 vi.mock("../../shared/events", () => ({
@@ -104,6 +137,11 @@ describe("Widget", () => {
     vi.mocked(emitWidgetExpand).mockClear();
     windowApi.setAlwaysOnTop.mockClear();
     windowApi.hide.mockClear();
+    windowApi.outerPosition.mockClear();
+    windowApi.setSize.mockClear();
+    windowApi.setPosition.mockClear();
+    monitorApi.currentMonitor.mockClear();
+    localStorage.removeItem(CAPSULE_STORAGE_KEY);
     seedStores();
   });
 
@@ -149,6 +187,49 @@ describe("Widget", () => {
     expect(emitWidgetExpand).toHaveBeenCalledWith({ source: "widget" });
     await act(async () => undefined);
     expect(windowApi.hide).toHaveBeenCalledTimes(1);
+  });
+
+  it("collapses to a right-edge capsule and expands on click", async () => {
+    render(<Widget />);
+
+    fireEvent.click(screen.getByRole("button", { name: "收起挂件" }));
+    await act(async () => undefined);
+
+    // 200% DPI：44×120 逻辑像素 → 88×240 物理像素，贴右边。
+    expect(windowApi.setSize.mock.calls.at(-1)?.[0]).toMatchObject({
+      width: 88,
+      height: 240,
+    });
+    expect(windowApi.setPosition.mock.calls.at(-1)?.[0]).toMatchObject({
+      x: 1920 - 88,
+      y: 300,
+    });
+    expect(localStorage.getItem(CAPSULE_STORAGE_KEY)).toBe("1");
+
+    fireEvent.click(screen.getByRole("button", { name: /展开挂件/ }));
+    await act(async () => undefined);
+
+    expect(windowApi.setSize.mock.calls.at(-1)?.[0]).toMatchObject({
+      width: 440,
+      height: 560,
+    });
+    expect(localStorage.getItem(CAPSULE_STORAGE_KEY)).toBe("0");
+    expect(
+      screen.queryByRole("button", { name: /展开挂件/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("restores the capsule on mount when the preference is set", async () => {
+    localStorage.setItem(CAPSULE_STORAGE_KEY, "1");
+    render(<Widget />);
+    await act(async () => undefined);
+
+    expect(windowApi.setSize).toHaveBeenCalledWith(
+      expect.objectContaining({ width: 88, height: 240 }),
+    );
+    expect(
+      screen.getByRole("button", { name: /展开挂件/ }),
+    ).toBeInTheDocument();
   });
 
   it("toggles always-on-top and hides the widget", async () => {

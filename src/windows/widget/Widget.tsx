@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { emitWidgetExpand } from "../../shared/events";
 import { useCheckinsStore } from "../../stores/checkinsStore";
@@ -11,6 +11,11 @@ import {
 import { useSettingsStore } from "../../stores/settingsStore";
 import { applyTheme } from "../../ui/theme";
 import { useT } from "../../ui/useT";
+import {
+  applyWidgetLayout,
+  readCollapsedPreference,
+  writeCollapsedPreference,
+} from "./capsule";
 
 const RING_RADIUS = 17;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -28,6 +33,8 @@ export function Widget() {
   const alwaysOnTop = useSettingsStore((state) => state.settings.alwaysOnTop);
   const theme = useSettingsStore((state) => state.settings.theme);
   const updateSettings = useSettingsStore((state) => state.update);
+  const [collapsed, setCollapsed] = useState(readCollapsedPreference);
+  const initialCollapsed = useRef(collapsed);
 
   useEffect(() => {
     void getCurrentWindow().setAlwaysOnTop(alwaysOnTop).catch((error: unknown) => {
@@ -39,6 +46,23 @@ export function Widget() {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  // 启动时如果上次是胶囊态，直接贴到当前显示器右边。
+  useEffect(() => {
+    if (initialCollapsed.current) {
+      void applyWidgetLayout(true).catch((error: unknown) => {
+        console.error("[widget] 恢复胶囊态失败", error);
+      });
+    }
+  }, []);
+
+  const setCapsule = (next: boolean) => {
+    writeCollapsedPreference(next);
+    setCollapsed(next);
+    void applyWidgetLayout(next).catch((error: unknown) => {
+      console.error("[widget] 调整挂件尺寸失败", error);
+    });
+  };
 
   const togglePin = () => {
     void updateSettings({ alwaysOnTop: !alwaysOnTop }).catch(
@@ -77,6 +101,18 @@ export function Widget() {
     void setStatus(row.task.id, data.today, "done");
   };
 
+  if (collapsed) {
+    return (
+      <WidgetCapsule
+        done={completed}
+        total={total}
+        ratio={ratio}
+        label={t("widget.expandCapsule", { done: completed, total })}
+        onExpand={() => setCapsule(false)}
+      />
+    );
+  }
+
   return (
     <div className="h-full w-full p-2">
       <section className="group relative flex h-full flex-col overflow-hidden rounded-[var(--radius-widget)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-[var(--color-text)] shadow-[var(--shadow-widget)]">
@@ -109,6 +145,12 @@ export function Widget() {
                 onClick={togglePin}
               >
                 <path d="M8 1.8v4.4M4.8 6.2h6.4L10 10H6L4.8 6.2zM8 10.2v4" />
+              </WidgetAction>
+              <WidgetAction
+                label={t("widget.collapse")}
+                onClick={() => setCapsule(true)}
+              >
+                <path d="M6 3.5L10.5 8 6 12.5" />
               </WidgetAction>
               <WidgetAction label={t("widget.minimize")} onClick={minimize}>
                 <path d="M3.5 8h9" />
@@ -196,6 +238,68 @@ export function Widget() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function WidgetCapsule({
+  done,
+  total,
+  ratio,
+  label,
+  onExpand,
+}: {
+  done: number;
+  total: number;
+  ratio: number;
+  label: string;
+  onExpand: () => void;
+}) {
+  const radius = 10;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <div className="h-full w-full p-2">
+      <button
+        type="button"
+        data-widget-capsule
+        aria-label={label}
+        title={label}
+        onClick={onExpand}
+        className="flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-[var(--radius-widget)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[var(--shadow-widget)] transition-colors hover:border-[var(--color-voluntary)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      >
+        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+          <circle
+            cx="13"
+            cy="13"
+            r={radius}
+            fill="none"
+            stroke="color-mix(in srgb, var(--color-text) 12%, transparent)"
+            strokeWidth="3"
+          />
+          <circle
+            cx="13"
+            cy="13"
+            r={radius}
+            fill="none"
+            stroke="var(--color-voluntary)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference * (1 - ratio)}
+            transform="rotate(-90 13 13)"
+          />
+        </svg>
+        <b className="text-[10px] leading-none tabular-nums">
+          {done}/{total}
+        </b>
+        <span
+          aria-hidden="true"
+          className="text-[10px] leading-none text-[var(--color-text-muted)]"
+        >
+          ‹
+        </span>
+      </button>
     </div>
   );
 }
