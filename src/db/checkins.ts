@@ -135,6 +135,29 @@ export async function setCheckinValue(
   return readCell(db, taskId, date);
 }
 
+/**
+ * 给已有打卡写备注；没有打卡行时返回 null（备注不单独建行）。
+ * 传 null / 空白表示清空备注，保留判定。
+ */
+export async function setCheckinNote(
+  db: SqlDatabase,
+  taskId: string,
+  date: string,
+  note: string | null,
+): Promise<Checkin | null> {
+  const normalized = note?.trim() ? note.trim() : null;
+  const current = await readCell(db, taskId, date);
+  if (current === null) {
+    return null;
+  }
+
+  await db.execute(
+    "UPDATE checkins SET note = ?, updated_at = ? WHERE task_id = ? AND date = ?",
+    [normalized, new Date().toISOString(), taskId, date],
+  );
+  return readCell(db, taskId, date);
+}
+
 /** 点击循环回到空状态时删除该行。 */
 export async function deleteCheckin(
   db: SqlDatabase,

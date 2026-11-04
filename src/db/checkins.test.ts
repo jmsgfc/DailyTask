@@ -8,6 +8,7 @@ import type { SqlDatabase } from "../db/client";
 import {
   deleteCheckin,
   listCheckins,
+  setCheckinNote,
   setCheckinValue,
   upsertCheckin,
 } from "./checkins";
@@ -83,6 +84,48 @@ describe("deleteCheckin", () => {
 
     await deleteCheckin(db, "t1", "2026-11-02");
 
+    expect(await listCheckins(db)).toEqual([]);
+  });
+});
+
+describe("checkin note", () => {
+  it("updates the note without touching status or value", async () => {
+    const db = createDb();
+    await upsertCheckin(db, {
+      taskId: "t1",
+      date: "2026-11-02",
+      status: "done",
+    });
+    await setCheckinValue(db, "t1", "2026-11-02", "4");
+
+    const saved = await setCheckinNote(db, "t1", "2026-11-02", " 只跑了 1km ");
+
+    expect(saved).toMatchObject({
+      status: "done",
+      value: "4",
+      note: "只跑了 1km",
+    });
+  });
+
+  it("clears the note but keeps the checkin row", async () => {
+    const db = createDb();
+    await upsertCheckin(db, {
+      taskId: "t1",
+      date: "2026-11-02",
+      status: "missed",
+      note: "临时有事",
+    });
+
+    const saved = await setCheckinNote(db, "t1", "2026-11-02", "   ");
+
+    expect(saved).toMatchObject({ status: "missed", note: null });
+    expect(await listCheckins(db)).toHaveLength(1);
+  });
+
+  it("does not create a row for an empty cell", async () => {
+    const db = createDb();
+
+    expect(await setCheckinNote(db, "t1", "2026-11-02", "备注")).toBeNull();
     expect(await listCheckins(db)).toEqual([]);
   });
 });

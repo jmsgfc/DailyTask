@@ -48,6 +48,7 @@ function doneToday(): Checkin {
 
 describe("TaskGrid", () => {
   const setStatus = vi.fn(async () => undefined);
+  const setNote = vi.fn(async () => undefined);
   const updateSettings = vi.fn(
     async (patch: Partial<typeof DEFAULT_SETTINGS>) => {
       void patch;
@@ -58,6 +59,7 @@ describe("TaskGrid", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     setStatus.mockClear();
+    setNote.mockClear();
     updateSettings.mockClear();
 
     useSettingsStore.setState({
@@ -74,6 +76,7 @@ describe("TaskGrid", () => {
     useCheckinsStore.setState({
       byKey: new Map([[checkinKey("t1", TODAY), doneToday()]]),
       setStatus,
+      setNote,
     });
   });
 
@@ -155,6 +158,38 @@ describe("TaskGrid", () => {
     fireEvent.scroll(scroller);
 
     expect(container).toHaveTextContent("2026 年 12 月");
+  });
+
+  it("opens the note bubble from a judged cell and saves", () => {
+    const { container } = render(<TaskGrid />);
+    const noteButton = container.querySelector(
+      `[data-note-button="t1|${TODAY}"]`,
+    ) as HTMLElement;
+
+    expect(noteButton).toBeInTheDocument();
+    fireEvent.click(noteButton);
+    expect(container.querySelector("[data-note-bubble]")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "备注" }), {
+      target: { value: "只做了 5 个" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(setNote).toHaveBeenCalledWith("t1", TODAY, "只做了 5 个");
+    expect(
+      container.querySelector("[data-note-bubble]"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("only offers notes on cells that already have a record", () => {
+    const { container } = render(<TaskGrid />);
+
+    expect(
+      container.querySelector(`[data-note-button="t1|${TODAY}"]`),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-note-button="t1|2026-11-03"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("moves the focused cell with arrows and returns Home to today", () => {
@@ -241,7 +276,7 @@ describe("TaskGrid", () => {
         ),
       ),
     });
-    useCheckinsStore.setState({ byKey: new Map(), setStatus });
+    useCheckinsStore.setState({ byKey: new Map(), setStatus, setNote });
 
     const { container } = render(<TaskGrid />);
     const cells = container.querySelectorAll("[data-grid-cell]");

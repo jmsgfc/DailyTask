@@ -13,7 +13,7 @@ import type { GridRow } from "../../../domain/grid";
 import { monthTicks } from "../../../domain/grid";
 import { checkinKey } from "../../../domain/keys";
 import { nextCellState, type CellState } from "../../../domain/settle";
-import type { Language } from "../../../domain/types";
+import type { Checkin, Language } from "../../../domain/types";
 import type { MessageKey } from "../../../shared/i18n";
 import { dateLocale } from "../../../shared/i18n";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
@@ -59,6 +59,7 @@ export default function TaskGrid() {
   const t = useT();
   const data = useGridData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
+  const setNote = useCheckinsStore((state) => state.setNote);
 
   const cellSize = Math.min(44, Math.max(14, data.settings.gridZoom));
   const overview = cellSize < 24;
@@ -94,6 +95,15 @@ export default function TaskGrid() {
     date: string;
   } | null>(null);
   const pendingFocus = useRef(false);
+  const cardRef = useRef<HTMLElement>(null);
+  const [noteTarget, setNoteTarget] = useState<{
+    taskId: string;
+    date: string;
+    taskName: string;
+    left: number;
+    top: number;
+  } | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
 
   const jumpToToday = useCallback(() => {
     const element = scrollerRef.current;
@@ -203,6 +213,9 @@ export default function TaskGrid() {
     if (element) {
       setScrollLeft(element.scrollLeft);
     }
+    if (noteTarget) {
+      setNoteTarget(null);
+    }
   };
 
   const allGroups: { key: GroupKey; rows: GridRow[] }[] = [
@@ -252,6 +265,10 @@ export default function TaskGrid() {
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (visibleRows.length === 0) {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (target.tagName === "TEXTAREA" || target.tagName === "INPUT") {
       return;
     }
     switch (event.key) {
@@ -339,6 +356,36 @@ export default function TaskGrid() {
   const cycle = (row: GridRow, date: string) => {
     const state = data.states.get(checkinKey(row.task.id, date)) ?? "none";
     void setStatus(row.task.id, date, nextCellState(state));
+  };
+
+  const openNote = (taskId: string, date: string, taskName: string) => {
+    const cell = scrollerRef.current?.querySelector<HTMLElement>(
+      `[data-task="${taskId}"][data-date="${date}"]`,
+    );
+    const card = cardRef.current;
+    if (!cell || !card) {
+      return;
+    }
+    const cellRect = cell.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const left = Math.min(
+      Math.max(cellRect.left - cardRect.left - 88, 8),
+      Math.max(8, cardRect.width - 216),
+    );
+    const top = Math.min(
+      Math.max(cellRect.bottom - cardRect.top + 8, 8),
+      Math.max(8, cardRect.height - 132),
+    );
+    setNoteDraft(data.checkins.get(checkinKey(taskId, date))?.note ?? "");
+    setNoteTarget({ taskId, date, taskName, left, top });
+  };
+
+  const saveNote = () => {
+    if (!noteTarget) {
+      return;
+    }
+    void setNote(noteTarget.taskId, noteTarget.date, noteDraft);
+    setNoteTarget(null);
   };
 
   /** 概览点击：回到详细缩放，并把该日期放到可视区中间。 */
@@ -430,6 +477,7 @@ export default function TaskGrid() {
         </section>
       ) : (
         <section
+          ref={cardRef}
           data-grid-zoom={cellSize}
           data-mode={overview ? "overview" : "detail"}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
@@ -520,15 +568,65 @@ export default function TaskGrid() {
                   overview={overview}
                   today={data.today}
                   states={data.states}
+                  checkins={data.checkins}
                   focused={focused}
                   defaultFocus={defaultFocus}
                   onFocusCell={(taskId, date) => setFocused({ taskId, date })}
+                  onOpenNote={openNote}
                   onCycle={cycle}
                   onZoomDate={zoomToDate}
                 />
               ))}
             </div>
           </div>
+
+          {noteTarget ? (
+            <div
+              data-note-bubble
+              className="absolute z-40 w-[208px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-[var(--shadow-popover)]"
+              style={{ left: noteTarget.left, top: noteTarget.top }}
+            >
+              <div className="mb-1 flex items-center gap-2 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+                <span className="truncate">
+                  {format(parseISO(noteTarget.date), "MM/dd")}{" "}
+                  {noteTarget.taskName}
+                </span>
+                <span className="ml-auto shrink-0">
+                  {t("grid.note.title")}
+                </span>
+              </div>
+              <textarea
+                autoFocus
+                value={noteDraft}
+                aria-label={t("grid.note.title")}
+                placeholder={t("grid.note.placeholder")}
+                onChange={(event) => setNoteDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.stopPropagation();
+                    setNoteTarget(null);
+                  }
+                }}
+                className="h-16 w-full resize-none rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] p-1.5 text-xs text-[var(--color-text)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+              />
+              <div className="mt-1.5 flex justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setNoteTarget(null)}
+                  className="rounded-[var(--radius-control)] px-2 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+                >
+                  {t("grid.note.cancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={saveNote}
+                  className="rounded-[var(--radius-control)] bg-[var(--color-voluntary)] px-2 py-1 text-[var(--text-2xs)] font-semibold text-white"
+                >
+                  {t("grid.note.save")}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <footer className="flex h-[30px] flex-none items-center gap-1.5 border-t border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[10px] text-[var(--color-text-muted)]">
             <span>{t("grid.taskCount", { count: allRows.length })}</span>
@@ -602,9 +700,11 @@ function GridGroup({
   overview,
   today,
   states,
+  checkins,
   focused,
   defaultFocus,
   onFocusCell,
+  onOpenNote,
   onCycle,
   onZoomDate,
 }: {
@@ -622,9 +722,11 @@ function GridGroup({
   overview: boolean;
   today: string;
   states: Map<string, CellState>;
+  checkins: Map<string, Checkin>;
   focused: { taskId: string; date: string } | null;
   defaultFocus: { taskId: string; date: string } | null;
   onFocusCell: (taskId: string, date: string) => void;
+  onOpenNote: (taskId: string, date: string, taskName: string) => void;
   onCycle: (row: GridRow, date: string) => void;
   onZoomDate: (date: string) => void;
 }) {
@@ -694,8 +796,9 @@ function GridGroup({
 
               <div style={{ width: leftPad }} />
               {dates.map((date) => {
-                const state =
-                  states.get(checkinKey(row.task.id, date)) ?? "none";
+                const key = checkinKey(row.task.id, date);
+                const state = states.get(key) ?? "none";
+                const note = checkins.get(key)?.note ?? null;
                 const isFocused =
                   focused?.taskId === row.task.id &&
                   focused.date === date;
@@ -715,10 +818,14 @@ function GridGroup({
                     overview={overview}
                     focused={isFocused}
                     tabIndex={isFocused || (!focused && isDefault) ? 0 : -1}
+                    hasNote={Boolean(note)}
                     disabled={
                       row.disabled || (!overview && state === "none")
                     }
                     onFocus={() => onFocusCell(row.task.id, date)}
+                    onOpenNote={() =>
+                      onOpenNote(row.task.id, date, row.task.name)
+                    }
                     onActivate={
                       overview
                         ? () => onZoomDate(date)
@@ -766,8 +873,10 @@ function GridCell({
   overview,
   focused,
   tabIndex,
+  hasNote,
   disabled,
   onFocus,
+  onOpenNote,
   onActivate,
 }: {
   taskId: string;
@@ -780,12 +889,20 @@ function GridCell({
   overview: boolean;
   focused: boolean;
   tabIndex: number;
+  hasNote: boolean;
   disabled: boolean;
   onFocus: () => void;
+  onOpenNote: () => void;
   onActivate: () => void;
 }) {
   const t = useT();
   const symbol = state === "none" ? "▫" : CELL_SYMBOLS[state];
+  const canNote =
+    !overview &&
+    (state === "done" ||
+      state === "missed" ||
+      state === "skipped" ||
+      state === "recorded");
 
   const detailBackground = isToday ? TODAY_TINT : undefined;
   const background = overview
@@ -795,58 +912,81 @@ function GridCell({
       (state === "none" ? "var(--color-na)" : undefined));
 
   return (
-    <button
-      type="button"
-      data-grid-cell={taskId}
-      data-task={taskId}
-      data-date={date}
-      data-state={state}
-      data-today={isToday ? "" : undefined}
-      data-focused={focused ? "" : undefined}
-      tabIndex={tabIndex}
-      disabled={disabled}
-      aria-label={t("checkin.aria", {
-        task: taskName,
-        status: t(CELL_LABEL_KEYS[state]),
-      })}
-      onFocus={onFocus}
-      onClick={onActivate}
-      className={clsx(
-        "flex shrink-0 items-center justify-center border-b border-l tabular-nums outline-none",
-        overview ? "text-[0px]" : "text-xs",
-        !overview && state === "done" &&
-          "font-semibold text-[var(--color-voluntary)]",
-        !overview && state === "missed" && "text-[var(--color-missed)]",
-        !overview &&
-          (state === "skipped" || state === "recorded") &&
-          "text-[var(--color-text-muted)]",
-        !overview && state === "pending" && "text-[var(--color-text)]",
-        disabled
-          ? "cursor-not-allowed"
-          : overview
-            ? "cursor-zoom-in hover:brightness-105"
-            : "cursor-pointer hover:bg-[var(--state-hover)]",
-      )}
-      style={{
-        width,
-        height,
-        background,
-        color:
-          !overview && state === "none"
-            ? "color-mix(in srgb, var(--color-text) 28%, transparent)"
-            : undefined,
-        boxShadow: focused
-          ? "inset 0 0 0 2px var(--color-voluntary)"
-          : isToday
-            ? "inset -1px 0 0 color-mix(in srgb, var(--color-voluntary) 45%, transparent)"
-            : undefined,
-        borderLeftColor:
-          "color-mix(in srgb, var(--color-border) 50%, transparent)",
-        borderBottomColor:
-          "color-mix(in srgb, var(--color-border) 50%, transparent)",
-      }}
-    >
-      <span aria-hidden="true">{overview ? "" : symbol}</span>
-    </button>
+    <div className="group relative shrink-0" style={{ width, height }}>
+      <button
+        type="button"
+        data-grid-cell={taskId}
+        data-task={taskId}
+        data-date={date}
+        data-state={state}
+        data-today={isToday ? "" : undefined}
+        data-focused={focused ? "" : undefined}
+        tabIndex={tabIndex}
+        disabled={disabled}
+        aria-label={t("checkin.aria", {
+          task: taskName,
+          status: t(CELL_LABEL_KEYS[state]),
+        })}
+        onFocus={onFocus}
+        onClick={onActivate}
+        className={clsx(
+          "flex size-full items-center justify-center border-b border-l tabular-nums outline-none",
+          overview ? "text-[0px]" : "text-xs",
+          !overview &&
+            state === "done" &&
+            "font-semibold text-[var(--color-voluntary)]",
+          !overview && state === "missed" && "text-[var(--color-missed)]",
+          !overview &&
+            (state === "skipped" || state === "recorded") &&
+            "text-[var(--color-text-muted)]",
+          !overview && state === "pending" && "text-[var(--color-text)]",
+          disabled
+            ? "cursor-not-allowed"
+            : overview
+              ? "cursor-zoom-in hover:brightness-105"
+              : "cursor-pointer hover:bg-[var(--state-hover)]",
+        )}
+        style={{
+          background,
+          color:
+            !overview && state === "none"
+              ? "color-mix(in srgb, var(--color-text) 28%, transparent)"
+              : undefined,
+          boxShadow: focused
+            ? "inset 0 0 0 2px var(--color-voluntary)"
+            : isToday
+              ? "inset -1px 0 0 color-mix(in srgb, var(--color-voluntary) 45%, transparent)"
+              : undefined,
+          borderLeftColor:
+            "color-mix(in srgb, var(--color-border) 50%, transparent)",
+          borderBottomColor:
+            "color-mix(in srgb, var(--color-border) 50%, transparent)",
+        }}
+      >
+        <span aria-hidden="true">{overview ? "" : symbol}</span>
+      </button>
+
+      {canNote ? (
+        <button
+          type="button"
+          data-note-button={checkinKey(taskId, date)}
+          tabIndex={focused ? 0 : -1}
+          aria-label={t(hasNote ? "grid.note.has" : "grid.note.add")}
+          title={t("grid.note.title")}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenNote();
+          }}
+          className={clsx(
+            "absolute right-0 top-0 grid size-3 place-items-center rounded-bl-[4px] text-[8px] leading-none",
+            hasNote
+              ? "bg-[color-mix(in_srgb,var(--color-warning)_18%,transparent)] text-[var(--color-warning)]"
+              : "text-[var(--color-text-muted)] opacity-0 hover:bg-[var(--state-active)] focus:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100",
+          )}
+        >
+          <span aria-hidden="true">{hasNote ? "•" : "✎"}</span>
+        </button>
+      ) : null}
+    </div>
   );
 }

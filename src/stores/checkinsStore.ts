@@ -1,6 +1,12 @@
 import { create } from "zustand";
 
-import { deleteCheckin, listCheckins, setCheckinValue, upsertCheckin } from "../db/checkins";
+import {
+  deleteCheckin,
+  listCheckins,
+  setCheckinNote,
+  setCheckinValue,
+  upsertCheckin,
+} from "../db/checkins";
 import { getDb } from "../db/client";
 import { checkinKey } from "../domain/keys";
 import type { Checkin, CheckinStatus } from "../domain/types";
@@ -24,6 +30,12 @@ export interface CheckinsState {
     taskId: string,
     date: string,
     value: string | null,
+  ) => Promise<void>;
+  /** 给已有打卡写备注；没有打卡行时不建行。 */
+  setNote: (
+    taskId: string,
+    date: string,
+    note: string | null,
   ) => Promise<void>;
 }
 
@@ -154,6 +166,46 @@ export const useCheckinsStore = create<CheckinsState>()((set, get) => ({
         } else {
           rollback.delete(key);
         }
+        set({ byKey: rollback });
+        throw error;
+      }
+    });
+  },
+
+  setNote: (taskId, date, note) => {
+    const key = checkinKey(taskId, date);
+    const previous = get().byKey;
+    const before = previous.get(key);
+    if (!before) {
+      return Promise.resolve();
+    }
+
+    const normalized = note?.trim() ? note.trim() : null;
+    const optimistic = new Map(previous).set(key, {
+      ...before,
+      note: normalized,
+      updatedAt: new Date().toISOString(),
+    });
+    set({ byKey: optimistic });
+
+    return enqueueWrite(async () => {
+      try {
+        const saved = await setCheckinNote(
+          await getDb(),
+          taskId,
+          date,
+          normalized,
+        );
+        if (saved) {
+          set({ byKey: new Map(get().byKey).set(key, saved), loaded: true });
+        }
+        void emitCheckinsChanged({ date, source: currentSource() }).catch(
+          () => undefined,
+        );
+      } catch (error) {
+        console.error("[checkins] 写备注失败，已回滚", error);
+        const rollback = new Map(get().byKey);
+        rollback.set(key, before);
         set({ byKey: rollback });
         throw error;
       }

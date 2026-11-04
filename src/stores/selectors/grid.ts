@@ -19,6 +19,7 @@ export interface GridData {
   axis: DateAxis;
   groups: GridGroups;
   settings: Settings;
+  checkins: Map<string, Checkin>;
   /** taskId|date → 五态投影，渲染时直接查表。 */
   states: Map<string, CellState>;
 }
@@ -52,7 +53,7 @@ export function buildGridData(
     }
   }
 
-  return { today, axis, groups, settings, states };
+  return { today, axis, groups, settings, checkins, states };
 }
 
 export function useGridData(): GridData {
