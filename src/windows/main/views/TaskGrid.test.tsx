@@ -48,13 +48,18 @@ function doneToday(): Checkin {
 
 describe("TaskGrid", () => {
   const setStatus = vi.fn(async () => undefined);
+  const updateSettings = vi.fn(async () => undefined);
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     setStatus.mockClear();
+    updateSettings.mockClear();
 
-    useSettingsStore.setState({ settings: DEFAULT_SETTINGS });
+    useSettingsStore.setState({
+      settings: DEFAULT_SETTINGS,
+      update: updateSettings,
+    });
     useTasksStore.setState({
       tasks: [
         task("t1", "引体向上", "voluntary", "2026-10-28", null, 0),
@@ -146,6 +151,19 @@ describe("TaskGrid", () => {
     fireEvent.scroll(scroller);
 
     expect(container).toHaveTextContent("2026 年 12 月");
+  });
+
+  it("zooms with Ctrl + wheel and persists gridZoom", () => {
+    const { container } = render(<TaskGrid />);
+    const scroller = container.querySelector(
+      "[data-grid-scroller]",
+    ) as HTMLElement;
+
+    fireEvent.wheel(scroller, { ctrlKey: true, deltaY: -100 });
+    expect(updateSettings).toHaveBeenCalledWith({ gridZoom: 34 });
+
+    fireEvent.wheel(scroller, { deltaY: -100 });
+    expect(updateSettings).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the DOM windowed on a 1200-column axis", () => {

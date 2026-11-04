@@ -1,6 +1,12 @@
 import { clsx } from "clsx";
 import { format, parseISO } from "date-fns";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import type { GridRow } from "../../../domain/grid";
 import { monthTicks } from "../../../domain/grid";
@@ -11,6 +17,7 @@ import type { MessageKey } from "../../../shared/i18n";
 import { dateLocale } from "../../../shared/i18n";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useGridData } from "../../../stores/selectors/grid";
+import { useSettingsStore } from "../../../stores/settingsStore";
 import {
   CELL_LABEL_KEYS,
   CELL_SYMBOLS,
@@ -26,6 +33,9 @@ const MONTH_ROW_HEIGHT = 22;
 const DATE_ROW_HEIGHT = 34;
 const GROUP_ROW_HEIGHT = 26;
 const TASK_ROW_HEIGHT = 34;
+const MIN_ZOOM = 14;
+const MAX_ZOOM = 44;
+const ZOOM_STEP = 2;
 
 type GroupKey = "voluntary" | "forced" | "disabled";
 
@@ -59,6 +69,9 @@ export default function TaskGrid() {
     scrollLeftForToday(data.axis.todayIndex, 832, cellSize),
   );
   const effectiveWidth = viewportWidth || 832;
+  const viewRef = useRef({ scrollLeft, cellSize, width: effectiveWidth });
+  viewRef.current = { scrollLeft, cellSize, width: effectiveWidth };
+
   const viewportWindow = useHorizontalWindow(
     scrollLeft,
     effectiveWidth,
@@ -105,6 +118,51 @@ export default function TaskGrid() {
   // 打开即定位到今天，右侧留 4 天。
   useLayoutEffect(() => {
     jumpToToday();
+  }, []);
+
+  // Ctrl + 滚轮缩放：以可视区中心为锚点，值写回 settings。
+  useEffect(() => {
+    const element = scrollerRef.current;
+    if (!element) {
+      return;
+    }
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey || event.deltaY === 0) {
+        return;
+      }
+      event.preventDefault();
+
+      const current = Math.min(
+        MAX_ZOOM,
+        Math.max(
+          MIN_ZOOM,
+          useSettingsStore.getState().settings.gridZoom,
+        ),
+      );
+      const next = Math.min(
+        MAX_ZOOM,
+        Math.max(
+          MIN_ZOOM,
+          current + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP),
+        ),
+      );
+      if (next === current) {
+        return;
+      }
+
+      const view = viewRef.current;
+      const dateViewport = Math.max(0, view.width - TASK_COL_WIDTH);
+      const centerIndex =
+        (view.scrollLeft + dateViewport / 2) / view.cellSize;
+      const target = Math.max(0, centerIndex * next - dateViewport / 2);
+
+      element.scrollLeft = target;
+      setScrollLeft(target);
+      void useSettingsStore.getState().update({ gridZoom: next });
+    };
+
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
   }, []);
 
   const handleScroll = () => {
@@ -172,7 +230,10 @@ export default function TaskGrid() {
           </p>
         </section>
       ) : (
-        <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
+        <section
+          data-grid-zoom={cellSize}
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
+        >
           <div className="pointer-events-none absolute left-[160px] top-0 z-30 flex h-[22px] items-center border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[10px] text-[var(--color-text-muted)]">
             {monthLabel}
           </div>

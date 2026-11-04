@@ -9,6 +9,7 @@ export interface SettingsState {
   settings: Settings;
   loaded: boolean;
   hydrate: (settings: Settings) => void;
+  /** 乐观更新：先改内存，落库失败再回滚。 */
   update: (patch: Partial<Settings>) => Promise<void>;
 }
 
@@ -18,9 +19,17 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   hydrate: (settings) => set({ settings, loaded: true }),
 
-  update: (patch) =>
-    enqueueWrite(async () => {
-      await setSettings(await getDb(), patch);
-      set({ settings: { ...get().settings, ...patch } });
-    }),
+  update: (patch) => {
+    const previous = get().settings;
+    set({ settings: { ...previous, ...patch } });
+
+    return enqueueWrite(async () => {
+      try {
+        await setSettings(await getDb(), patch);
+      } catch (error) {
+        set({ settings: previous });
+        throw error;
+      }
+    });
+  },
 }));
