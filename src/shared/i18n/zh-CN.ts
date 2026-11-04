@@ -51,6 +51,12 @@ export const zhCN = {
   "todos.markUndone": "取消完成 {title}",
   "todos.rename": "重命名",
   "todos.deleteAria": "删除 {title}",
+  "todos.menu": "待办操作",
+  "todos.menu.close": "关闭菜单",
+  "todos.menu.date": "截止日期",
+  "todos.menu.save": "保存",
+  "todos.menu.clear": "清除日期",
+  "todos.menu.delete": "删除待办",
 
   "checkin.done": "已完成",
   "checkin.missed": "未完成",

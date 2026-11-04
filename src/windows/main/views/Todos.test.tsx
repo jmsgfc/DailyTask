@@ -180,6 +180,50 @@ describe("Todos", () => {
     expect(remove).toHaveBeenCalledWith("换灯泡");
   });
 
+  it("reschedules a todo from the right-click menu", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.contextMenu(
+      container.querySelector('[data-todo="买猫粮"]') as Element,
+    );
+    expect(container.querySelector("[data-todo-menu]")).toBeInTheDocument();
+
+    fireEvent.change(container.querySelector("[data-menu-date]") as Element, {
+      target: { value: "2026-11-10" },
+    });
+    fireEvent.click(container.querySelector("[data-menu-save]") as Element);
+
+    expect(update).toHaveBeenCalledWith("买猫粮", { dueDate: "2026-11-10" });
+    expect(container.querySelector("[data-todo-menu]")).not.toBeInTheDocument();
+  });
+
+  it("clears and deletes from the right-click menu", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.contextMenu(
+      container.querySelector('[data-todo="交房租"]') as Element,
+    );
+    fireEvent.click(container.querySelector("[data-menu-clear]") as Element);
+    expect(update).toHaveBeenCalledWith("交房租", { dueDate: null });
+
+    fireEvent.contextMenu(
+      container.querySelector('[data-todo="交房租"]') as Element,
+    );
+    fireEvent.click(container.querySelector("[data-menu-delete]") as Element);
+    expect(remove).toHaveBeenCalledWith("交房租");
+  });
+
+  it("closes the right-click menu with Escape", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.contextMenu(
+      container.querySelector('[data-todo="买猫粮"]') as Element,
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(container.querySelector("[data-todo-menu]")).not.toBeInTheDocument();
+  });
+
   it("shows an empty state when there are no todos at all", () => {
     useTodosStore.setState({ todos: [] });
 

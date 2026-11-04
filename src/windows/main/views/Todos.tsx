@@ -1,5 +1,11 @@
 import { format, parseISO } from "date-fns";
-import { useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
 import type { MessageKey } from "../../../shared/i18n";
 import {
@@ -29,11 +35,63 @@ const GROUP_META: Record<TodoGroupKey, { labelKey: MessageKey; color: string }> 
 export default function Todos() {
   const t = useT();
   const data = useTodoGroups();
+  const update = useTodosStore((state) => state.update);
+  const remove = useTodosStore((state) => state.remove);
   const [doneOpen, setDoneOpen] = useState(false);
+  const [menu, setMenu] = useState<{
+    todo: TodoItem["todo"];
+    x: number;
+    y: number;
+  } | null>(null);
+  const [dueDraft, setDueDraft] = useState("");
 
   const done = data.groups.find((group) => group.key === "done");
   const open = data.groups.filter((group) => group.key !== "done");
   const hasTodos = data.groups.some((group) => group.items.length > 0);
+
+  const openMenu = (item: TodoItem, event: ReactMouseEvent) => {
+    event.preventDefault();
+    setDueDraft(item.todo.dueDate ?? "");
+    setMenu({
+      todo: item.todo,
+      x: Math.min(event.clientX, Math.max(0, window.innerWidth - 232)),
+      y: Math.min(event.clientY, Math.max(0, window.innerHeight - 190)),
+    });
+  };
+
+  const saveDueDate = (dueDate: string | null) => {
+    if (!menu) {
+      return;
+    }
+    void update(menu.todo.id, { dueDate });
+    setMenu(null);
+  };
+
+  const deleteTodo = () => {
+    if (!menu) {
+      return;
+    }
+    void remove(menu.todo.id);
+    setMenu(null);
+  };
+
+  // 右键菜单只开一个：Esc / 点遮罩 / 滚动都关掉。
+  useEffect(() => {
+    if (!menu) {
+      return;
+    }
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenu(null);
+      }
+    };
+    window.addEventListener("keydown", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("keydown", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [menu]);
 
   return (
     <>
@@ -63,7 +121,12 @@ export default function Todos() {
           {open
             .filter((group) => group.items.length > 0)
             .map((group) => (
-              <TodoSection key={group.key} group={group} today={data.today} />
+              <TodoSection
+                key={group.key}
+                group={group}
+                today={data.today}
+                onContextMenu={openMenu}
+              />
             ))}
 
           {done && done.items.length > 0 ? (
@@ -88,7 +151,12 @@ export default function Todos() {
               {doneOpen ? (
                 <div className={`${CARD} p-2`}>
                   {done.items.map((item) => (
-                    <TodoRow key={item.todo.id} item={item} today={data.today} />
+                    <TodoRow
+                      key={item.todo.id}
+                      item={item}
+                      today={data.today}
+                      onContextMenu={openMenu}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -96,6 +164,65 @@ export default function Todos() {
           ) : null}
         </div>
       )}
+
+      {menu ? (
+        <>
+          <button
+            type="button"
+            aria-label={t("todos.menu.close")}
+            tabIndex={-1}
+            onClick={() => setMenu(null)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            role="menu"
+            data-todo-menu
+            aria-label={t("todos.menu")}
+            style={{ left: menu.x, top: menu.y }}
+            className="fixed z-50 w-[216px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-[var(--shadow-popover)]"
+          >
+            <p className="mb-1 truncate px-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+              {menu.todo.title}
+            </p>
+            <label className="flex items-center gap-1.5 px-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+              {t("todos.menu.date")}
+              <input
+                type="date"
+                data-menu-date
+                value={dueDraft}
+                onChange={(event) => setDueDraft(event.target.value)}
+                className="min-w-0 flex-1 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+              />
+            </label>
+            <div className="mt-1.5 flex justify-end gap-1">
+              <button
+                type="button"
+                data-menu-clear
+                onClick={() => saveDueDate(null)}
+                className="rounded-[var(--radius-control)] px-2 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+              >
+                {t("todos.menu.clear")}
+              </button>
+              <button
+                type="button"
+                data-menu-save
+                onClick={() => saveDueDate(dueDraft || null)}
+                className="rounded-[var(--radius-control)] bg-[var(--color-voluntary)] px-2 py-1 text-[var(--text-2xs)] font-semibold text-white"
+              >
+                {t("todos.menu.save")}
+              </button>
+            </div>
+            <button
+              type="button"
+              data-menu-delete
+              onClick={deleteTodo}
+              className="mt-1 w-full rounded-[var(--radius-control)] px-2 py-1 text-left text-[var(--text-2xs)] text-[var(--color-missed)] hover:bg-[var(--state-hover)]"
+            >
+              {t("todos.menu.delete")}
+            </button>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }
@@ -152,7 +279,15 @@ function TodoForm() {
   );
 }
 
-function TodoSection({ group, today }: { group: TodoGroup; today: string }) {
+function TodoSection({
+  group,
+  today,
+  onContextMenu,
+}: {
+  group: TodoGroup;
+  today: string;
+  onContextMenu: (item: TodoItem, event: ReactMouseEvent) => void;
+}) {
   const t = useT();
   const meta = GROUP_META[group.key];
 
@@ -170,13 +305,26 @@ function TodoSection({ group, today }: { group: TodoGroup; today: string }) {
         </span>
       </div>
       {group.items.map((item) => (
-        <TodoRow key={item.todo.id} item={item} today={today} />
+        <TodoRow
+          key={item.todo.id}
+          item={item}
+          today={today}
+          onContextMenu={onContextMenu}
+        />
       ))}
     </section>
   );
 }
 
-function TodoRow({ item, today }: { item: TodoItem; today: string }) {
+function TodoRow({
+  item,
+  today,
+  onContextMenu,
+}: {
+  item: TodoItem;
+  today: string;
+  onContextMenu: (item: TodoItem, event: ReactMouseEvent) => void;
+}) {
   const t = useT();
   const setDone = useTodosStore((state) => state.setDone);
   const update = useTodosStore((state) => state.update);
@@ -214,6 +362,7 @@ function TodoRow({ item, today }: { item: TodoItem; today: string }) {
       data-todo={todo.id}
       data-overdue={overdue ? "" : undefined}
       data-done={todo.done ? "" : undefined}
+      onContextMenu={(event) => onContextMenu(item, event)}
       className={`group relative flex h-[34px] items-center gap-3 rounded-[var(--radius-control)] px-2 hover:bg-[var(--state-hover)] ${
         overdue
           ? "pl-5 before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-[3px] before:rounded-[2px] before:bg-[var(--color-missed)]"
