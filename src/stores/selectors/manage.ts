@@ -1,12 +1,16 @@
 import { useMemo } from "react";
 
 import { logicalToday } from "../../domain/date";
-import { isRetired } from "../../domain/grid";
 import type { Task } from "../../domain/types";
 import { useSettingsStore } from "../settingsStore";
 import { useTasksStore } from "../tasksStore";
 
-export type ManageStatus = "active" | "scheduled" | "disabled";
+export type ManageStatus =
+  | "active"
+  | "scheduled"
+  | "endingToday"
+  | "endingLater"
+  | "disabled";
 
 export interface ManageRow {
   task: Task;
@@ -14,6 +18,8 @@ export interface ManageRow {
   /** 最新一段区间的起止日期。 */
   start: string;
   end: string | null;
+  /** 是否还有未结束（end = null）的区间；决定操作列给「停用」还是「重新启用」。 */
+  hasOpen: boolean;
   intervalCount: number;
 }
 
@@ -25,22 +31,39 @@ export function buildManageRows(tasks: Task[], today: string): ManageRow[] {
   return [...tasks]
     .sort((a, b) => a.order - b.order || a.createdAt.localeCompare(b.createdAt))
     .map((task) => {
-      const latest = task.intervals.reduce<Task["intervals"][number] | null>(
-        (current, interval) =>
-          current === null || interval.start >= current.start ? interval : current,
-        null,
+      const sorted = [...task.intervals].sort((a, b) =>
+        a.start.localeCompare(b.start),
       );
-      const status: ManageStatus = isRetired(task, today)
-        ? "disabled"
-        : latest && latest.start > today
-          ? "scheduled"
-          : "active";
+      const latest = sorted[sorted.length - 1] ?? null;
+      const hasOpen = task.intervals.some((interval) => interval.end === null);
+      const end = latest?.end ?? null;
+
+      let status: ManageStatus;
+      if (!latest) {
+        status = "disabled";
+      } else if (!hasOpen) {
+        // 停用日期含当天：end === today 表示今天仍生效、明天起停用。
+        if (end === null) {
+          status = "disabled";
+        } else if (end < today) {
+          status = "disabled";
+        } else if (end === today) {
+          status = "endingToday";
+        } else {
+          status = "endingLater";
+        }
+      } else if (latest.start > today) {
+        status = "scheduled";
+      } else {
+        status = "active";
+      }
 
       return {
         task,
         status,
         start: latest?.start ?? "",
-        end: latest?.end ?? null,
+        end,
+        hasOpen,
         intervalCount: task.intervals.length,
       };
     });

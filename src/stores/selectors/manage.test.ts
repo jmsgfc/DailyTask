@@ -80,4 +80,35 @@ describe("buildManageRows", () => {
     expect(rows.map((row) => row.task.id)).toEqual(["a", "b"]);
     expect(rows[1].status).toBe("scheduled");
   });
+
+  it("marks a task stopped today as endingToday and offers re-enable", () => {
+    const rows = buildManageRows(
+      [task("ending-today", 0, [{ start: "2026-10-01", end: "2026-11-04" }])],
+      TODAY,
+    );
+
+    expect(rows[0]).toMatchObject({
+      status: "endingToday",
+      hasOpen: false,
+      end: "2026-11-04",
+    });
+  });
+
+  it("marks a task with a future end as endingLater", () => {
+    const rows = buildManageRows(
+      [task("ending-later", 0, [{ start: "2026-10-01", end: "2026-11-20" }])],
+      TODAY,
+    );
+
+    expect(rows[0]).toMatchObject({
+      status: "endingLater",
+      hasOpen: false,
+    });
+  });
+
+  it("treats a task with no intervals as disabled", () => {
+    const rows = buildManageRows([task("empty", 0, [])], TODAY);
+
+    expect(rows[0]).toMatchObject({ status: "disabled", hasOpen: false });
+  });
 });

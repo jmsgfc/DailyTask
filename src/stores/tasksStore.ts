@@ -78,7 +78,14 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
 
   closeInterval: (taskId, endDate) =>
     enqueueWrite(async () => {
-      await repo.closeOpenInterval(await getDb(), taskId, endDate);
+      const affected = await repo.closeOpenInterval(
+        await getDb(),
+        taskId,
+        endDate,
+      );
+      if (affected === 0) {
+        throw new Error("no-open-interval");
+      }
       const stamp = now();
       set({
         tasks: get().tasks.map((task) =>

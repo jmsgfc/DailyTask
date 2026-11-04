@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns";
 import { useState, type FormEvent, type ReactNode } from "react";
 
+import { addDays } from "../../../domain/date";
 import { validateInterval, type IntervalError } from "../../../domain/intervals";
 import type { MessageKey } from "../../../shared/i18n";
 import type { Task, TaskCategory } from "../../../domain/types";
@@ -26,6 +27,16 @@ const STATUS_META: Record<
   },
   scheduled: {
     labelKey: "manage.status.scheduled",
+    className:
+      "bg-[color-mix(in_srgb,var(--color-warning)_14%,transparent)] text-[var(--color-warning)]",
+  },
+  endingToday: {
+    labelKey: "manage.status.endingToday",
+    className:
+      "bg-[color-mix(in_srgb,var(--color-warning)_18%,transparent)] text-[var(--color-warning)]",
+  },
+  endingLater: {
+    labelKey: "manage.status.endingLater",
     className:
       "bg-[color-mix(in_srgb,var(--color-warning)_14%,transparent)] text-[var(--color-warning)]",
   },
@@ -450,20 +461,43 @@ function IntervalDialog({
   const t = useT();
   const closeInterval = useTasksStore((state) => state.closeInterval);
   const appendInterval = useTasksStore((state) => state.appendInterval);
-  const [date, setDate] = useState(today);
-  const valid = date.length > 0 && date >= today;
+  const sorted = [...task.intervals].sort((a, b) =>
+    a.start.localeCompare(b.start),
+  );
+  const latest = sorted[sorted.length - 1] ?? null;
+  const latestStart = latest?.start ?? today;
+  const latestEnd = latest?.end ?? null;
 
-  const submit = (event: FormEvent) => {
+  // 停用不得早于区间启用日；重新启用不得早于上一段结束日的次日。
+  const minDate =
+    mode === "stop"
+      ? today > latestStart
+        ? today
+        : latestStart
+      : latestEnd && latestEnd >= today
+        ? addDays(latestEnd, 1)
+        : today;
+
+  const [date, setDate] = useState(minDate);
+  const [error, setError] = useState<string | null>(null);
+  const valid = date.length > 0 && date >= minDate;
+
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!valid) {
       return;
     }
-    if (mode === "stop") {
-      void closeInterval(task.id, date);
-    } else {
-      void appendInterval(task.id, date);
+    setError(null);
+    try {
+      if (mode === "stop") {
+        await closeInterval(task.id, date);
+      } else {
+        await appendInterval(task.id, date);
+      }
+      onClose();
+    } catch {
+      setError(t("manage.error.intervalFailed"));
     }
-    onClose();
   };
 
   return (
@@ -503,7 +537,7 @@ function IntervalDialog({
           <input
             type="date"
             data-interval-date
-            min={today}
+            min={minDate}
             value={date}
             onChange={(event) => setDate(event.target.value)}
             className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
@@ -511,14 +545,14 @@ function IntervalDialog({
         </label>
 
         <p className="m-0 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-          {t("manage.dateHint")}
+          {t(mode === "stop" ? "manage.stopHint" : "manage.resumeHint")}
         </p>
-        {!valid ? (
+        {!valid || error ? (
           <p
             data-interval-error
             className="m-0 text-[var(--text-2xs)] text-[var(--color-missed)]"
           >
-            {t("manage.dateInvalid")}
+            {error ?? t("manage.dateInvalid")}
           </p>
         ) : null}
 
@@ -631,11 +665,11 @@ function ManageTableRow({ row, today }: { row: ManageRow; today: string }) {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            data-manage-action={retired ? "resume" : "stop"}
-            onClick={() => setDialog(retired ? "resume" : "stop")}
+            data-manage-action={row.hasOpen ? "stop" : "resume"}
+            onClick={() => setDialog(row.hasOpen ? "stop" : "resume")}
             className="rounded-[var(--radius-control)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-active)]"
           >
-            {t(retired ? "manage.resume" : "manage.stop")}
+            {t(row.hasOpen ? "manage.stop" : "manage.resume")}
           </button>
           <button
             type="button"

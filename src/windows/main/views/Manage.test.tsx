@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS, type Interval, type Task } from "../../../domain/types";
@@ -270,6 +270,66 @@ describe("Manage", () => {
     const row = container.querySelector('[data-manage-row="t3"]') as HTMLElement;
     expect(row).toHaveTextContent("2 段");
     expect(row).toHaveAttribute("data-status", "active");
+  });
+
+  it("shows re-enable and 今日为止 for a task stopped today", () => {
+    useTasksStore.setState({
+      tasks: [
+        task("t5", "晨跑", "voluntary", 0, [
+          { start: "2026-10-01", end: "2026-11-04" },
+        ]),
+      ],
+    });
+    const { container } = render(<Manage />);
+
+    const row = container.querySelector('[data-manage-row="t5"]') as HTMLElement;
+    expect(row).toHaveAttribute("data-status", "endingToday");
+    expect(row).toHaveTextContent("今日为止");
+    expect(
+      row.querySelector('[data-manage-action="resume"]'),
+    ).toBeInTheDocument();
+    expect(
+      row.querySelector('[data-manage-action="stop"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("defaults the re-enable date to the day after the last end", () => {
+    useTasksStore.setState({
+      tasks: [
+        task("t5", "晨跑", "voluntary", 0, [
+          { start: "2026-10-01", end: "2026-11-04" },
+        ]),
+      ],
+    });
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t5"] [data-manage-action="resume"]',
+      ) as Element,
+    );
+
+    expect(container.querySelector("[data-interval-date]")).toHaveValue(
+      "2026-11-05",
+    );
+  });
+
+  it("keeps the dialog open and reports a failed stop", async () => {
+    closeInterval.mockRejectedValueOnce(new Error("no-open-interval"));
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t2"] [data-manage-action="stop"]',
+      ) as Element,
+    );
+    fireEvent.click(container.querySelector("[data-interval-submit]") as Element);
+    await act(async () => undefined);
+
+    expect(container.querySelector("[data-interval-error]")).toHaveTextContent(
+      "操作失败",
+    );
+    expect(container.querySelector('[data-interval-dialog="stop"]')).toBeInTheDocument();
   });
 
   it("edits the latest interval and keeps earlier segments read-only", () => {

@@ -175,16 +175,17 @@ export async function reorderTasks(
   }
 }
 
-/** 停用：关掉当前开放区间（endDate 含当天）。 */
+/** 停用：关掉当前开放区间（endDate 含当天），返回受影响的行数。 */
 export async function closeOpenInterval(
   db: SqlDatabase,
   taskId: string,
   endDate: string,
-): Promise<void> {
-  await db.execute(
+): Promise<number> {
+  const result = await db.execute(
     "UPDATE task_intervals SET end_date = ? WHERE task_id = ? AND end_date IS NULL",
     [endDate, taskId],
   );
+  return result.rowsAffected;
 }
 
 /** 重新启用：追加第 2 段及以后的区间，历史区间不动。 */

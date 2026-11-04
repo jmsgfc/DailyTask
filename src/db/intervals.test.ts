@@ -81,6 +81,16 @@ describe("interval history", () => {
     });
   });
 
+  it("closes the open interval once and reports zero rows afterwards", async () => {
+    const db = createDb();
+
+    expect(await closeOpenInterval(db, "t1", "2026-11-04")).toBe(1);
+    expect(await closeOpenInterval(db, "t1", "2026-11-05")).toBe(0);
+
+    const [task] = await listTasks(db);
+    expect(task.intervals[0].end).toBe("2026-11-04");
+  });
+
   it("editing the latest interval leaves the earlier segment untouched", async () => {
     const db = createDb();
     await closeOpenInterval(db, "t1", "2026-11-04");
