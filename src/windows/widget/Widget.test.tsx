@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkinKey } from "../../domain/keys";
@@ -141,12 +141,14 @@ describe("Widget", () => {
     expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "done");
   });
 
-  it("asks the main window to expand from the hover action", () => {
+  it("asks the main window to expand and hides the widget", async () => {
     render(<Widget />);
 
     fireEvent.click(screen.getByRole("button", { name: "展开主窗口" }));
 
     expect(emitWidgetExpand).toHaveBeenCalledWith({ source: "widget" });
+    await act(async () => undefined);
+    expect(windowApi.hide).toHaveBeenCalledTimes(1);
   });
 
   it("toggles always-on-top and hides the widget", async () => {

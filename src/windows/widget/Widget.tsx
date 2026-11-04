@@ -94,11 +94,11 @@ export function Widget() {
               <WidgetAction
                 label={t("widget.expand")}
                 onClick={() =>
-                  void emitWidgetExpand({ source: "widget" }).catch(
-                    (error: unknown) => {
+                  void emitWidgetExpand({ source: "widget" })
+                    .then(() => getCurrentWindow().hide())
+                    .catch((error: unknown) => {
                       console.error("[widget] 展开主窗口失败", error);
-                    },
-                  )
+                    })
                 }
               >
                 <path d="M6.5 2.5h-4v4M9.5 13.5h4v-4M2.5 2.5l4.5 4.5M13.5 13.5L9 9" />
