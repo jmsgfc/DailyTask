@@ -22,9 +22,9 @@ The product has two windows:
 <a id="status"></a>
 ## Status
 
-Early development. The data layer, Today view, floating widget, task grid, todos, and
-task management are working; stats and settings are still placeholders. There is no
-released installer yet.
+Early development, feature-complete for the first cycle. All six views, the floating
+widget, the installer and signed auto-updates are working. Treat it as a personal
+daily tool, not a multi-user product.
 
 | Area | State |
 |---|---|
@@ -35,10 +35,14 @@ released installer yet.
 | Floating widget with cross-window sync | Done |
 | Task grid with date columns | Done |
 | Todos and task management UI | Done |
-| Stats, settings, packaging, auto-update | Planned (M6) |
+| Stats, settings, backups, tray, installer, updater | Done |
 
 Tasks are created from the task management page: the start date defaults to today,
 and pausing or resuming a task appends an interval without touching history.
+
+The NSIS installer lives in GitHub Releases. Updates are signed and delivered through
+`latest.json`; see [docs/upgrade.md](docs/upgrade.md) for the release and rollback
+runbook. Daily backups are written to `%APPDATA%\com.dailytask.app\backup`.
 
 <a id="features"></a>
 ## Features
@@ -57,6 +61,12 @@ Implemented today:
   and delete, plus a right-click menu to reschedule or remove.
 - **Task management** — table with active/scheduled/disabled status, stop and resume
   with future-only dates, and editing of the latest interval.
+- **Stats** — per-task streak and a 30-day completion rate that ignores skipped days.
+- **Settings** — theme, auto-settle, day-start hour, widget pin and autostart.
+- **Backups and transfer** — seven daily database snapshots, JSON v1 export/import,
+  and a pre-update snapshot before every install.
+- **Packaging and updates** — NSIS per-user installer, tray menu with today's
+  progress, signed auto-updates from GitHub Releases.
 - **Three check-in states** — done, missed, and "skip today", plus a "recorded" state
   for value-only cells; neither skip nor record affects the progress denominator.
 - **Free-form cell value** — a cell can also carry `4`, `3min`, or `4/3/2/2`.
@@ -70,7 +80,9 @@ Implemented today:
 
 Planned:
 
-- Stats, import/export, backups, tray menu, installer, and signed auto-updates.
+- English UI.
+- Richer statistics: 90/365-day rates and a heatmap.
+- System notifications for due todos (explicitly out of scope for now).
 
 <a id="stack"></a>
 ## Tech Stack

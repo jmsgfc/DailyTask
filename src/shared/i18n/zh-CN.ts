@@ -214,17 +214,6 @@ export const zhCN = {
   "grid.loading": "正在加载任务表",
   "grid.collapse": "折叠{group}",
   "grid.expand": "展开{group}",
-
-  "view.grid.title": "任务表",
-  "view.grid.note": "M4 实现 · 日期列 + 任务行网格",
-  "view.todos.title": "待办",
-  "view.todos.note": "M5 实现 · 四分组与行内完成",
-  "view.manage.title": "任务管理",
-  "view.manage.note": "M5 实现 · 启用区间与任务表格",
-  "view.stats.title": "统计",
-  "view.stats.note": "M6 实现 · streak 与近 30 天完成率",
-  "view.settings.title": "设置",
-  "view.settings.note": "M6 实现 · 主题 / 自启 / 导入导出",
 } as const;
 
 export type MessageKey = keyof typeof zhCN;
