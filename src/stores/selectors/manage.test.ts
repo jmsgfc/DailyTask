@@ -1,0 +1,83 @@
+import { describe, expect, it } from "vitest";
+
+import type { Task } from "../../domain/types";
+import { buildManageRows } from "./manage";
+
+const TODAY = "2026-11-04";
+
+function task(
+  id: string,
+  order: number,
+  intervals: { start: string; end: string | null }[],
+): Task {
+  return {
+    id,
+    name: id,
+    category: "voluntary",
+    intervals: intervals.map((interval, index) => ({
+      id: `${id}-${index}`,
+      taskId: id,
+      ...interval,
+    })),
+    order,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+describe("buildManageRows", () => {
+  it("shows the latest interval and marks its status", () => {
+    const rows = buildManageRows(
+      [
+        task("active", 0, [{ start: "2026-10-01", end: null }]),
+        task("scheduled", 1, [{ start: "2026-11-10", end: null }]),
+        task("disabled", 2, [{ start: "2026-09-01", end: "2026-10-01" }]),
+      ],
+      TODAY,
+    );
+
+    expect(rows.map((row) => row.task.id)).toEqual([
+      "active",
+      "scheduled",
+      "disabled",
+    ]);
+    expect(rows.map((row) => row.status)).toEqual([
+      "active",
+      "scheduled",
+      "disabled",
+    ]);
+    expect(rows[2].end).toBe("2026-10-01");
+  });
+
+  it("keeps earlier segments visible only as a count", () => {
+    const rows = buildManageRows(
+      [
+        task("re-enabled", 0, [
+          { start: "2026-09-01", end: "2026-10-01" },
+          { start: "2026-10-16", end: null },
+        ]),
+      ],
+      TODAY,
+    );
+
+    expect(rows[0]).toMatchObject({
+      start: "2026-10-16",
+      end: null,
+      intervalCount: 2,
+      status: "active",
+    });
+  });
+
+  it("sorts by sort order and keeps a task with future interval out of disabled", () => {
+    const rows = buildManageRows(
+      [
+        task("b", 1, [{ start: "2026-12-01", end: null }]),
+        task("a", 0, [{ start: "2026-01-01", end: "2026-02-01" }]),
+      ],
+      TODAY,
+    );
+
+    expect(rows.map((row) => row.task.id)).toEqual(["a", "b"]);
+    expect(rows[1].status).toBe("scheduled");
+  });
+});
