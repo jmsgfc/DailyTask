@@ -153,23 +153,87 @@ describe("Widget", () => {
     useCheckinsStore.setState({ setStatus: originalSetStatus });
   });
 
-  it("renders progress, incomplete tasks, completed fold and due todos", () => {
+  it("renders the full today content: progress, groups, all tasks and todos", () => {
     render(<Widget />);
 
-    expect(screen.getByText(/11\/02/)).toBeInTheDocument();
+    expect(screen.getByText(/今日 · 11\/02/)).toBeInTheDocument();
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
-    expect(screen.getByText("还剩 2 项")).toBeInTheDocument();
+    expect(screen.getByText("33%")).toBeInTheDocument();
+    expect(screen.getByText(/还剩 1 项/)).toBeInTheDocument();
+
+    // 两个分组与组内计数。
+    expect(screen.getByText("自愿任务")).toBeInTheDocument();
+    expect(screen.getByText("被迫任务")).toBeInTheDocument();
+    expect(screen.getByText("0 / 1")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
 
     expect(screen.getByRole("button", { name: "完成 跑步" })).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "完成 交周报" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("背单词")).not.toBeInTheDocument();
+    // 已跳过 / 已完成的行照样显示，只是不能再点。
+    expect(screen.getByText("背单词")).toBeInTheDocument();
+    expect(screen.getByText("开会")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "完成 背单词" }),
+    ).not.toBeInTheDocument();
 
-    expect(screen.getByText("1 项已完成")).toBeInTheDocument();
+    expect(screen.getByText("今日到期待办")).toBeInTheDocument();
     expect(screen.getByText("交房租")).toBeInTheDocument();
     expect(screen.getByText("逾期 2 天")).toBeInTheDocument();
     expect(screen.getByText("买猫粮")).toBeInTheDocument();
+    expect(screen.getByText("今天")).toBeInTheDocument();
+  });
+
+  it("renders every task and todo without the old 4/2 caps", () => {
+    useTasksStore.setState({
+      tasks: [
+        task("a1", "任务 1", "voluntary", 0),
+        task("a2", "任务 2", "voluntary", 1),
+        task("a3", "任务 3", "voluntary", 2),
+        task("a4", "任务 4", "forced", 3),
+        task("a5", "任务 5", "forced", 4),
+        task("a6", "任务 6", "forced", 5),
+      ],
+    });
+    useCheckinsStore.setState({ byKey: new Map() });
+    useTodosStore.setState({
+      todos: [
+        todo("待办 1", "2026-10-30"),
+        todo("待办 2", "2026-10-31"),
+        todo("待办 3", TODAY),
+        todo("待办 4", TODAY),
+      ],
+    });
+
+    render(<Widget />);
+
+    for (const name of ["任务 1", "任务 2", "任务 3", "任务 4", "任务 5", "任务 6"]) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    }
+    for (const name of ["待办 1", "待办 2", "待办 3", "待办 4"]) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+    }
+    expect(screen.getByText("4 项")).toBeInTheDocument();
+    expect(screen.queryByText(/还有 \d+ 项/)).not.toBeInTheDocument();
+
+    // 全部内容都挂在同一个滚动容器里。
+    const scroller = document.querySelector("[data-widget-scroll]");
+    expect(scroller).not.toBeNull();
+    expect(scroller?.className).toContain("overflow-y-auto");
+  });
+
+  it("shows a recorded value as read-only text", () => {
+    useCheckinsStore.setState({
+      byKey: new Map([
+        [checkinKey("t1", TODAY), { ...checkin("t1", "done"), value: "3 组" }],
+      ]),
+    });
+
+    render(<Widget />);
+
+    expect(screen.getByText("3 组")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
   it("writes a checkin through the store when a task is clicked", () => {
@@ -318,8 +382,8 @@ describe("Widget", () => {
 
     render(<Widget />);
 
-    expect(screen.getByText("今天没有任务")).toBeInTheDocument();
+    expect(screen.getByText(/今天没有任务/)).toBeInTheDocument();
+    expect(screen.getByText("今天没有需要打卡的任务")).toBeInTheDocument();
     expect(screen.getByText("0 / 0")).toBeInTheDocument();
-    expect(screen.getByText("今天已收尾")).toBeInTheDocument();
   });
 });

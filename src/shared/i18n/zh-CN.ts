@@ -170,12 +170,7 @@ export const zhCN = {
   "progress.aria": "今日进度 {done} / {total}",
   "common.itemCount": "{count} 项",
 
-  "widget.remaining": "还剩 {count} 项",
-  "widget.allDone": "今天已收尾",
-  "widget.completedCount": "{count} 项已完成",
-  "widget.moreTasks": "还有 {count} 项",
   "widget.complete": "完成 {task}",
-  "widget.empty": "今天没有任务",
   "widget.expand": "展开主窗口",
   "widget.pin": "置顶",
   "widget.unpin": "取消置顶",
