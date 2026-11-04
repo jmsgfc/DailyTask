@@ -22,8 +22,9 @@ The product has two windows:
 <a id="status"></a>
 ## Status
 
-Early development. The data layer and the Today screen are working; the remaining
-views are placeholders. There is no released installer yet.
+Early development. The data layer, Today view, floating widget, task grid, todos, and
+task management are working; stats and settings are still placeholders. There is no
+released installer yet.
 
 | Area | State |
 |---|---|
@@ -31,13 +32,13 @@ views are placeholders. There is no released installer yet.
 | Today view, check-ins, progress ring, due todos | Done |
 | Theme tokens and light/dark skeleton | Done |
 | UI copy dictionary (zh-CN, English planned) | Done |
-| Floating widget | Planned (M3) |
-| Task grid with date columns | Planned (M4) |
-| Todos and task management UI | Planned (M5) |
+| Floating widget with cross-window sync | Done |
+| Task grid with date columns | Done |
+| Todos and task management UI | Done |
 | Stats, settings, packaging, auto-update | Planned (M6) |
 
-Current limitation: there is no task-creation UI yet, so the Today screen is empty
-until tasks exist in the database. Task management arrives in M5.
+Tasks are created from the task management page: the start date defaults to today,
+and pausing or resuming a task appends an interval without touching history.
 
 <a id="features"></a>
 ## Features
@@ -47,6 +48,15 @@ Implemented today:
 - **Interval-based tasks** — a task can be paused and resumed; history stays intact.
 - **Today view** — voluntary/forced groups, progress ring, overdue and due-today
   todos, and one-click check-ins with optimistic updates.
+- **Floating widget** — a 220×280 always-on-top card with the same palette, inline
+  check-ins, and sync to the main window in under 200 ms.
+- **Task grid** — sticky headers, a one-year date axis, `Ctrl + wheel` zoom, detail
+  and overview modes, keyboard navigation, notes, filters, and drag sorting inside
+  a group.
+- **Todos** — overdue/today/this-week/later groups, inline create, rename, complete
+  and delete, plus a right-click menu to reschedule or remove.
+- **Task management** — table with active/scheduled/disabled status, stop and resume
+  with future-only dates, and editing of the latest interval.
 - **Three check-in states** — done, missed, and "skip today", plus a "recorded" state
   for value-only cells; neither skip nor record affects the progress denominator.
 - **Free-form cell value** — a cell can also carry `4`, `3min`, or `4/3/2/2`.
@@ -60,11 +70,7 @@ Implemented today:
 
 Planned:
 
-- Paper-like always-on-top widget with cross-window sync.
-- Virtualized task grid with multi-segment intervals, zoom, keyboard navigation,
-  notes, and filters.
-- Todo groups, task management, stats, import/export, backups, tray menu, installer,
-  and signed auto-updates.
+- Stats, import/export, backups, tray menu, installer, and signed auto-updates.
 
 <a id="stack"></a>
 ## Tech Stack
