@@ -39,6 +39,9 @@ const TASK_ROW_HEIGHT = 34;
 const MIN_ZOOM = 14;
 const MAX_ZOOM = 44;
 const ZOOM_STEP = 2;
+/** 骨架只画少量占位块，加载完成前不生成真实日期列。 */
+const SKELETON_ROWS = 7;
+const SKELETON_COLUMNS = 12;
 
 type GroupKey = "voluntary" | "forced" | "disabled";
 
@@ -62,9 +65,13 @@ export default function TaskGrid() {
   const data = useGridData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
   const setNote = useCheckinsStore((state) => state.setNote);
+  const checkinsLoaded = useCheckinsStore((state) => state.loaded);
   const reorder = useTasksStore((state) => state.reorder);
+  const tasksLoaded = useTasksStore((state) => state.loaded);
+  const settingsLoaded = useSettingsStore((state) => state.loaded);
   const filter = useUiStore((state) => state.gridFilter);
   const setGridFilter = useUiStore((state) => state.setGridFilter);
+  const ready = tasksLoaded && checkinsLoaded && settingsLoaded;
 
   const cellSize = Math.min(44, Math.max(14, data.settings.gridZoom));
   const overview = cellSize < 24;
@@ -665,13 +672,24 @@ export default function TaskGrid() {
         ) : null}
       </div>
 
-      {allRows.length === 0 ? (
-        <section className="flex min-h-0 flex-1 items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)]">
+      {!ready ? (
+        <GridSkeleton />
+      ) : allRows.length === 0 ? (
+        <section
+          data-grid-empty
+          aria-live="polite"
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)]"
+        >
           <p className="text-sm text-[var(--color-text-muted)]">
             {t(
               data.tasks.length > 0 ? "grid.filter.empty" : "grid.empty",
             )}
           </p>
+          {data.tasks.length > 0 && filterActive ? (
+            <p className="text-[var(--text-2xs)] text-[var(--color-text-muted)] opacity-70">
+              {t("grid.filter.emptyHint")}
+            </p>
+          ) : null}
         </section>
       ) : (
         <section
@@ -840,6 +858,53 @@ export default function TaskGrid() {
         </section>
       )}
     </>
+  );
+}
+
+function GridSkeleton() {
+  const t = useT();
+  const bar =
+    "animate-pulse rounded-[var(--radius-pill)] bg-[var(--state-hover)] motion-reduce:animate-none";
+
+  return (
+    <section
+      data-grid-skeleton
+      aria-busy="true"
+      aria-label={t("grid.loading")}
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
+    >
+      <div className="flex h-[56px] flex-none items-center gap-2 border-b border-[var(--color-border)] px-3">
+        <span className={clsx(bar, "h-2.5 w-20")} />
+        <span className={clsx(bar, "ml-auto h-5 w-16")} />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="flex h-[56px] items-end gap-1 border-b border-[var(--color-border)] px-3 pb-2">
+          {Array.from({ length: SKELETON_COLUMNS }, (_, column) => (
+            <span key={column} className={clsx(bar, "h-2 flex-1")} />
+          ))}
+        </div>
+        {Array.from({ length: SKELETON_ROWS }, (_, row) => (
+          <div
+            key={row}
+            className="flex h-[34px] items-center gap-1 border-b border-[var(--color-border)] px-3"
+          >
+            <span className={clsx(bar, "h-2.5 w-24 shrink-0")} />
+            {Array.from({ length: SKELETON_COLUMNS }, (_, column) => (
+              <span
+                key={column}
+                className={clsx(bar, "h-3 flex-1 rounded-[3px]")}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex h-[30px] flex-none items-center gap-2 border-t border-[var(--color-border)] px-3">
+        <span className={clsx(bar, "h-2 w-16")} />
+        <span className={clsx(bar, "ml-auto h-2 w-24")} />
+      </div>
+    </section>
   );
 }
 

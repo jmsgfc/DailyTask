@@ -66,6 +66,7 @@ describe("TaskGrid", () => {
 
     useSettingsStore.setState({
       settings: DEFAULT_SETTINGS,
+      loaded: true,
       update: updateSettings,
     });
     useUiStore.setState({
@@ -77,10 +78,12 @@ describe("TaskGrid", () => {
         task("t2", "开会", "forced", "2026-10-01", null, 1),
         task("t3", "跳绳", "voluntary", "2026-09-01", "2026-10-01", 2),
       ],
+      loaded: true,
       reorder,
     });
     useCheckinsStore.setState({
       byKey: new Map([[checkinKey("t1", TODAY), doneToday()]]),
+      loaded: true,
       setStatus,
       setNote,
     });
@@ -363,6 +366,39 @@ describe("TaskGrid", () => {
     );
 
     expect(screen.getByText("没有符合筛选的任务")).toBeInTheDocument();
+    expect(
+      screen.getByText("清除筛选后可以看到全部任务"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the first-run hint when there are no tasks at all", () => {
+    useTasksStore.setState({ tasks: [], loaded: true });
+    useCheckinsStore.setState({ byKey: new Map(), loaded: true });
+
+    const { container } = render(<TaskGrid />);
+
+    expect(container.querySelector("[data-grid-empty]")).toBeInTheDocument();
+    expect(
+      screen.getByText("还没有任务，去「任务管理」新建一个"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("清除筛选后可以看到全部任务"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the card frame with a skeleton until stores hydrate", () => {
+    useTasksStore.setState({ loaded: false });
+
+    const { container } = render(<TaskGrid />);
+
+    expect(screen.getByLabelText("正在加载任务表")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(container.querySelectorAll("[data-grid-cell]")).toHaveLength(0);
+    expect(
+      screen.getByRole("heading", { name: "任务表" }),
+    ).toBeInTheDocument();
   });
 
   it("reorders rows within the same group", () => {

@@ -87,7 +87,9 @@ export const zhCN = {
   "grid.filter.to": "到",
   "grid.filter.clear": "清除",
   "grid.filter.empty": "没有符合筛选的任务",
+  "grid.filter.emptyHint": "清除筛选后可以看到全部任务",
   "grid.empty": "还没有任务，去「任务管理」新建一个",
+  "grid.loading": "正在加载任务表",
   "grid.collapse": "折叠{group}",
   "grid.expand": "展开{group}",
 
