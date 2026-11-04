@@ -13,7 +13,7 @@ import type { GridRow } from "../../../domain/grid";
 import { monthTicks } from "../../../domain/grid";
 import { checkinKey } from "../../../domain/keys";
 import { nextCellState, type CellState } from "../../../domain/settle";
-import type { Checkin, Language } from "../../../domain/types";
+import type { Checkin, CheckinStatus, Language } from "../../../domain/types";
 import type { MessageKey } from "../../../shared/i18n";
 import { dateLocale } from "../../../shared/i18n";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
@@ -65,6 +65,7 @@ export default function TaskGrid() {
   const data = useGridData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
   const setNote = useCheckinsStore((state) => state.setNote);
+  const setValue = useCheckinsStore((state) => state.setValue);
   const checkinsLoaded = useCheckinsStore((state) => state.loaded);
   const reorder = useTasksStore((state) => state.reorder);
   const tasksLoaded = useTasksStore((state) => state.loaded);
@@ -160,13 +161,15 @@ export default function TaskGrid() {
   const pendingFocus = useRef(false);
   const scrollFrame = useRef(0);
   const cardRef = useRef<HTMLElement>(null);
-  const [noteTarget, setNoteTarget] = useState<{
+  const [cellTarget, setCellTarget] = useState<{
     taskId: string;
     date: string;
     taskName: string;
     left: number;
     top: number;
   } | null>(null);
+  const [statusDraft, setStatusDraft] = useState<CheckinStatus | null>(null);
+  const [valueDraft, setValueDraft] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
 
   const maxScrollLeft = useCallback(
@@ -241,7 +244,23 @@ export default function TaskGrid() {
       return;
     }
     const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey || event.deltaY === 0) {
+      // 触控板的横向手势保持原生行为。
+      if (event.deltaX !== 0) {
+        return;
+      }
+      if (!event.ctrlKey) {
+        if (event.deltaY === 0) {
+          return;
+        }
+        event.preventDefault();
+        if (event.shiftKey) {
+          element.scrollTop += event.deltaY;
+        } else {
+          element.scrollLeft += event.deltaY;
+        }
+        return;
+      }
+      if (event.deltaY === 0) {
         return;
       }
       event.preventDefault();
@@ -323,7 +342,7 @@ export default function TaskGrid() {
           Math.min(Math.max(0, element.scrollLeft), max),
         );
       }
-      setNoteTarget(null);
+      setCellTarget(null);
     });
   };
 
@@ -503,6 +522,22 @@ export default function TaskGrid() {
         month: monthDate.getMonth() + 1,
       })
     : "";
+
+  /** 跳到上/下一月的第一天；越界时夹到轴首尾。 */
+  const jumpMonth = (delta: number) => {
+    if (!monthDate) {
+      return;
+    }
+    const target = format(
+      new Date(monthDate.getFullYear(), monthDate.getMonth() + delta, 1),
+      "yyyy-MM-dd",
+    );
+    let index = dates.findIndex((date) => date >= target);
+    if (index < 0) {
+      index = dates.length - 1;
+    }
+    scrollTo(index * cellSize);
+  };
   const ticks = monthTicks(dates);
 
   const cycle = (row: GridRow, date: string) => {
@@ -510,7 +545,7 @@ export default function TaskGrid() {
     void setStatus(row.task.id, date, nextCellState(state));
   };
 
-  const openNote = (taskId: string, date: string, taskName: string) => {
+  const openEditor = (taskId: string, date: string, taskName: string) => {
     const cell = scrollerRef.current?.querySelector<HTMLElement>(
       `[data-task="${taskId}"][data-date="${date}"]`,
     );
@@ -522,22 +557,49 @@ export default function TaskGrid() {
     const cardRect = card.getBoundingClientRect();
     const left = Math.min(
       Math.max(cellRect.left - cardRect.left - 88, 8),
-      Math.max(8, cardRect.width - 216),
+      Math.max(8, cardRect.width - 248),
     );
     const top = Math.min(
       Math.max(cellRect.bottom - cardRect.top + 8, 8),
-      Math.max(8, cardRect.height - 132),
+      Math.max(8, cardRect.height - 272),
     );
-    setNoteDraft(data.checkins.get(checkinKey(taskId, date))?.note ?? "");
-    setNoteTarget({ taskId, date, taskName, left, top });
+    const checkin = data.checkins.get(checkinKey(taskId, date));
+    setStatusDraft(checkin?.status ?? null);
+    setValueDraft(checkin?.value ?? "");
+    setNoteDraft(checkin?.note ?? "");
+    setCellTarget({ taskId, date, taskName, left, top });
   };
 
-  const saveNote = () => {
-    if (!noteTarget) {
+  /** 保存按「状态 → 值 → 备注」顺序落库，确保备注写入时打卡行已存在。 */
+  const saveCell = () => {
+    if (!cellTarget) {
       return;
     }
-    void setNote(noteTarget.taskId, noteTarget.date, noteDraft);
-    setNoteTarget(null);
+    const { taskId, date } = cellTarget;
+    const before = data.checkins.get(checkinKey(taskId, date));
+    const nextValue = valueDraft.trim() === "" ? null : valueDraft.trim();
+    const nextNote = noteDraft.trim() === "" ? null : noteDraft;
+    const statusChanged = statusDraft !== (before?.status ?? null);
+    const valueChanged = nextValue !== (before?.value ?? null);
+    const noteChanged = nextNote !== (before?.note ?? null);
+
+    setCellTarget(null);
+
+    void (async () => {
+      try {
+        if (statusChanged) {
+          await setStatus(taskId, date, statusDraft);
+        }
+        if (valueChanged) {
+          await setValue(taskId, date, nextValue);
+        }
+        if (noteChanged) {
+          await setNote(taskId, date, nextNote);
+        }
+      } catch (error) {
+        console.error("[grid] 保存格子失败", error);
+      }
+    })();
   };
 
   /** 概览点击：回到详细缩放，并把该日期放到可视区中间。 */
@@ -751,8 +813,24 @@ export default function TaskGrid() {
           data-mode={overview ? "overview" : "detail"}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
         >
-          <div className="pointer-events-none absolute left-[160px] top-0 z-30 flex h-[22px] items-center border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[10px] text-[var(--color-text-muted)]">
-            {monthLabel}
+          <div className="absolute left-[160px] top-0 z-30 flex h-[22px] items-center gap-1 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-1 text-[10px] text-[var(--color-text-muted)]">
+            <button
+              type="button"
+              aria-label={t("grid.month.prev")}
+              onClick={() => jumpMonth(-1)}
+              className="grid size-3.5 place-items-center rounded-[3px] hover:bg-[var(--state-hover)]"
+            >
+              ‹
+            </button>
+            <span className="px-0.5 tabular-nums">{monthLabel}</span>
+            <button
+              type="button"
+              aria-label={t("grid.month.next")}
+              onClick={() => jumpMonth(1)}
+              className="grid size-3.5 place-items-center rounded-[3px] hover:bg-[var(--state-hover)]"
+            >
+              ›
+            </button>
           </div>
 
           <div
@@ -841,7 +919,7 @@ export default function TaskGrid() {
                   focused={focused}
                   defaultFocus={defaultFocus}
                   onFocusCell={(taskId, date) => setFocused({ taskId, date })}
-                  onOpenNote={openNote}
+                  onOpenEditor={openEditor}
                   onReorder={(fromId, toId) =>
                     handleReorder(group.key, fromId, toId)
                   }
@@ -853,23 +931,70 @@ export default function TaskGrid() {
             </div>
           </div>
 
-          {noteTarget ? (
+          {cellTarget ? (
             <div
-              data-note-bubble
-              className="absolute z-40 w-[208px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-[var(--shadow-popover)]"
-              style={{ left: noteTarget.left, top: noteTarget.top }}
+              data-cell-editor
+              className="absolute z-40 w-[240px] rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-[var(--shadow-popover)]"
+              style={{ left: cellTarget.left, top: cellTarget.top }}
             >
               <div className="mb-1 flex items-center gap-2 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
                 <span className="truncate">
-                  {format(parseISO(noteTarget.date), "MM/dd")}{" "}
-                  {noteTarget.taskName}
+                  {format(parseISO(cellTarget.date), "MM/dd")}{" "}
+                  {cellTarget.taskName}
                 </span>
                 <span className="ml-auto shrink-0">
-                  {t("grid.note.title")}
+                  {t("grid.cell.title")}
                 </span>
               </div>
+
+              <div
+                role="group"
+                aria-label={t("grid.cell.status")}
+                className="mb-1.5 flex gap-1"
+              >
+                {(
+                  [
+                    { value: "done", label: t("grid.cell.done") },
+                    { value: "missed", label: t("grid.cell.missed") },
+                    { value: "skipped", label: t("grid.cell.skipped") },
+                    { value: null, label: t("grid.cell.clear") },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    aria-pressed={statusDraft === option.value}
+                    onClick={() => setStatusDraft(option.value)}
+                    className={clsx(
+                      "flex-1 rounded-[var(--radius-control)] px-1 py-0.5 text-[10px]",
+                      statusDraft === option.value
+                        ? "bg-[var(--color-voluntary)] font-semibold text-white"
+                        : "text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <label className="mb-1.5 flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+                {t("grid.cell.value")}
+                <input
+                  value={valueDraft}
+                  aria-label={t("grid.cell.value")}
+                  placeholder={t("grid.cell.valuePlaceholder")}
+                  onChange={(event) => setValueDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.stopPropagation();
+                      setCellTarget(null);
+                    }
+                  }}
+                  className="min-w-0 flex-1 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-1 py-0.5 text-[10px] text-[var(--color-text)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+                />
+              </label>
+
               <textarea
-                autoFocus
                 value={noteDraft}
                 aria-label={t("grid.note.title")}
                 placeholder={t("grid.note.placeholder")}
@@ -877,22 +1002,23 @@ export default function TaskGrid() {
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     event.stopPropagation();
-                    setNoteTarget(null);
+                    setCellTarget(null);
                   }
                 }}
-                className="h-16 w-full resize-none rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] p-1.5 text-xs text-[var(--color-text)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+                className="h-14 w-full resize-none rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] p-1.5 text-xs text-[var(--color-text)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
               />
+
               <div className="mt-1.5 flex justify-end gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setNoteTarget(null)}
+                  onClick={() => setCellTarget(null)}
                   className="rounded-[var(--radius-control)] px-2 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
                 >
                   {t("grid.note.cancel")}
                 </button>
                 <button
                   type="button"
-                  onClick={saveNote}
+                  onClick={saveCell}
                   className="rounded-[var(--radius-control)] bg-[var(--color-voluntary)] px-2 py-1 text-[var(--text-2xs)] font-semibold text-white"
                 >
                   {t("grid.note.save")}
@@ -1024,7 +1150,7 @@ function GridGroup({
   focused,
   defaultFocus,
   onFocusCell,
-  onOpenNote,
+  onOpenEditor,
   onReorder,
   dragEnabled,
   onCycle,
@@ -1048,7 +1174,7 @@ function GridGroup({
   focused: { taskId: string; date: string } | null;
   defaultFocus: { taskId: string; date: string } | null;
   onFocusCell: (taskId: string, date: string) => void;
-  onOpenNote: (taskId: string, date: string, taskName: string) => void;
+  onOpenEditor: (taskId: string, date: string, taskName: string) => void;
   onReorder: (fromId: string, toId: string) => void;
   dragEnabled: boolean;
   onCycle: (row: GridRow, date: string) => void;
@@ -1202,7 +1328,9 @@ function GridGroup({
               {dates.map((date) => {
                 const key = checkinKey(row.task.id, date);
                 const state = states.get(key) ?? "none";
-                const note = checkins.get(key)?.note ?? null;
+                const checkin = checkins.get(key);
+                const note = checkin?.note ?? null;
+                const value = checkin?.value ?? null;
                 const isFocused =
                   focused?.taskId === row.task.id &&
                   focused.date === date;
@@ -1216,6 +1344,7 @@ function GridGroup({
                     taskName={row.task.name}
                     date={date}
                     state={state}
+                    value={value}
                     width={cellSize}
                     height={rowHeight}
                     isToday={date === today}
@@ -1227,8 +1356,8 @@ function GridGroup({
                       row.disabled || (!overview && state === "none")
                     }
                     onFocus={() => onFocusCell(row.task.id, date)}
-                    onOpenNote={() =>
-                      onOpenNote(row.task.id, date, row.task.name)
+                    onOpenEditor={() =>
+                      onOpenEditor(row.task.id, date, row.task.name)
                     }
                     onActivate={
                       overview
@@ -1271,6 +1400,7 @@ function GridCell({
   taskName,
   date,
   state,
+  value,
   width,
   height,
   isToday,
@@ -1280,13 +1410,14 @@ function GridCell({
   hasNote,
   disabled,
   onFocus,
-  onOpenNote,
+  onOpenEditor,
   onActivate,
 }: {
   taskId: string;
   taskName: string;
   date: string;
   state: CellState;
+  value: string | null;
   width: number;
   height: number;
   isToday: boolean;
@@ -1296,17 +1427,23 @@ function GridCell({
   hasNote: boolean;
   disabled: boolean;
   onFocus: () => void;
-  onOpenNote: () => void;
+  onOpenEditor: () => void;
   onActivate: () => void;
 }) {
   const t = useT();
   const symbol = state === "none" ? "▫" : CELL_SYMBOLS[state];
+  const text = !overview && value ? value : symbol;
+  const canEdit = !overview && !disabled;
   const canNote =
     !overview &&
     (state === "done" ||
       state === "missed" ||
       state === "skipped" ||
       state === "recorded");
+  const statusLabel = t(CELL_LABEL_KEYS[state]);
+  const ariaLabel = value
+    ? `${t("checkin.aria", { task: taskName, status: statusLabel })} · ${value}`
+    : t("checkin.aria", { task: taskName, status: statusLabel });
 
   const detailBackground = isToday ? TODAY_TINT : undefined;
   const background = overview
@@ -1325,17 +1462,27 @@ function GridCell({
         data-state={state}
         data-today={isToday ? "" : undefined}
         data-focused={focused ? "" : undefined}
+        data-value={value ?? undefined}
         tabIndex={tabIndex}
         disabled={disabled}
-        aria-label={t("checkin.aria", {
-          task: taskName,
-          status: t(CELL_LABEL_KEYS[state]),
-        })}
+        title={`${taskName} · ${format(parseISO(date), "MM/dd")}${
+          value ? ` · ${value}` : ""
+        }`}
+        aria-label={ariaLabel}
         onFocus={onFocus}
         onClick={onActivate}
+        onDoubleClick={canEdit ? onOpenEditor : undefined}
+        onContextMenu={
+          canEdit
+            ? (event) => {
+                event.preventDefault();
+                onOpenEditor();
+              }
+            : undefined
+        }
         className={clsx(
           "flex size-full items-center justify-center border-b border-l tabular-nums outline-none",
-          overview ? "text-[0px]" : "text-xs",
+          overview ? "text-[0px]" : value ? "px-0.5 text-[10px]" : "text-xs",
           !overview &&
             state === "done" &&
             "font-semibold text-[var(--color-voluntary)]",
@@ -1367,7 +1514,9 @@ function GridCell({
             "color-mix(in srgb, var(--color-border) 50%, transparent)",
         }}
       >
-        <span aria-hidden="true">{overview ? "" : symbol}</span>
+        <span aria-hidden="true" className="max-w-full truncate">
+          {overview ? "" : text}
+        </span>
       </button>
 
       {canNote ? (
@@ -1379,7 +1528,7 @@ function GridCell({
           title={t("grid.note.title")}
           onClick={(event) => {
             event.stopPropagation();
-            onOpenNote();
+            onOpenEditor();
           }}
           className={clsx(
             "absolute right-0 top-0 grid size-3 place-items-center rounded-bl-[4px] text-[8px] leading-none",

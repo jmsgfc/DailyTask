@@ -50,6 +50,7 @@ function doneToday(): Checkin {
 describe("TaskGrid", () => {
   const setStatus = vi.fn(async () => undefined);
   const setNote = vi.fn(async () => undefined);
+  const setValue = vi.fn(async () => undefined);
   const reorder = vi.fn(async () => undefined);
   const updateSettings = vi.fn(
     async (patch: Partial<typeof DEFAULT_SETTINGS>) => {
@@ -61,6 +62,7 @@ describe("TaskGrid", () => {
     vi.useFakeTimers({ now: NOW });
     setStatus.mockClear();
     setNote.mockClear();
+    setValue.mockClear();
     reorder.mockClear();
     updateSettings.mockClear();
 
@@ -86,6 +88,7 @@ describe("TaskGrid", () => {
       loaded: true,
       setStatus,
       setNote,
+      setValue,
     });
   });
 
@@ -257,7 +260,7 @@ describe("TaskGrid", () => {
     );
   });
 
-  it("opens the note bubble from a judged cell and saves", () => {
+  it("opens the cell editor from a judged cell and saves the note", () => {
     const { container } = render(<TaskGrid />);
     const noteButton = container.querySelector(
       `[data-note-button="t1|${TODAY}"]`,
@@ -265,7 +268,7 @@ describe("TaskGrid", () => {
 
     expect(noteButton).toBeInTheDocument();
     fireEvent.click(noteButton);
-    expect(container.querySelector("[data-note-bubble]")).toBeInTheDocument();
+    expect(container.querySelector("[data-cell-editor]")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("textbox", { name: "备注" }), {
       target: { value: "只做了 5 个" },
@@ -274,12 +277,100 @@ describe("TaskGrid", () => {
 
     expect(setNote).toHaveBeenCalledWith("t1", TODAY, "只做了 5 个");
     expect(
-      container.querySelector("[data-note-bubble]"),
+      container.querySelector("[data-cell-editor]"),
     ).not.toBeInTheDocument();
   });
 
-  it("only offers notes on cells that already have a record", () => {
+  it("shows the recorded value instead of the status symbol", () => {
+    useCheckinsStore.setState({
+      byKey: new Map([
+        [checkinKey("t1", TODAY), { ...doneToday(), value: "3 组" }],
+      ]),
+    });
+
     const { container } = render(<TaskGrid />);
+    const cell = container.querySelector(
+      `[data-task="t1"][data-date="${TODAY}"]`,
+    );
+
+    expect(cell).toHaveTextContent("3 组");
+    expect(cell).not.toHaveTextContent("✓");
+    expect(cell).toHaveAttribute("data-value", "3 组");
+  });
+
+  it("edits status, value and note from the right-click editor", async () => {
+    const { container } = render(<TaskGrid />);
+    const cell = container.querySelector(
+      '[data-task="t2"][data-date="2026-11-03"]',
+    ) as Element;
+
+    fireEvent.contextMenu(cell);
+    expect(container.querySelector("[data-cell-editor]")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "跳过" }));
+    fireEvent.change(screen.getByLabelText("自由值"), {
+      target: { value: "30 分钟" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "备注" }), {
+      target: { value: "只做了 20 分钟" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(setStatus).toHaveBeenCalledWith("t2", "2026-11-03", "skipped");
+    expect(setValue).toHaveBeenCalledWith("t2", "2026-11-03", "30 分钟");
+    expect(setNote).toHaveBeenCalledWith("t2", "2026-11-03", "只做了 20 分钟");
+  });
+
+  it("does not open the editor on an out-of-range cell", () => {
+    const { container } = render(<TaskGrid />);
+
+    fireEvent.contextMenu(
+      container.querySelector(
+        '[data-task="t1"][data-date="2026-10-27"]',
+      ) as Element,
+    );
+
+    expect(
+      container.querySelector("[data-cell-editor]"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("scrolls dates with the wheel and rows with shift", () => {
+    const { container } = render(<TaskGrid />);
+    const scroller = container.querySelector(
+      "[data-grid-scroller]",
+    ) as HTMLElement;
+
+    scroller.scrollLeft = 100;
+    fireEvent.wheel(scroller, { deltaY: 320 });
+    expect(scroller.scrollLeft).toBe(420);
+
+    scroller.scrollTop = 0;
+    fireEvent.wheel(scroller, { deltaY: 80, shiftKey: true });
+    expect(scroller.scrollTop).toBe(80);
+  });
+
+  it("jumps a month with the pill arrows", () => {
+    const { container } = render(<TaskGrid />);
+    expect(container).toHaveTextContent("2026 年 10 月");
+
+    fireEvent.click(screen.getByRole("button", { name: "下一月" }));
+
+    expect(container).toHaveTextContent("2026 年 11 月");
+    expect(
+      Number(
+        container
+          .querySelector("[data-grid-scroll]")
+          ?.getAttribute("data-grid-scroll"),
+      ),
+    ).toBeGreaterThan(0);
+  });
+
+  it("only offers notes on cells that already have a record", () => {    const { container } = render(<TaskGrid />);
 
     expect(
       container.querySelector(`[data-note-button="t1|${TODAY}"]`),
