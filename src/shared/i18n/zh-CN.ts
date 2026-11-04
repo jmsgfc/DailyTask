@@ -33,6 +33,18 @@ export const zhCN = {
   "today.addValue": "＋值",
   "today.editValue": "记录值",
 
+  "todos.title": "待办",
+  "todos.pending": "{count} 项未完成",
+  "todos.empty": "还没有待办",
+  "todos.group.overdue": "逾期",
+  "todos.group.today": "今天",
+  "todos.group.week": "本周",
+  "todos.group.later": "以后",
+  "todos.group.done": "已完成",
+  "todos.noDue": "无截止日",
+  "todos.overdueDays": "逾期 {days} 天",
+  "todos.dueToday": "今天",
+
   "checkin.done": "已完成",
   "checkin.missed": "未完成",
   "checkin.skipped": "今天不做",
