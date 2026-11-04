@@ -4,6 +4,7 @@ import type { SqlDatabase } from "../db/client";
 import {
   intervalFromRow,
   listTasks,
+  reorderTasks,
   type IntervalRow,
   type TaskRow,
   taskFromRows,
@@ -55,6 +56,27 @@ describe("taskFromRows", () => {
     expect(task.createdAt).toBe("2026-11-01T00:00:00.000Z");
     expect(task.intervals).toHaveLength(2);
     expect(task.intervals[0].end).toBe("2026-10-31");
+  });
+});
+
+describe("reorderTasks", () => {
+  it("writes sequential sort_order values in the given order", async () => {
+    const calls: unknown[][] = [];
+    const db: SqlDatabase = {
+      select: async <T>() => [] as T,
+      execute: async (_query, values = []) => {
+        calls.push(values);
+        return { rowsAffected: 1 };
+      },
+    };
+
+    await reorderTasks(db, ["t2", "t1", "t3"]);
+
+    expect(calls.map((values) => [values[0], values[2]])).toEqual([
+      [0, "t2"],
+      [1, "t1"],
+      [2, "t3"],
+    ]);
   });
 });
 

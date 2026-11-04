@@ -75,6 +75,7 @@ export const zhCN = {
   "grid.note.save": "保存",
   "grid.note.cancel": "取消",
   "grid.note.has": "有备注",
+  "grid.drag": "拖动调整同组顺序",
   "grid.empty": "还没有任务，去「任务管理」新建一个",
   "grid.collapse": "折叠{group}",
   "grid.expand": "展开{group}",

@@ -49,6 +49,7 @@ function doneToday(): Checkin {
 describe("TaskGrid", () => {
   const setStatus = vi.fn(async () => undefined);
   const setNote = vi.fn(async () => undefined);
+  const reorder = vi.fn(async () => undefined);
   const updateSettings = vi.fn(
     async (patch: Partial<typeof DEFAULT_SETTINGS>) => {
       void patch;
@@ -60,6 +61,7 @@ describe("TaskGrid", () => {
     vi.setSystemTime(NOW);
     setStatus.mockClear();
     setNote.mockClear();
+    reorder.mockClear();
     updateSettings.mockClear();
 
     useSettingsStore.setState({
@@ -72,6 +74,7 @@ describe("TaskGrid", () => {
         task("t2", "开会", "forced", "2026-10-01", null, 1),
         task("t3", "跳绳", "voluntary", "2026-09-01", "2026-10-01", 2),
       ],
+      reorder,
     });
     useCheckinsStore.setState({
       byKey: new Map([[checkinKey("t1", TODAY), doneToday()]]),
@@ -261,6 +264,47 @@ describe("TaskGrid", () => {
 
     fireEvent.wheel(scroller, { deltaY: -100 });
     expect(updateSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("reorders rows within the same group", () => {
+    useTasksStore.setState({
+      tasks: [
+        task("t1", "引体向上", "voluntary", "2026-10-28", null, 0),
+        task("t4", "阅读", "voluntary", "2026-10-01", null, 1),
+        task("t2", "开会", "forced", "2026-10-01", null, 2),
+        task("t3", "跳绳", "voluntary", "2026-09-01", "2026-10-01", 3),
+      ],
+      reorder,
+    });
+    const { container } = render(<TaskGrid />);
+    const source = container.querySelector(
+      '[data-grid-row="t1"]',
+    ) as HTMLElement;
+    const target = container.querySelector(
+      '[data-grid-row="t4"]',
+    ) as HTMLElement;
+
+    fireEvent.dragStart(source.firstElementChild as Element);
+    fireEvent.dragOver(target);
+    fireEvent.drop(target);
+
+    expect(reorder).toHaveBeenCalledWith(["t4", "t1", "t2", "t3"]);
+  });
+
+  it("ignores a drop into another group", () => {
+    const { container } = render(<TaskGrid />);
+    const source = container.querySelector(
+      '[data-grid-row="t1"]',
+    ) as HTMLElement;
+    const target = container.querySelector(
+      '[data-grid-row="t2"]',
+    ) as HTMLElement;
+
+    fireEvent.dragStart(source.firstElementChild as Element);
+    fireEvent.dragOver(target);
+    fireEvent.drop(target);
+
+    expect(reorder).not.toHaveBeenCalled();
   });
 
   it("keeps the DOM windowed on a 1200-column axis", () => {

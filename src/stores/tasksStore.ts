@@ -28,6 +28,8 @@ export interface TasksState {
   remove: (id: string) => Promise<void>;
   closeInterval: (taskId: string, endDate: string) => Promise<void>;
   appendInterval: (taskId: string, startDate: string) => Promise<void>;
+  /** 按传入的全局顺序重排任务（拖拽排序）。 */
+  reorder: (taskIds: string[]) => Promise<void>;
 }
 
 const now = () => new Date().toISOString();
@@ -105,6 +107,21 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
                 updatedAt: stamp,
                 intervals: [...task.intervals, interval],
               }
+            : task,
+        ),
+      });
+      notifyTasksChanged();
+    }),
+
+  reorder: (taskIds) =>
+    enqueueWrite(async () => {
+      await repo.reorderTasks(await getDb(), taskIds);
+      const orders = new Map(taskIds.map((id, index) => [id, index]));
+      const stamp = now();
+      set({
+        tasks: get().tasks.map((task) =>
+          orders.has(task.id)
+            ? { ...task, order: orders.get(task.id) as number, updatedAt: stamp }
             : task,
         ),
       });

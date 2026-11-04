@@ -161,6 +161,20 @@ export async function deleteTask(db: SqlDatabase, id: string): Promise<void> {
   await db.execute("DELETE FROM tasks WHERE id = ?", [id]);
 }
 
+/** 按传入顺序重排全部任务；拖拽只在同组内调整，顺序由调用方展开成全局列表。 */
+export async function reorderTasks(
+  db: SqlDatabase,
+  taskIds: string[],
+): Promise<void> {
+  const now = new Date().toISOString();
+  for (const [index, id] of taskIds.entries()) {
+    await db.execute(
+      "UPDATE tasks SET sort_order = ?, updated_at = ? WHERE id = ?",
+      [index, now, id],
+    );
+  }
+}
+
 /** 停用：关掉当前开放区间（endDate 含当天）。 */
 export async function closeOpenInterval(
   db: SqlDatabase,

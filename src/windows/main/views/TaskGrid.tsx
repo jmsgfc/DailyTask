@@ -19,6 +19,7 @@ import { dateLocale } from "../../../shared/i18n";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useGridData } from "../../../stores/selectors/grid";
 import { useSettingsStore } from "../../../stores/settingsStore";
+import { useTasksStore } from "../../../stores/tasksStore";
 import {
   CELL_LABEL_KEYS,
   CELL_SYMBOLS,
@@ -60,6 +61,7 @@ export default function TaskGrid() {
   const data = useGridData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
   const setNote = useCheckinsStore((state) => state.setNote);
+  const reorder = useTasksStore((state) => state.reorder);
 
   const cellSize = Math.min(44, Math.max(14, data.settings.gridZoom));
   const overview = cellSize < 24;
@@ -224,6 +226,31 @@ export default function TaskGrid() {
     { key: "disabled", rows: data.groups.disabled },
   ];
   const groups = allGroups.filter((group) => group.rows.length > 0);
+
+  const handleReorder = (
+    groupKey: GroupKey,
+    fromId: string,
+    toId: string,
+  ) => {
+    const group = groups.find((item) => item.key === groupKey);
+    if (!group) {
+      return;
+    }
+    const ids = group.rows.map((row) => row.task.id);
+    const from = ids.indexOf(fromId);
+    const to = ids.indexOf(toId);
+    if (from < 0 || to < 0 || from === to) {
+      return;
+    }
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+
+    // 组内顺序改完后，按「自愿 → 被迫 → 已停用」的展示顺序展开成全局顺序。
+    const allIds = groups.flatMap((item) =>
+      item.key === groupKey ? ids : item.rows.map((row) => row.task.id),
+    );
+    void reorder(allIds);
+  };
 
   const allRows = groups.flatMap((group) => group.rows);
   const visibleRows = groups
@@ -573,6 +600,9 @@ export default function TaskGrid() {
                   defaultFocus={defaultFocus}
                   onFocusCell={(taskId, date) => setFocused({ taskId, date })}
                   onOpenNote={openNote}
+                  onReorder={(fromId, toId) =>
+                    handleReorder(group.key, fromId, toId)
+                  }
                   onCycle={cycle}
                   onZoomDate={zoomToDate}
                 />
@@ -705,6 +735,7 @@ function GridGroup({
   defaultFocus,
   onFocusCell,
   onOpenNote,
+  onReorder,
   onCycle,
   onZoomDate,
 }: {
@@ -727,12 +758,15 @@ function GridGroup({
   defaultFocus: { taskId: string; date: string } | null;
   onFocusCell: (taskId: string, date: string) => void;
   onOpenNote: (taskId: string, date: string, taskName: string) => void;
+  onReorder: (fromId: string, toId: string) => void;
   onCycle: (row: GridRow, date: string) => void;
   onZoomDate: (date: string) => void;
 }) {
   const t = useT();
   const meta = GROUP_META[groupKey];
   const label = t(meta.labelKey);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   return (
     <>
@@ -770,13 +804,61 @@ function GridGroup({
               key={row.task.id}
               data-grid-row={row.task.id}
               data-disabled={row.disabled ? "" : undefined}
-              className="flex"
-              style={{ width: totalWidth, height: rowHeight }}
+              data-dragging={draggingId === row.task.id ? "" : undefined}
+              data-drop-target={dropTargetId === row.task.id ? "" : undefined}
+              className={clsx(
+                "group/row flex",
+                draggingId === row.task.id && "opacity-60",
+              )}
+              style={{
+                width: totalWidth,
+                height: rowHeight,
+                boxShadow:
+                  dropTargetId === row.task.id
+                    ? "inset 0 2px 0 var(--color-voluntary)"
+                    : undefined,
+              }}
+              onDragOver={(event) => {
+                if (!draggingId || draggingId === row.task.id) {
+                  return;
+                }
+                event.preventDefault();
+                if (event.dataTransfer) {
+                  event.dataTransfer.dropEffect = "move";
+                }
+                setDropTargetId(row.task.id);
+              }}
+              onDragLeave={() =>
+                setDropTargetId((current) =>
+                  current === row.task.id ? null : current,
+                )
+              }
+              onDrop={(event) => {
+                event.preventDefault();
+                if (draggingId && draggingId !== row.task.id) {
+                  onReorder(draggingId, row.task.id);
+                }
+                setDraggingId(null);
+                setDropTargetId(null);
+              }}
+              onDragEnd={() => {
+                setDraggingId(null);
+                setDropTargetId(null);
+              }}
             >
               <div
+                draggable
+                onDragStart={(event) => {
+                  setDraggingId(row.task.id);
+                  if (event.dataTransfer) {
+                    event.dataTransfer.setData("text/plain", row.task.id);
+                    event.dataTransfer.effectAllowed = "move";
+                  }
+                }}
+                title={t("grid.drag")}
                 style={{ height: rowHeight }}
                 className={clsx(
-                  "sticky left-0 z-10 flex w-[160px] shrink-0 items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2",
+                  "sticky left-0 z-10 flex w-[160px] shrink-0 cursor-grab items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 active:cursor-grabbing",
                   overview ? "text-[var(--text-2xs)]" : "text-xs",
                   row.disabled && "text-[var(--color-text-muted)]",
                 )}
@@ -792,6 +874,12 @@ function GridGroup({
                   }}
                 />
                 <span className="truncate">{row.task.name}</span>
+                <span
+                  aria-hidden="true"
+                  className="ml-auto shrink-0 text-[9px] text-[var(--color-border-strong)] opacity-0 group-hover/row:opacity-100"
+                >
+                  ⋮⋮
+                </span>
               </div>
 
               <div style={{ width: leftPad }} />
