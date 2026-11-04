@@ -12,6 +12,7 @@
     "core:window:allow-start-dragging",
     "core:window:allow-set-always-on-top",
     "sql:default",
-    "sql:allow-execute"
+    "sql:allow-execute",
+    "autostart:default"
   ]
 }

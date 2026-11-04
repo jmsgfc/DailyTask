@@ -117,6 +117,7 @@ export const zhCN = {
   "settings.subtitle": "外观、行为与数据",
   "settings.section.appearance": "外观",
   "settings.section.behavior": "行为",
+  "settings.section.window": "窗口",
   "settings.section.data": "数据",
   "settings.theme": "主题",
   "settings.theme.system": "跟随系统",
@@ -129,6 +130,7 @@ export const zhCN = {
   "settings.alwaysOnTop": "挂件置顶",
   "settings.autoLaunch": "开机自启",
   "settings.autoLaunchHint": "仅安装版可用",
+  "settings.autoLaunchUnavailable": "当前环境不可用",
   "settings.version": "DailyTask v{version} · 本地数据",
 
   "checkin.done": "已完成",
