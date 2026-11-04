@@ -1,0 +1,67 @@
+import { useMemo } from "react";
+
+import { logicalToday } from "../../domain/date";
+import {
+  buildDateAxis,
+  groupTasks,
+  type DateAxis,
+  type GridGroups,
+} from "../../domain/grid";
+import { checkinKey } from "../../domain/keys";
+import { projectCell, type CellState } from "../../domain/settle";
+import type { Checkin, Settings, Task } from "../../domain/types";
+import { useCheckinsStore } from "../checkinsStore";
+import { useSettingsStore } from "../settingsStore";
+import { useTasksStore } from "../tasksStore";
+
+export interface GridData {
+  today: string;
+  axis: DateAxis;
+  groups: GridGroups;
+  settings: Settings;
+  /** taskId|date → 五态投影，渲染时直接查表。 */
+  states: Map<string, CellState>;
+}
+
+export function buildGridData(
+  tasks: Task[],
+  checkins: Map<string, Checkin>,
+  settings: Settings,
+  now: Date,
+): GridData {
+  const today = logicalToday(now, settings.dayStartHour);
+  const axis = buildDateAxis(tasks, today);
+  const groups = groupTasks(tasks, today);
+  const states = new Map<string, CellState>();
+
+  for (const group of [groups.voluntary, groups.forced, groups.disabled]) {
+    for (const row of group) {
+      for (const date of axis.dates) {
+        const key = checkinKey(row.task.id, date);
+        states.set(
+          key,
+          projectCell(
+            row.task,
+            date,
+            checkins.get(key),
+            settings,
+            today,
+          ),
+        );
+      }
+    }
+  }
+
+  return { today, axis, groups, settings, states };
+}
+
+export function useGridData(): GridData {
+  const tasks = useTasksStore((state) => state.tasks);
+  const checkins = useCheckinsStore((state) => state.byKey);
+  const settings = useSettingsStore((state) => state.settings);
+
+  return useMemo(
+    () => buildGridData(tasks, checkins, settings, new Date()),
+    [tasks, checkins, settings],
+  );
+}

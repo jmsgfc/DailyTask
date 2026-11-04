@@ -4,7 +4,7 @@ import type { CellState } from "../domain/types";
 import type { MessageKey } from "../shared/i18n";
 import { useT } from "./useT";
 
-const SYMBOLS: Record<CellState, string> = {
+export const CELL_SYMBOLS: Record<CellState, string> = {
   done: "✓",
   missed: "✗",
   skipped: "–",
@@ -13,7 +13,7 @@ const SYMBOLS: Record<CellState, string> = {
   none: "",
 };
 
-const LABEL_KEYS: Record<CellState, MessageKey> = {
+export const CELL_LABEL_KEYS: Record<CellState, MessageKey> = {
   done: "checkin.done",
   missed: "checkin.missed",
   skipped: "checkin.skipped",
@@ -58,7 +58,7 @@ export function CheckCell({
       data-state={state}
       aria-label={t("checkin.aria", {
         task: taskName,
-        status: t(LABEL_KEYS[state]),
+        status: t(CELL_LABEL_KEYS[state]),
       })}
       disabled={disabled || state === "none"}
       onClick={
@@ -78,7 +78,7 @@ export function CheckCell({
         "hover:border-[var(--color-voluntary)] disabled:cursor-not-allowed",
       )}
     >
-      <span aria-hidden="true">{SYMBOLS[state]}</span>
+      <span aria-hidden="true">{CELL_SYMBOLS[state]}</span>
     </button>
   );
 }
