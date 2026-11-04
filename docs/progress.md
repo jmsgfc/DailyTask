@@ -180,7 +180,7 @@
 | D67 | 01/06 三 | M6 · 统计列表：单任务 streak + 近 30 天完成率 | 口径与 §6 一致 | ☑（实际：`buildStats` 复用 `taskStreak` / `completionRate30`，skipped 不进分母也不中断；表格按 `sort_order` 展示连续天数、进度条与百分比，底部写明口径；2 个 selector + 2 个视图用例） |
 | D68 | 01/07 四 | M6 · 设置页骨架 + 主题切换 | 深浅色可切 | ☑（实际：设置页按「外观 / 行为 / 数据」分区；主题三档（跟随系统/浅色/深色）即时改 `data-theme` 并写 settings，持久化失败由 store 回滚；3 个用例） |
 | D69 | 01/08 五 | M6 · 自启 / 置顶 / 一天起始时间接线 | 三项生效 | ☑（实际：接入 `tauri-plugin-autostart`（Rust + capability + JS），自启开关以系统状态为准、失败回退；置顶写 `alwaysOnTop` 由挂件窗口应用；起始时间 00–12 可选，所有 selector 经 `logicalToday` 立即重算；自动结算开关一并接线） |
-| D70 | 01/09 六 | M6 · JSON 导出 | 结构符合 JSON v1 | ☐ |
+| D70 | 01/09 六 | M6 · JSON 导出 | 结构符合 JSON v1 | ☑（实际：`buildExportBundle` 输出 `{ version:1, exportedAt, tasks, intervals, checkins, todos, settings }`，任务与区间分开、按 id/日期稳定排序；dialog 保存到「下载」默认文件名 `dailytask-YYYY-MM-DD.json`，fs 写入带缩进；真机导出成功（6 任务 / 6 区间 / 35 打卡 / 5 待办） |
 
 ### 第 11 周 · 01/10–01/16 ｜ M6 统计 + 设置 + 更新器
 

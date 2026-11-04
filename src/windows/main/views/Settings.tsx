@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import type { Theme } from "../../../domain/types";
 import { useSettingsStore } from "../../../stores/settingsStore";
+import { useTransferStore } from "../../../stores/transferStore";
 import { applyTheme } from "../../../ui/theme";
 import { useT } from "../../../ui/useT";
 
@@ -19,6 +20,9 @@ export default function Settings() {
 
   const [autoLaunch, setAutoLaunch] = useState(settings.autoLaunch);
   const [autoLaunchReady, setAutoLaunchReady] = useState(true);
+  const exportToFile = useTransferStore((state) => state.exportToFile);
+  const exporting = useTransferStore((state) => state.exporting);
+  const [transferNote, setTransferNote] = useState<string | null>(null);
 
   // 自启状态以系统为准：设置表只是缓存。
   useEffect(() => {
@@ -62,6 +66,20 @@ export default function Settings() {
         console.error("[settings] 切换开机自启失败", error);
       }
     })();
+  };
+
+  const onExport = () => {
+    setTransferNote(null);
+    void exportToFile()
+      .then((path) => {
+        if (path) {
+          setTransferNote(t("settings.exportDone", { path }));
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("[settings] 导出失败", error);
+        setTransferNote(t("settings.exportFailed"));
+      });
   };
 
   return (
@@ -198,6 +216,37 @@ export default function Settings() {
               onChange={toggleAutoLaunch}
             />
           </SettingRow>
+        </section>
+
+        <section data-settings-section="data" className={`${CARD} p-4`}>
+          <h2 className="m-0 mb-3 text-xs font-semibold text-[var(--color-text-muted)]">
+            {t("settings.section.data")}
+          </h2>
+
+          <SettingRow
+            label={t("settings.export")}
+            hint={t("settings.exportHint")}
+          >
+            <button
+              type="button"
+              data-export-json
+              disabled={exporting}
+              onClick={onExport}
+              className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1 text-xs text-[var(--color-text)] hover:bg-[var(--state-hover)] disabled:opacity-40"
+            >
+              {t("settings.export")}
+            </button>
+          </SettingRow>
+
+          {transferNote ? (
+            <p
+              data-transfer-note
+              className="m-0 mt-1 truncate text-[var(--text-2xs)] text-[var(--color-text-muted)]"
+              title={transferNote}
+            >
+              {transferNote}
+            </p>
+          ) : null}
         </section>
 
         <p className="mt-auto text-[var(--text-2xs)] text-[var(--color-text-muted)]">

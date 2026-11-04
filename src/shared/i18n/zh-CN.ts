@@ -132,6 +132,10 @@ export const zhCN = {
   "settings.autoLaunchHint": "仅安装版可用",
   "settings.autoLaunchUnavailable": "当前环境不可用",
   "settings.version": "DailyTask v{version} · 本地数据",
+  "settings.export": "导出 JSON",
+  "settings.exportHint": "任务、区间、打卡、待办与设置",
+  "settings.exportDone": "已导出到 {path}",
+  "settings.exportFailed": "导出失败，请重试",
 
   "checkin.done": "已完成",
   "checkin.missed": "未完成",

@@ -13,6 +13,15 @@
     "core:window:allow-set-always-on-top",
     "sql:default",
     "sql:allow-execute",
-    "autostart:default"
+    "autostart:default",
+    "dialog:default",
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "**" }]
+    }
   ]
 }

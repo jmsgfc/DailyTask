@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../domain/types";
 import { useSettingsStore } from "../../../stores/settingsStore";
+import { useTransferStore } from "../../../stores/transferStore";
 import Settings from "./Settings";
 
 const autostart = vi.hoisted(() => ({
@@ -12,14 +13,18 @@ const autostart = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/plugin-autostart", () => autostart);
+vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
+vi.mock("@tauri-apps/plugin-fs", () => ({ writeTextFile: vi.fn() }));
 
 describe("Settings", () => {
   const update = vi.fn(async (patch: Partial<typeof DEFAULT_SETTINGS>) => {
     void patch;
   });
+  const exportToFile = vi.fn(async () => "C:/Users/me/dailytask.json" as string | null);
 
   beforeEach(() => {
     update.mockClear();
+    exportToFile.mockClear();
     autostart.isEnabled.mockReset().mockResolvedValue(false);
     autostart.enable.mockClear();
     autostart.disable.mockClear();
@@ -29,6 +34,7 @@ describe("Settings", () => {
       loaded: true,
       update,
     });
+    useTransferStore.setState({ exporting: false, exportToFile });
   });
 
   afterEach(() => {
@@ -123,5 +129,35 @@ describe("Settings", () => {
         container.querySelector('[data-setting="auto-launch"]'),
       ).toHaveAttribute("aria-checked", "true"),
     );
+  });
+
+  it("exports JSON and reports the saved path", async () => {
+    const { container } = render(<Settings />);
+
+    fireEvent.click(container.querySelector("[data-export-json]") as Element);
+
+    await waitFor(() => expect(exportToFile).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(
+        container.querySelector("[data-transfer-note]"),
+      ).toHaveTextContent("已导出到 C:/Users/me/dailytask.json"),
+    );
+  });
+
+  it("reports a failed export", async () => {
+    exportToFile.mockRejectedValueOnce(new Error("disk full"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const { container } = render(<Settings />);
+
+    fireEvent.click(container.querySelector("[data-export-json]") as Element);
+
+    await waitFor(() =>
+      expect(
+        container.querySelector("[data-transfer-note]"),
+      ).toHaveTextContent("导出失败，请重试"),
+    );
+    consoleError.mockRestore();
   });
 });
