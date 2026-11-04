@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS, type Task } from "../../../domain/types";
@@ -7,6 +7,30 @@ import { useTasksStore } from "../../../stores/tasksStore";
 import Manage from "./Manage";
 
 const NOW = new Date(2026, 10, 4, 9, 0, 0);
+
+const create = vi.fn(
+  async (input: {
+    name: string;
+    category: Task["category"];
+    startDate: string;
+  }) => {
+    const created: Task = {
+      id: "created",
+      name: input.name,
+      category: input.category,
+      intervals: [
+        { id: "created-i", taskId: "created", start: input.startDate, end: null },
+      ],
+      order: 99,
+      createdAt: "2026-11-04T00:00:00.000Z",
+      updatedAt: "2026-11-04T00:00:00.000Z",
+    };
+    useTasksStore.setState({
+      tasks: [...useTasksStore.getState().tasks, created],
+    });
+    return created;
+  },
+);
 
 function task(
   id: string,
@@ -34,10 +58,12 @@ describe("Manage", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+    create.mockClear();
 
     useSettingsStore.setState({ settings: DEFAULT_SETTINGS, loaded: true });
     useTasksStore.setState({
       loaded: true,
+      create,
       tasks: [
         task("t1", "跑步", "voluntary", 0, [
           { start: "2026-09-01", end: "2026-10-01" },
@@ -90,5 +116,44 @@ describe("Manage", () => {
     render(<Manage />);
 
     expect(screen.getByText("还没有任务")).toBeInTheDocument();
+  });
+
+  it("creates a task with today as the default start date", () => {
+    const { container } = render(<Manage />);
+
+    fireEvent.click(container.querySelector("[data-manage-new]") as Element);
+    expect(screen.getByRole("dialog", { name: "新建任务" })).toBeInTheDocument();
+    expect(container.querySelector("[data-new-start]")).toHaveValue(
+      "2026-11-04",
+    );
+
+    fireEvent.change(container.querySelector("[data-new-name]") as Element, {
+      target: { value: "阅读" },
+    });
+    fireEvent.click(
+      container.querySelector('[data-new-category="forced"]') as Element,
+    );
+    fireEvent.click(container.querySelector("[data-new-submit]") as Element);
+
+    expect(create).toHaveBeenCalledWith({
+      name: "阅读",
+      category: "forced",
+      startDate: "2026-11-04",
+    });
+    expect(
+      container.querySelector('[data-manage-row="created"]'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("blocks blank names and closes on cancel", () => {
+    const { container } = render(<Manage />);
+
+    fireEvent.click(container.querySelector("[data-manage-new]") as Element);
+    expect(container.querySelector("[data-new-submit]")).toBeDisabled();
+
+    fireEvent.click(container.querySelector("[data-new-cancel]") as Element);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
   });
 });
