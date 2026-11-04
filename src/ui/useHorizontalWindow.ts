@@ -12,7 +12,7 @@ export interface HorizontalWindow {
 }
 
 /**
- * 横向虚拟化窗口：可视区 ±3 屏 overscan。
+ * 横向虚拟化窗口：可视区 ±2 屏 overscan（±3 屏会突破 2k 格 DOM 预算）。
  * scrollLeft 是滚动容器的内容坐标；日期列 i 的内容坐标 = 任务列 + i * cellSize。
  */
 export function computeHorizontalWindow(
@@ -28,7 +28,7 @@ export function computeHorizontalWindow(
 
   const dateViewport = Math.max(0, viewportWidth - taskColWidth);
   const visible = Math.max(1, Math.ceil(dateViewport / cellSize));
-  const overscan = visible * 3;
+  const overscan = visible * 2;
   const firstVisible = Math.floor(Math.max(0, scrollLeft) / cellSize);
 
   const start = Math.max(0, firstVisible - overscan);

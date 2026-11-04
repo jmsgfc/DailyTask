@@ -6,22 +6,22 @@ import {
 } from "./useHorizontalWindow";
 
 describe("computeHorizontalWindow", () => {
-  it("renders the first screen plus three screens of overscan", () => {
+  it("renders the first screen plus two screens of overscan", () => {
     const win = computeHorizontalWindow(0, 832, 1000, 32);
 
     expect(win.start).toBe(0);
-    expect(win.end).toBe(21 + 63);
+    expect(win.end).toBe(21 + 42);
     expect(win.leftPad).toBe(0);
-    expect(win.rightPad).toBe((1000 - 84) * 32);
+    expect(win.rightPad).toBe((1000 - 63) * 32);
   });
 
   it("follows the scroll position and keeps pads aligned", () => {
     const win = computeHorizontalWindow(500 * 32, 832, 1000, 32);
 
-    expect(win.start).toBe(437);
-    expect(win.end).toBe(584);
-    expect(win.leftPad).toBe(437 * 32);
-    expect(win.rightPad).toBe((1000 - 584) * 32);
+    expect(win.start).toBe(458);
+    expect(win.end).toBe(563);
+    expect(win.leftPad).toBe(458 * 32);
+    expect(win.rightPad).toBe((1000 - 563) * 32);
     expect(win.leftPad + (win.end - win.start) * 32 + win.rightPad).toBe(
       1000 * 32,
     );

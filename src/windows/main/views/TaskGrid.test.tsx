@@ -147,4 +147,26 @@ describe("TaskGrid", () => {
 
     expect(container).toHaveTextContent("2026 年 12 月");
   });
+
+  it("keeps the DOM windowed on a 1200-column axis", () => {
+    useTasksStore.setState({
+      tasks: Array.from({ length: 15 }, (_, index) =>
+        task(
+          `perf-${index}`,
+          `任务${index}`,
+          index % 2 === 0 ? "voluntary" : "forced",
+          "2020-01-01",
+          null,
+          index,
+        ),
+      ),
+    });
+    useCheckinsStore.setState({ byKey: new Map(), setStatus });
+
+    const { container } = render(<TaskGrid />);
+    const cells = container.querySelectorAll("[data-grid-cell]");
+
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.length).toBeLessThanOrEqual(2000);
+  });
 });
