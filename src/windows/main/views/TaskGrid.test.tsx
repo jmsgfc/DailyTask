@@ -165,13 +165,13 @@ describe("TaskGrid", () => {
     const scroller = container.querySelector(
       "[data-grid-scroller]",
     ) as HTMLElement;
-    scroller.scrollLeft = 395 * 32;
+    scroller.scrollLeft = 365 * 32;
     fireEvent.scroll(scroller);
     act(() => {
       vi.advanceTimersByTime(16);
     });
 
-    expect(container).toHaveTextContent("2026 年 12 月");
+    expect(container).toHaveTextContent("2026 年 11 月");
   });
 
   it("coalesces scroll events into one frame", () => {
@@ -182,14 +182,79 @@ describe("TaskGrid", () => {
 
     scroller.scrollLeft = 360 * 32;
     fireEvent.scroll(scroller);
-    scroller.scrollLeft = 395 * 32;
+    scroller.scrollLeft = 365 * 32;
     fireEvent.scroll(scroller);
 
     expect(container).toHaveTextContent("2026 年 10 月");
     act(() => {
       vi.advanceTimersByTime(16);
     });
-    expect(container).toHaveTextContent("2026 年 12 月");
+    expect(container).toHaveTextContent("2026 年 11 月");
+  });
+
+  it("stops at the right edge without drifting past the axis", () => {
+    const { container } = render(<TaskGrid />);
+    const scroller = container.querySelector(
+      "[data-grid-scroller]",
+    ) as HTMLElement;
+
+    scroller.scrollLeft = 9_999_999;
+    fireEvent.scroll(scroller);
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    expect(
+      container.querySelector("[data-grid-scroll]"),
+    ).toHaveAttribute("data-grid-scroll", String(160 + 396 * 32 - 832));
+    expect(
+      container.querySelector('[data-date-header="2026-12-02"]'),
+    ).toBeInTheDocument();
+  });
+
+  it("clamps a filter range that falls outside the axis", () => {
+    const { container } = render(<TaskGrid />);
+
+    fireEvent.change(
+      container.querySelector("[data-filter-from]") as Element,
+      { target: { value: "2030-01-01" } },
+    );
+    fireEvent.change(container.querySelector("[data-filter-to]") as Element, {
+      target: { value: "2030-01-02" },
+    });
+
+    expect(container.querySelectorAll("[data-date-header]")).toHaveLength(1);
+    expect(
+      container.querySelector('[data-date-header="2026-12-02"]'),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps Home at the nearest filtered edge when today is out of range", () => {
+    const { container } = render(<TaskGrid />);
+
+    fireEvent.change(
+      container.querySelector("[data-filter-from]") as Element,
+      { target: { value: "2026-10-01" } },
+    );
+    fireEvent.change(container.querySelector("[data-filter-to]") as Element, {
+      target: { value: "2026-10-10" },
+    });
+
+    fireEvent.keyDown(
+      container.querySelector(
+        '[data-task="t2"][data-date="2026-10-10"]',
+      ) as Element,
+      { key: "Home" },
+    );
+
+    expect(container.querySelector("[data-focused]")).toHaveAttribute(
+      "data-date",
+      "2026-10-10",
+    );
+    expect(container.querySelector("[data-grid-scroll]")).toHaveAttribute(
+      "data-grid-scroll",
+      "0",
+    );
   });
 
   it("opens the note bubble from a judged cell and saves", () => {

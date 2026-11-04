@@ -73,22 +73,47 @@ export default function TaskGrid() {
   const setGridFilter = useUiStore((state) => state.setGridFilter);
   const ready = tasksLoaded && checkinsLoaded && settingsLoaded;
 
+  /** 日期筛选超出轴范围时夹回轴首尾，避免出现 0 列空网格。 */
+  const clampToAxis = (date: string | null): string | null => {
+    if (!date) {
+      return null;
+    }
+    if (date < data.axis.start) {
+      return data.axis.start;
+    }
+    if (date > data.axis.end) {
+      return data.axis.end;
+    }
+    return date;
+  };
+
   const cellSize = Math.min(44, Math.max(14, data.settings.gridZoom));
   const overview = cellSize < 24;
   const rowHeight = overview ? 18 : TASK_ROW_HEIGHT;
   const groupHeight = overview ? 18 : GROUP_ROW_HEIGHT;
-  const from =
+  const from = clampToAxis(
     filter.from && filter.to && filter.from > filter.to
       ? filter.to
-      : filter.from;
-  const to =
+      : filter.from,
+  );
+  const to = clampToAxis(
     filter.from && filter.to && filter.from > filter.to
       ? filter.from
-      : filter.to;
+      : filter.to,
+  );
   const dates = data.axis.dates.filter(
     (date) => (!from || date >= from) && (!to || date <= to),
   );
   const todayIndex = dates.indexOf(data.today);
+  /** 今天不在筛选范围内时，Home 去离今天最近的边界。 */
+  const homeIndex =
+    dates.length === 0
+      ? 0
+      : todayIndex >= 0
+        ? todayIndex
+        : data.today < dates[0]
+          ? 0
+          : dates.length - 1;
   const filterActive =
     filter.category !== "all" ||
     filter.taskId !== null ||
@@ -102,8 +127,18 @@ export default function TaskGrid() {
     scrollLeftForToday(Math.max(0, todayIndex), 832, cellSize),
   );
   const effectiveWidth = viewportWidth || 832;
-  const viewRef = useRef({ scrollLeft, cellSize, width: effectiveWidth });
-  viewRef.current = { scrollLeft, cellSize, width: effectiveWidth };
+  const viewRef = useRef({
+    scrollLeft,
+    cellSize,
+    width: effectiveWidth,
+    dateCount: dates.length,
+  });
+  viewRef.current = {
+    scrollLeft,
+    cellSize,
+    width: effectiveWidth,
+    dateCount: dates.length,
+  };
 
   const viewportWindow = useHorizontalWindow(
     scrollLeft,
@@ -134,18 +169,31 @@ export default function TaskGrid() {
   } | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
 
+  const maxScrollLeft = useCallback(
+    (width: number) =>
+      Math.max(0, TASK_COL_WIDTH + dates.length * cellSize - width),
+    [cellSize, dates.length],
+  );
+
+  /** 所有程序化滚动都走这里：夹在 [0, 内容宽 − 视口宽]，状态与真实位置一致。 */
+  const scrollTo = useCallback(
+    (target: number) => {
+      const element = scrollerRef.current;
+      const width = element?.clientWidth || effectiveWidth;
+      const next = Math.min(Math.max(0, target), maxScrollLeft(width));
+      if (element && element.scrollLeft !== next) {
+        element.scrollLeft = next;
+      }
+      setScrollLeft(next);
+    },
+    [effectiveWidth, maxScrollLeft],
+  );
+
   const jumpToToday = useCallback(() => {
     const element = scrollerRef.current;
     const width = element?.clientWidth || effectiveWidth;
-    const target =
-      todayIndex < 0
-        ? 0
-        : scrollLeftForToday(todayIndex, width, cellSize);
-    if (element) {
-      element.scrollLeft = target;
-    }
-    setScrollLeft(target);
-  }, [cellSize, effectiveWidth, todayIndex]);
+    scrollTo(scrollLeftForToday(homeIndex, width, cellSize));
+  }, [cellSize, effectiveWidth, homeIndex, scrollTo]);
 
   useLayoutEffect(() => {
     const element = scrollerRef.current;
@@ -178,25 +226,13 @@ export default function TaskGrid() {
       todayIndex < 0
         ? 0
         : scrollLeftForToday(todayIndex, width, cellSize);
-    element.scrollLeft = target;
-    setScrollLeft(target);
+    scrollTo(target);
   }, [from, to]);
 
-  // 列数变化（筛选）后把 scrollLeft 夹回合法范围。
+  // 列数 / 缩放 / 视口变化后把 scrollLeft 夹回合法范围，避免停在轴外。
   useEffect(() => {
-    const element = scrollerRef.current;
-    if (!element) {
-      return;
-    }
-    const max = Math.max(
-      0,
-      dates.length * cellSize + TASK_COL_WIDTH - effectiveWidth,
-    );
-    if (element.scrollLeft > max) {
-      element.scrollLeft = max;
-      setScrollLeft(max);
-    }
-  }, [dates.length, cellSize, effectiveWidth]);
+    scrollTo(scrollerRef.current?.scrollLeft ?? 0);
+  }, [dates.length, cellSize, effectiveWidth, scrollTo]);
 
   // Ctrl + 滚轮缩放：以可视区中心为锚点，值写回 settings。
   useEffect(() => {
@@ -232,7 +268,14 @@ export default function TaskGrid() {
       const dateViewport = Math.max(0, view.width - TASK_COL_WIDTH);
       const centerIndex =
         (view.scrollLeft + dateViewport / 2) / view.cellSize;
-      const target = Math.max(0, centerIndex * next - dateViewport / 2);
+      const max = Math.max(
+        0,
+        TASK_COL_WIDTH + view.dateCount * next - view.width,
+      );
+      const target = Math.min(
+        Math.max(0, centerIndex * next - dateViewport / 2),
+        max,
+      );
 
       element.scrollLeft = target;
       setScrollLeft(target);
@@ -262,8 +305,7 @@ export default function TaskGrid() {
     }
 
     if (next !== element.scrollLeft) {
-      element.scrollLeft = next;
-      setScrollLeft(next);
+      scrollTo(next);
     }
   };
 
@@ -276,7 +318,10 @@ export default function TaskGrid() {
       scrollFrame.current = 0;
       const element = scrollerRef.current;
       if (element) {
-        setScrollLeft(element.scrollLeft);
+        const max = maxScrollLeft(element.clientWidth || effectiveWidth);
+        setScrollLeft(
+          Math.min(Math.max(0, element.scrollLeft), max),
+        );
       }
       setNoteTarget(null);
     });
@@ -407,7 +452,7 @@ export default function TaskGrid() {
         );
         setFocused({
           taskId: visibleRows[rowIndex].task.id,
-          date: data.today,
+          date: dates[homeIndex],
         });
         pendingFocus.current = true;
         jumpToToday();
@@ -505,7 +550,14 @@ export default function TaskGrid() {
     const width = element?.clientWidth || effectiveWidth;
     const dateViewport = Math.max(0, width - TASK_COL_WIDTH);
     const nextSize = 32;
-    const target = Math.max(0, index * nextSize - dateViewport / 2);
+    const max = Math.max(
+      0,
+      TASK_COL_WIDTH + dates.length * nextSize - width,
+    );
+    const target = Math.min(
+      Math.max(0, index * nextSize - dateViewport / 2),
+      max,
+    );
 
     if (element) {
       element.scrollLeft = target;
