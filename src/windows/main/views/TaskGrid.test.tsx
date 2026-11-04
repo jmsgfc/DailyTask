@@ -10,6 +10,7 @@ import {
 import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
+import { useUiStore } from "../../../stores/uiStore";
 import TaskGrid from "./TaskGrid";
 
 const NOW = new Date(2026, 10, 2, 9, 0, 0);
@@ -68,6 +69,9 @@ describe("TaskGrid", () => {
       settings: DEFAULT_SETTINGS,
       update: updateSettings,
     });
+    useUiStore.setState({
+      gridFilter: { category: "all", taskId: null, from: null, to: null },
+    });
     useTasksStore.setState({
       tasks: [
         task("t1", "引体向上", "voluntary", "2026-10-28", null, 0),
@@ -95,9 +99,12 @@ describe("TaskGrid", () => {
     ).map((element) => element.getAttribute("data-group-header"));
     expect(headers).toEqual(["voluntary", "forced", "disabled"]);
 
-    expect(screen.getByText("引体向上")).toBeInTheDocument();
-    expect(screen.getByText("开会")).toBeInTheDocument();
-    expect(screen.queryByText("跳绳")).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-grid-row="t1"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-grid-row="t2"]'),
+    ).toBeInTheDocument();
     expect(
       container.querySelector('[data-grid-row="t3"]'),
     ).not.toBeInTheDocument();
@@ -110,7 +117,6 @@ describe("TaskGrid", () => {
       container.querySelector('[data-group-header="disabled"]') as Element,
     );
 
-    expect(screen.getByText("跳绳")).toBeInTheDocument();
     expect(container.querySelector('[data-grid-row="t3"]')).toBeInTheDocument();
   });
 
@@ -264,6 +270,79 @@ describe("TaskGrid", () => {
 
     fireEvent.wheel(scroller, { deltaY: -100 });
     expect(updateSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters rows by category and by task", () => {
+    const { container } = render(<TaskGrid />);
+
+    fireEvent.click(
+      container.querySelector('[data-filter-category="forced"]') as Element,
+    );
+    expect(
+      container.querySelector('[data-grid-row="t2"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-grid-row="t1"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-group-header="voluntary"]'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      container.querySelector('[data-filter-category="all"]') as Element,
+    );
+    fireEvent.change(container.querySelector("[data-filter-task]") as Element, {
+      target: { value: "t2" },
+    });
+    expect(
+      container.querySelector('[data-grid-row="t2"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-grid-row="t1"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clips the date axis to the selected range and clears it", () => {
+    const { container } = render(<TaskGrid />);
+
+    fireEvent.change(
+      container.querySelector("[data-filter-from]") as Element,
+      { target: { value: "2026-10-28" } },
+    );
+    fireEvent.change(
+      container.querySelector("[data-filter-to]") as Element,
+      { target: { value: "2026-11-02" } },
+    );
+
+    expect(
+      container.querySelector('[data-date-header="2026-10-27"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-date-header="2026-10-28"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-date-header="2026-11-02"]'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      container.querySelector("[data-filter-clear]") as Element,
+    );
+    expect(
+      container.querySelector('[data-date-header="2026-10-27"]'),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an empty state when filters exclude every row", () => {
+    const { container } = render(<TaskGrid />);
+
+    fireEvent.change(container.querySelector("[data-filter-task]") as Element, {
+      target: { value: "t2" },
+    });
+    fireEvent.click(
+      container.querySelector('[data-filter-category="voluntary"]') as Element,
+    );
+
+    expect(screen.getByText("没有符合筛选的任务")).toBeInTheDocument();
   });
 
   it("reorders rows within the same group", () => {

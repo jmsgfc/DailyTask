@@ -20,6 +20,7 @@ import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useGridData } from "../../../stores/selectors/grid";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
+import { useUiStore } from "../../../stores/uiStore";
 import {
   CELL_LABEL_KEYS,
   CELL_SYMBOLS,
@@ -62,18 +63,36 @@ export default function TaskGrid() {
   const setStatus = useCheckinsStore((state) => state.setStatus);
   const setNote = useCheckinsStore((state) => state.setNote);
   const reorder = useTasksStore((state) => state.reorder);
+  const filter = useUiStore((state) => state.gridFilter);
+  const setGridFilter = useUiStore((state) => state.setGridFilter);
 
   const cellSize = Math.min(44, Math.max(14, data.settings.gridZoom));
   const overview = cellSize < 24;
   const rowHeight = overview ? 18 : TASK_ROW_HEIGHT;
   const groupHeight = overview ? 18 : GROUP_ROW_HEIGHT;
-  const dates = data.axis.dates;
+  const from =
+    filter.from && filter.to && filter.from > filter.to
+      ? filter.to
+      : filter.from;
+  const to =
+    filter.from && filter.to && filter.from > filter.to
+      ? filter.from
+      : filter.to;
+  const dates = data.axis.dates.filter(
+    (date) => (!from || date >= from) && (!to || date <= to),
+  );
+  const todayIndex = dates.indexOf(data.today);
+  const filterActive =
+    filter.category !== "all" ||
+    filter.taskId !== null ||
+    filter.from !== null ||
+    filter.to !== null;
   const totalWidth = TASK_COL_WIDTH + dates.length * cellSize;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(() =>
-    scrollLeftForToday(data.axis.todayIndex, 832, cellSize),
+    scrollLeftForToday(Math.max(0, todayIndex), 832, cellSize),
   );
   const effectiveWidth = viewportWidth || 832;
   const viewRef = useRef({ scrollLeft, cellSize, width: effectiveWidth });
@@ -110,16 +129,15 @@ export default function TaskGrid() {
   const jumpToToday = useCallback(() => {
     const element = scrollerRef.current;
     const width = element?.clientWidth || effectiveWidth;
-    const target = scrollLeftForToday(
-      data.axis.todayIndex,
-      width,
-      cellSize,
-    );
+    const target =
+      todayIndex < 0
+        ? 0
+        : scrollLeftForToday(todayIndex, width, cellSize);
     if (element) {
       element.scrollLeft = target;
     }
     setScrollLeft(target);
-  }, [cellSize, data.axis.todayIndex, effectiveWidth]);
+  }, [cellSize, effectiveWidth, todayIndex]);
 
   useLayoutEffect(() => {
     const element = scrollerRef.current;
@@ -140,6 +158,37 @@ export default function TaskGrid() {
   useLayoutEffect(() => {
     jumpToToday();
   }, []);
+
+  // 时间段筛选变化后：今天在范围内就回今天，否则回到范围开头。
+  useEffect(() => {
+    const element = scrollerRef.current;
+    if (!element) {
+      return;
+    }
+    const width = element.clientWidth || effectiveWidth;
+    const target =
+      todayIndex < 0
+        ? 0
+        : scrollLeftForToday(todayIndex, width, cellSize);
+    element.scrollLeft = target;
+    setScrollLeft(target);
+  }, [from, to]);
+
+  // 列数变化（筛选）后把 scrollLeft 夹回合法范围。
+  useEffect(() => {
+    const element = scrollerRef.current;
+    if (!element) {
+      return;
+    }
+    const max = Math.max(
+      0,
+      dates.length * cellSize + TASK_COL_WIDTH - effectiveWidth,
+    );
+    if (element.scrollLeft > max) {
+      element.scrollLeft = max;
+      setScrollLeft(max);
+    }
+  }, [dates.length, cellSize, effectiveWidth]);
 
   // Ctrl + 滚轮缩放：以可视区中心为锚点，值写回 settings。
   useEffect(() => {
@@ -220,11 +269,20 @@ export default function TaskGrid() {
     }
   };
 
-  const allGroups: { key: GroupKey; rows: GridRow[] }[] = [
+  const baseGroups: { key: GroupKey; rows: GridRow[] }[] = [
     { key: "voluntary", rows: data.groups.voluntary },
     { key: "forced", rows: data.groups.forced },
     { key: "disabled", rows: data.groups.disabled },
   ];
+  const allGroups = baseGroups.map((group) => ({
+    ...group,
+    rows: group.rows.filter(
+      (row) =>
+        (filter.category === "all" ||
+          row.task.category === filter.category) &&
+        (filter.taskId === null || row.task.id === filter.taskId),
+    ),
+  }));
   const groups = allGroups.filter((group) => group.rows.length > 0);
 
   const handleReorder = (
@@ -496,10 +554,108 @@ export default function TaskGrid() {
         </div>
       </header>
 
+      <div
+        data-grid-filters
+        className="flex flex-none flex-wrap items-center gap-2 text-[var(--text-2xs)] text-[var(--color-text-muted)]"
+      >
+        <span>{t("grid.filter.label")}</span>
+        <div
+          role="group"
+          aria-label={t("grid.filter.aria")}
+          className="flex gap-0.5 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-bg)] p-0.5"
+        >
+          {(["all", "voluntary", "forced"] as const).map((category) => (
+            <button
+              key={category}
+              type="button"
+              data-filter-category={category}
+              aria-pressed={filter.category === category}
+              onClick={() => setGridFilter({ category })}
+              className={clsx(
+                "rounded-[var(--radius-pill)] px-2 py-0.5",
+                filter.category === category
+                  ? "bg-[var(--color-surface)] text-[var(--color-text)] shadow-[0_1px_2px_rgba(0,0,0,.06)]"
+                  : "hover:bg-[var(--state-hover)]",
+              )}
+            >
+              {t(
+                category === "all"
+                  ? "grid.filter.all"
+                  : category === "voluntary"
+                    ? "grid.filter.voluntary"
+                    : "grid.filter.forced",
+              )}
+            </button>
+          ))}
+        </div>
+
+        <select
+          data-filter-task
+          aria-label={t("grid.filter.task")}
+          value={filter.taskId ?? ""}
+          onChange={(event) =>
+            setGridFilter({ taskId: event.target.value || null })
+          }
+          className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+        >
+          <option value="">{t("grid.filter.allTasks")}</option>
+          {data.tasks.map((task) => (
+            <option key={task.id} value={task.id}>
+              {task.name}
+            </option>
+          ))}
+        </select>
+
+        <label className="flex items-center gap-1">
+          {t("grid.filter.from")}
+          <input
+            type="date"
+            data-filter-from
+            value={filter.from ?? ""}
+            onChange={(event) =>
+              setGridFilter({ from: event.target.value || null })
+            }
+            className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+          />
+        </label>
+        <label className="flex items-center gap-1">
+          {t("grid.filter.to")}
+          <input
+            type="date"
+            data-filter-to
+            value={filter.to ?? ""}
+            onChange={(event) =>
+              setGridFilter({ to: event.target.value || null })
+            }
+            className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+          />
+        </label>
+
+        {filterActive ? (
+          <button
+            type="button"
+            data-filter-clear
+            onClick={() =>
+              setGridFilter({
+                category: "all",
+                taskId: null,
+                from: null,
+                to: null,
+              })
+            }
+            className="rounded-[var(--radius-control)] px-2 py-0.5 hover:bg-[var(--state-hover)]"
+          >
+            {t("grid.filter.clear")}
+          </button>
+        ) : null}
+      </div>
+
       {allRows.length === 0 ? (
         <section className="flex min-h-0 flex-1 items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)]">
           <p className="text-sm text-[var(--color-text-muted)]">
-            {t("grid.empty")}
+            {t(
+              data.tasks.length > 0 ? "grid.filter.empty" : "grid.empty",
+            )}
           </p>
         </section>
       ) : (
@@ -603,6 +759,7 @@ export default function TaskGrid() {
                   onReorder={(fromId, toId) =>
                     handleReorder(group.key, fromId, toId)
                   }
+                  dragEnabled={!filterActive}
                   onCycle={cycle}
                   onZoomDate={zoomToDate}
                 />
@@ -736,6 +893,7 @@ function GridGroup({
   onFocusCell,
   onOpenNote,
   onReorder,
+  dragEnabled,
   onCycle,
   onZoomDate,
 }: {
@@ -759,6 +917,7 @@ function GridGroup({
   onFocusCell: (taskId: string, date: string) => void;
   onOpenNote: (taskId: string, date: string, taskName: string) => void;
   onReorder: (fromId: string, toId: string) => void;
+  dragEnabled: boolean;
   onCycle: (row: GridRow, date: string) => void;
   onZoomDate: (date: string) => void;
 }) {
@@ -818,44 +977,66 @@ function GridGroup({
                     ? "inset 0 2px 0 var(--color-voluntary)"
                     : undefined,
               }}
-              onDragOver={(event) => {
-                if (!draggingId || draggingId === row.task.id) {
-                  return;
-                }
-                event.preventDefault();
-                if (event.dataTransfer) {
-                  event.dataTransfer.dropEffect = "move";
-                }
-                setDropTargetId(row.task.id);
-              }}
-              onDragLeave={() =>
-                setDropTargetId((current) =>
-                  current === row.task.id ? null : current,
-                )
+              onDragOver={
+                dragEnabled
+                  ? (event) => {
+                      if (!draggingId || draggingId === row.task.id) {
+                        return;
+                      }
+                      event.preventDefault();
+                      if (event.dataTransfer) {
+                        event.dataTransfer.dropEffect = "move";
+                      }
+                      setDropTargetId(row.task.id);
+                    }
+                  : undefined
               }
-              onDrop={(event) => {
-                event.preventDefault();
-                if (draggingId && draggingId !== row.task.id) {
-                  onReorder(draggingId, row.task.id);
-                }
-                setDraggingId(null);
-                setDropTargetId(null);
-              }}
-              onDragEnd={() => {
-                setDraggingId(null);
-                setDropTargetId(null);
-              }}
+              onDragLeave={
+                dragEnabled
+                  ? () =>
+                      setDropTargetId((current) =>
+                        current === row.task.id ? null : current,
+                      )
+                  : undefined
+              }
+              onDrop={
+                dragEnabled
+                  ? (event) => {
+                      event.preventDefault();
+                      if (draggingId && draggingId !== row.task.id) {
+                        onReorder(draggingId, row.task.id);
+                      }
+                      setDraggingId(null);
+                      setDropTargetId(null);
+                    }
+                  : undefined
+              }
+              onDragEnd={
+                dragEnabled
+                  ? () => {
+                      setDraggingId(null);
+                      setDropTargetId(null);
+                    }
+                  : undefined
+              }
             >
               <div
-                draggable
-                onDragStart={(event) => {
-                  setDraggingId(row.task.id);
-                  if (event.dataTransfer) {
-                    event.dataTransfer.setData("text/plain", row.task.id);
-                    event.dataTransfer.effectAllowed = "move";
-                  }
-                }}
-                title={t("grid.drag")}
+                draggable={dragEnabled}
+                onDragStart={
+                  dragEnabled
+                    ? (event) => {
+                        setDraggingId(row.task.id);
+                        if (event.dataTransfer) {
+                          event.dataTransfer.setData(
+                            "text/plain",
+                            row.task.id,
+                          );
+                          event.dataTransfer.effectAllowed = "move";
+                        }
+                      }
+                    : undefined
+                }
+                title={dragEnabled ? t("grid.drag") : undefined}
                 style={{ height: rowHeight }}
                 className={clsx(
                   "sticky left-0 z-10 flex w-[160px] shrink-0 cursor-grab items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 active:cursor-grabbing",
@@ -874,12 +1055,14 @@ function GridGroup({
                   }}
                 />
                 <span className="truncate">{row.task.name}</span>
-                <span
-                  aria-hidden="true"
-                  className="ml-auto shrink-0 text-[9px] text-[var(--color-border-strong)] opacity-0 group-hover/row:opacity-100"
-                >
-                  ⋮⋮
-                </span>
+                {dragEnabled ? (
+                  <span
+                    aria-hidden="true"
+                    className="ml-auto shrink-0 text-[9px] text-[var(--color-border-strong)] opacity-0 group-hover/row:opacity-100"
+                  >
+                    ⋮⋮
+                  </span>
+                ) : null}
               </div>
 
               <div style={{ width: leftPad }} />

@@ -5,6 +5,8 @@ export type ViewName = "today" | "grid" | "todos" | "manage" | "stats" | "settin
 export interface GridFilter {
   category: "all" | "voluntary" | "forced";
   taskId: string | null;
+  from: string | null;
+  to: string | null;
 }
 
 export interface UiState {
@@ -20,7 +22,7 @@ export interface UiState {
 
 export const useUiStore = create<UiState>()((set, get) => ({
   view: "today",
-  gridFilter: { category: "all", taskId: null },
+  gridFilter: { category: "all", taskId: null, from: null, to: null },
   selectedCell: null,
   widgetExpanded: false,
 

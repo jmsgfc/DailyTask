@@ -16,6 +16,7 @@ import { useTasksStore } from "../tasksStore";
 
 export interface GridData {
   today: string;
+  tasks: Task[];
   axis: DateAxis;
   groups: GridGroups;
   settings: Settings;
@@ -53,7 +54,7 @@ export function buildGridData(
     }
   }
 
-  return { today, axis, groups, settings, checkins, states };
+  return { today, tasks, axis, groups, settings, checkins, states };
 }
 
 export function useGridData(): GridData {
