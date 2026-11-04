@@ -53,7 +53,7 @@ Implemented today:
 - **Today view** — voluntary/forced groups, progress ring, overdue and due-today
   todos, and one-click check-ins with optimistic updates.
 - **Floating widget** — starts as a draggable 96×36 edge capsule docked left or right,
-  expands to a 220×280 always-on-top card on click (same palette, inline check-ins,
+  expands to a 260×360 always-on-top card on click (same palette, inline check-ins,
   sync to the main window in under 200 ms), and returns to the capsule when you open
   the main window. In expanded form it mirrors the Today tab — grouped tasks with
   values, every due todo — and scrolls when the list grows.

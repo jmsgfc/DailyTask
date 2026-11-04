@@ -18,6 +18,7 @@ import {
   type TodayTask,
 } from "../../stores/selectors/today";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { useTodosStore } from "../../stores/todosStore";
 import { applyTheme } from "../../ui/theme";
 import { useT } from "../../ui/useT";
 import {
@@ -29,7 +30,7 @@ import {
   type WidgetSide,
 } from "./capsule";
 
-const RING_RADIUS = 15;
+const RING_RADIUS = 17;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
@@ -40,6 +41,7 @@ export function Widget() {
   const t = useT();
   const data = useTodayData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
+  const setTodoDone = useTodosStore((state) => state.setDone);
   const alwaysOnTop = useSettingsStore((state) => state.settings.alwaysOnTop);
   const theme = useSettingsStore((state) => state.settings.theme);
   const updateSettings = useSettingsStore((state) => state.update);
@@ -131,6 +133,10 @@ export function Widget() {
     void setStatus(row.task.id, data.today, "done");
   };
 
+  const completeTodo = (item: DueTodoItem) => {
+    void setTodoDone(item.todo.id, true);
+  };
+
   if (collapsed) {
     return (
       <WidgetCapsule
@@ -149,16 +155,16 @@ export function Widget() {
     <div className="h-full w-full p-2">
       <section className="group relative flex h-full select-none flex-col overflow-hidden rounded-[var(--radius-widget)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-[var(--color-text)] shadow-[var(--shadow-widget)]">
         <div className="relative z-[1] flex h-full flex-col">
-          <header className="relative flex h-5 shrink-0 items-center">
+          <header className="relative flex h-[22px] shrink-0 items-center">
             <div
               data-tauri-drag-region
               className="flex h-full min-w-0 flex-1 items-center pr-1"
             >
-              <span className="truncate text-[12px] font-semibold">
+              <span className="truncate text-[12.5px] font-semibold">
                 {t("today.title")} · {data.dateLabel}
               </span>
             </div>
-            <div className="pointer-events-none absolute right-0 top-0 flex h-5 items-center gap-px bg-[var(--color-surface)] pl-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+            <div className="pointer-events-none absolute right-0 top-0 flex h-[22px] items-center gap-px bg-[var(--color-surface)] pl-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
               <WidgetAction
                 label={t("widget.expand")}
                 onClick={() =>
@@ -190,24 +196,24 @@ export function Widget() {
             </div>
           </header>
 
-          <div className="my-1 flex h-11 shrink-0 items-center gap-2.5">
+          <div className="my-1 flex h-[50px] shrink-0 items-center gap-3">
             <div
               role="img"
               aria-label={t("progress.aria", { done: completed, total })}
-              className="relative size-9 shrink-0"
+              className="relative size-10 shrink-0"
             >
-              <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true">
+              <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
                 <circle
-                  cx="18"
-                  cy="18"
+                  cx="20"
+                  cy="20"
                   r={RING_RADIUS}
                   fill="none"
                   stroke="color-mix(in srgb, var(--color-text) 12%, transparent)"
                   strokeWidth="4"
                 />
                 <circle
-                  cx="18"
-                  cy="18"
+                  cx="20"
+                  cy="20"
                   r={RING_RADIUS}
                   fill="none"
                   stroke="var(--color-voluntary)"
@@ -215,7 +221,7 @@ export function Widget() {
                   strokeLinecap="round"
                   strokeDasharray={RING_CIRCUMFERENCE}
                   strokeDashoffset={RING_CIRCUMFERENCE * (1 - ratio)}
-                  transform="rotate(-90 18 18)"
+                  transform="rotate(-90 20 20)"
                   style={{
                     transition:
                       "stroke-dashoffset .3s cubic-bezier(.4, 0, .2, 1)",
@@ -223,19 +229,19 @@ export function Widget() {
                 />
               </svg>
             </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-px">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex items-baseline gap-1.5">
-                <b className="text-[12px] tabular-nums">
+                <b className="text-[13px] tabular-nums">
                   {completed} / {total}
                 </b>
-                <span className="text-[9.5px] tabular-nums text-[var(--color-text-muted)]">
+                <span className="text-[10px] tabular-nums text-[var(--color-text-muted)]">
                   {percent}%
                 </span>
-                <span className="truncate text-[9.5px] text-[var(--color-text-muted)]">
+                <span className="truncate text-[10px] text-[var(--color-text-muted)]">
                   · {statusText}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-[9.5px] text-[var(--color-text-muted)]">
+              <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
                 <CategoryCount
                   label={t("today.category.voluntary")}
                   color="var(--color-voluntary)"
@@ -279,14 +285,18 @@ export function Widget() {
 
             {dueTodos.length > 0 ? (
               <div className={rows.length > 0 ? "mt-1" : ""}>
-                <div className="flex h-[18px] items-center gap-1.5 px-1 text-[9.5px] font-semibold text-[var(--color-text-muted)]">
+                <div className="flex h-5 items-center gap-1.5 px-1 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
                   <span className="truncate">{t("today.dueTodos")}</span>
                   <span className="ml-auto shrink-0 font-normal tabular-nums">
                     {t("common.itemCount", { count: dueTodos.length })}
                   </span>
                 </div>
                 {dueTodos.map((item) => (
-                  <WidgetTodoRow key={item.todo.id} item={item} />
+                  <WidgetTodoRow
+                    key={item.todo.id}
+                    item={item}
+                    onComplete={() => completeTodo(item)}
+                  />
                 ))}
               </div>
             ) : null}
@@ -496,7 +506,7 @@ function CategoryCount({
 }) {
   return (
     <span className="flex shrink-0 items-center gap-1 tabular-nums">
-      <i className="size-1.5 rounded-full" style={{ background: color }} />
+      <i className="size-2 rounded-full" style={{ background: color }} />
       {label} {stat.done} / {stat.total}
     </span>
   );
@@ -521,10 +531,10 @@ function WidgetTaskGroup({
 
   return (
     <div>
-      <div className="flex h-[18px] items-center gap-1.5 px-1 text-[9.5px] font-semibold text-[var(--color-text-muted)]">
+      <div className="flex h-5 items-center gap-1.5 px-1 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
         <i
           aria-hidden="true"
-          className="h-2.5 w-[3px] shrink-0 rounded-[2px]"
+          className="h-3 w-[3px] shrink-0 rounded-[2px]"
           style={{ background: color }}
         />
         <span className="truncate">{title}</span>
@@ -563,13 +573,13 @@ function WidgetTaskRow({
     <>
       <span
         aria-hidden="true"
-        className={`grid size-[15px] shrink-0 place-items-center rounded-[4px] border-[1.4px] text-[9px] font-bold leading-none ${ROW_ICON[row.state]}`}
+        className={`grid size-[17px] shrink-0 place-items-center rounded-[4px] border-[1.4px] text-[10px] font-bold leading-none ${ROW_ICON[row.state]}`}
       >
         {ROW_SYMBOLS[row.state]}
       </span>
       <span className={nameClass}>{row.task.name}</span>
       {row.value ? (
-        <span className="max-w-[45%] shrink-0 truncate rounded-[var(--radius-pill)] bg-[var(--state-hover)] px-1 text-[9px] tabular-nums text-[var(--color-text-muted)]">
+        <span className="max-w-[45%] shrink-0 truncate rounded-[var(--radius-pill)] bg-[var(--state-hover)] px-1 text-[10px] tabular-nums text-[var(--color-text-muted)]">
           {row.value}
         </span>
       ) : null}
@@ -577,7 +587,7 @@ function WidgetTaskRow({
   );
 
   const base =
-    "flex h-[22px] w-full items-center gap-[6px] rounded-[5px] px-1 text-left text-[11px]";
+    "flex h-[26px] w-full items-center gap-[6px] rounded-[5px] px-1 text-left text-[12px]";
 
   if (!interactive) {
     return (
@@ -600,32 +610,43 @@ function WidgetTaskRow({
   );
 }
 
-function WidgetTodoRow({ item }: { item: DueTodoItem }) {
+function WidgetTodoRow({
+  item,
+  onComplete,
+}: {
+  item: DueTodoItem;
+  onComplete: () => void;
+}) {
   const t = useT();
   const { todo, overdueDays } = item;
   const overdue = overdueDays > 0;
 
   return (
-    <div className="flex h-[22px] w-full items-center gap-1.5 rounded-[5px] px-1 text-[10.5px] hover:bg-[var(--state-hover)]">
+    <button
+      type="button"
+      aria-label={t("todos.markDone", { title: todo.title })}
+      onClick={onComplete}
+      className="flex h-[26px] w-full items-center gap-1.5 rounded-[5px] px-1 text-left text-[11.5px] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+    >
       <span
         aria-hidden="true"
-        className="size-2.5 shrink-0 rounded-full border-[1.3px] border-[var(--color-border-strong)]"
+        className="size-3 shrink-0 rounded-full border-[1.4px] border-[var(--color-border-strong)]"
       />
       <span className="min-w-0 flex-1 truncate">{todo.title}</span>
-      <span className="shrink-0 text-[9px] tabular-nums text-[var(--color-text-muted)]">
+      <span className="shrink-0 text-[9.5px] tabular-nums text-[var(--color-text-muted)]">
         {format(parseISO(todo.dueDate as string), "MM/dd")}
       </span>
       <span
         className={
           overdue
-            ? "shrink-0 text-[9px] font-semibold text-[var(--color-missed)]"
-            : "shrink-0 text-[9px] font-semibold text-[var(--color-warning)]"
+            ? "shrink-0 text-[9.5px] font-semibold text-[var(--color-missed)]"
+            : "shrink-0 text-[9.5px] font-semibold text-[var(--color-warning)]"
         }
       >
         {overdue
           ? t("today.overdueDays", { days: overdueDays })
           : t("today.dueToday")}
       </span>
-    </div>
+    </button>
   );
 }

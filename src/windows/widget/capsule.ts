@@ -8,8 +8,8 @@ import {
 /** 胶囊态：横向小标签；展开态：原挂件尺寸。 */
 export const CAPSULE_WIDTH = 96;
 export const CAPSULE_HEIGHT = 36;
-export const EXPANDED_WIDTH = 220;
-export const EXPANDED_HEIGHT = 280;
+export const EXPANDED_WIDTH = 260;
+export const EXPANDED_HEIGHT = 360;
 export const CAPSULE_STORAGE_KEY = "dailytask.widget.collapsed";
 export const CAPSULE_SIDE_KEY = "dailytask.widget.side";
 

@@ -9,6 +9,7 @@ export const zhCN = {
   "nav.manage": "任务管理",
   "nav.stats": "统计",
   "nav.settings": "设置",
+  "nav.dragHint": "拖动排序，Alt + ↑/↓ 调整",
   "app.footer": "v{version} · 本地数据",
   "app.loading": "正在加载…",
   "app.initFailed": "初始化失败，请重启应用。",

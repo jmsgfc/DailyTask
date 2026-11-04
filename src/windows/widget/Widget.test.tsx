@@ -22,7 +22,7 @@ const windowApi = vi.hoisted(() => ({
   setAlwaysOnTop: vi.fn(async () => undefined),
   hide: vi.fn(async () => undefined),
   outerPosition: vi.fn(async () => ({ x: 1480, y: 300 })),
-  outerSize: vi.fn(async () => ({ width: 440, height: 560 })),
+  outerSize: vi.fn(async () => ({ width: 520, height: 720 })),
   setSize: vi.fn(async (size: { width: number; height: number }) => {
     void size;
   }),
@@ -67,6 +67,7 @@ vi.mock("../../shared/events", () => ({
 const NOW = new Date(2026, 10, 2, 9, 0, 0);
 const TODAY = "2026-11-02";
 const originalSetStatus = useCheckinsStore.getState().setStatus;
+const originalSetDone = useTodosStore.getState().setDone;
 
 function task(
   id: string,
@@ -151,6 +152,7 @@ describe("Widget", () => {
   afterEach(() => {
     vi.useRealTimers();
     useCheckinsStore.setState({ setStatus: originalSetStatus });
+    useTodosStore.setState({ setDone: originalSetDone });
   });
 
   it("renders the full today content: progress, groups, all tasks and todos", () => {
@@ -223,8 +225,18 @@ describe("Widget", () => {
     expect(scroller?.className).toContain("overflow-y-auto");
   });
 
-  it("shows a recorded value as read-only text", () => {
-    useCheckinsStore.setState({
+  it("completes a due todo when its row is clicked", () => {
+    const setDone = vi.fn(async () => undefined);
+    useTodosStore.setState({ setDone });
+
+    render(<Widget />);
+
+    fireEvent.click(screen.getByRole("button", { name: "完成 买猫粮" }));
+
+    expect(setDone).toHaveBeenCalledWith("买猫粮", true);
+  });
+
+  it("shows a recorded value as read-only text", () => {    useCheckinsStore.setState({
       byKey: new Map([
         [checkinKey("t1", TODAY), { ...checkin("t1", "done"), value: "3 组" }],
       ]),
@@ -286,8 +298,8 @@ describe("Widget", () => {
     await act(async () => undefined);
 
     expect(windowApi.setSize.mock.calls.at(-1)?.[0]).toMatchObject({
-      width: 440,
-      height: 560,
+      width: 520,
+      height: 720,
     });
     expect(localStorage.getItem(CAPSULE_STORAGE_KEY)).toBe("0");
     expect(

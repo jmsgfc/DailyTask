@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -16,6 +16,7 @@ import Today from "./Today";
 
 const NOW = new Date(2026, 10, 2, 9, 0, 0);
 const TODAY = "2026-11-02";
+const originalSetDone = useTodosStore.getState().setDone;
 
 function todo(id: string, dueDate: string | null, done = false): Todo {
   return {
@@ -48,6 +49,7 @@ describe("Today due todos", () => {  beforeEach(() => {
 
   afterEach(() => {
     vi.useRealTimers();
+    useTodosStore.setState({ setDone: originalSetDone });
   });
 
   it("renders overdue before today in one block and drops future/done items", () => {
@@ -65,6 +67,19 @@ describe("Today due todos", () => {  beforeEach(() => {
 
     expect(screen.queryByText("以后再说")).not.toBeInTheDocument();
     expect(screen.queryByText("已完成的待办")).not.toBeInTheDocument();
+  });
+
+  it("completes a due todo when its row is clicked", () => {
+    const setDone = vi.fn(async () => undefined);
+    useTodosStore.setState({ setDone });
+
+    render(<Today />);
+    fireEvent.click(screen.getByRole("button", { name: "完成 交房租" }));
+
+    expect(setDone).toHaveBeenCalledWith("交房租", true);
+
+    fireEvent.click(screen.getByRole("button", { name: "完成 买猫粮" }));
+    expect(setDone).toHaveBeenCalledWith("买猫粮", true);
   });
 });
 
