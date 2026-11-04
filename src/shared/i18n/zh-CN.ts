@@ -103,6 +103,16 @@ export const zhCN = {
   "manage.error.endBeforeStart": "停用日期不能早于启用日期",
   "manage.error.overlapsPrevious": "启用日期必须晚于上一段结束日",
 
+  "stats.title": "统计",
+  "stats.subtitle": "连续天数与近 30 天完成率",
+  "stats.col.task": "任务",
+  "stats.col.streak": "当前连续",
+  "stats.col.rate": "近 30 天",
+  "stats.streakDays": "{count} 天",
+  "stats.rate": "{percent}%",
+  "stats.empty": "还没有任务，先去「任务管理」新建一个",
+  "stats.note": "近 30 天的分母只含完成与未完成；跳过、只记录和不适用日期都不计入。",
+
   "checkin.done": "已完成",
   "checkin.missed": "未完成",
   "checkin.skipped": "今天不做",
