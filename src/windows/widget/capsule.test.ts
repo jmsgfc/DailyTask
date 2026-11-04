@@ -14,38 +14,47 @@ import {
 const WORK_AREA = { x: 0, y: 0, width: 1920, height: 1040 };
 
 describe("computeWidgetPlacement", () => {
-  it("docks the capsule to the right edge at 200% DPI", () => {
-    const placement = computeWidgetPlacement(WORK_AREA, 2, 300, true);
+  it("grows leftwards from the current right edge at 200% DPI", () => {
+    const placement = computeWidgetPlacement(WORK_AREA, 2, 1920, 300, true);
 
     expect(placement).toEqual({
       width: CAPSULE_WIDTH * 2,
       height: CAPSULE_HEIGHT * 2,
-      x: WORK_AREA.width - CAPSULE_WIDTH * 2,
+      x: 1920 - CAPSULE_WIDTH * 2,
       y: 300,
     });
   });
 
-  it("grows leftwards and keeps the top when expanding", () => {
-    const placement = computeWidgetPlacement(WORK_AREA, 1, 500, false);
+  it("keeps the right edge when expanding", () => {
+    const placement = computeWidgetPlacement(WORK_AREA, 1, 1920, 500, false);
 
     expect(placement).toMatchObject({
       width: EXPANDED_WIDTH,
       height: EXPANDED_HEIGHT,
-      x: WORK_AREA.width - EXPANDED_WIDTH,
+      x: 1920 - EXPANDED_WIDTH,
       y: 500,
     });
+  });
+
+  it("honours a dragged capsule's right edge", () => {
+    const placement = computeWidgetPlacement(WORK_AREA, 1, 1000, 300, true);
+
+    expect(placement.x).toBe(1000 - CAPSULE_WIDTH);
   });
 
   it("clamps the window inside the work area", () => {
     const low = computeWidgetPlacement(
       WORK_AREA,
       1,
+      1920,
       WORK_AREA.height + 100,
       false,
     );
-    const high = computeWidgetPlacement(WORK_AREA, 1, -200, true);
+    const left = computeWidgetPlacement(WORK_AREA, 1, 10, 300, false);
+    const high = computeWidgetPlacement(WORK_AREA, 1, 1920, -200, true);
 
     expect(low.y).toBe(WORK_AREA.height - EXPANDED_HEIGHT);
+    expect(left.x).toBe(0);
     expect(high.y).toBe(0);
   });
 
@@ -53,6 +62,7 @@ describe("computeWidgetPlacement", () => {
     const placement = computeWidgetPlacement(
       { x: 1920, y: -200, width: 1280, height: 1024 },
       1,
+      3200,
       -100,
       true,
     );

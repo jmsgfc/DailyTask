@@ -1,5 +1,11 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 
 import { emitWidgetExpand } from "../../shared/events";
 import { useCheckinsStore } from "../../stores/checkinsStore";
@@ -50,7 +56,7 @@ export function Widget() {
   // 启动时如果上次是胶囊态，直接贴到当前显示器右边。
   useEffect(() => {
     if (initialCollapsed.current) {
-      void applyWidgetLayout(true).catch((error: unknown) => {
+      void applyWidgetLayout(true, true).catch((error: unknown) => {
         console.error("[widget] 恢复胶囊态失败", error);
       });
     }
@@ -108,6 +114,7 @@ export function Widget() {
         total={total}
         ratio={ratio}
         label={t("widget.expandCapsule", { done: completed, total })}
+        hint={t("widget.capsuleHint")}
         onExpand={() => setCapsule(false)}
       />
     );
@@ -247,16 +254,58 @@ function WidgetCapsule({
   total,
   ratio,
   label,
+  hint,
   onExpand,
 }: {
   done: number;
   total: number;
   ratio: number;
   label: string;
+  hint: string;
   onExpand: () => void;
 }) {
   const radius = 10;
   const circumference = 2 * Math.PI * radius;
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const dragged = useRef(false);
+  const suppressClick = useRef(false);
+
+  const handlePointerDown = (event: ReactPointerEvent) => {
+    if (event.button > 0) {
+      return;
+    }
+    dragStart.current = { x: event.clientX, y: event.clientY };
+    dragged.current = false;
+    suppressClick.current = false;
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent) => {
+    const start = dragStart.current;
+    if (!start || dragged.current) {
+      return;
+    }
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 4) {
+      return;
+    }
+    dragged.current = true;
+    suppressClick.current = true;
+    dragStart.current = null;
+    void getCurrentWindow().startDragging().catch((error: unknown) => {
+      console.error("[widget] 拖动挂件失败", error);
+    });
+  };
+
+  const handlePointerUp = () => {
+    dragStart.current = null;
+  };
+
+  const handleClick = () => {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
+    onExpand();
+  };
 
   return (
     <div className="h-full w-full p-2">
@@ -264,8 +313,11 @@ function WidgetCapsule({
         type="button"
         data-widget-capsule
         aria-label={label}
-        title={label}
-        onClick={onExpand}
+        title={hint}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onClick={handleClick}
         className="flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-[var(--radius-widget)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] shadow-[var(--shadow-widget)] transition-colors hover:border-[var(--color-voluntary)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       >
         <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">

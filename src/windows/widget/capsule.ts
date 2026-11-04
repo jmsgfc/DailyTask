@@ -27,12 +27,13 @@ export interface WidgetPlacement {
 }
 
 /**
- * 物理像素计算：贴住工作区右边，纵向沿用当前 y 并夹在工作区内。
- * 收起/展开只改尺寸和 x；y 由调用方传入当前窗口的 y。
+ * 物理像素计算：以当前窗口右边缘为锚点缩放（向左长/收），
+ * 横向和纵向都夹在工作区内；首次贴边时由调用方传入工作区右边缘。
  */
 export function computeWidgetPlacement(
   workArea: WorkArea,
   scaleFactor: number,
+  rightEdge: number,
   currentY: number,
   collapsed: boolean,
 ): WidgetPlacement {
@@ -42,7 +43,11 @@ export function computeWidgetPlacement(
   const height = Math.round(
     (collapsed ? CAPSULE_HEIGHT : EXPANDED_HEIGHT) * scaleFactor,
   );
-  const x = workArea.x + workArea.width - width;
+  const maxX = workArea.x + workArea.width - width;
+  const x = Math.min(
+    Math.max(rightEdge - width, workArea.x),
+    Math.max(workArea.x, maxX),
+  );
   const maxY = workArea.y + workArea.height - height;
   const y = Math.min(Math.max(currentY, workArea.y), Math.max(workArea.y, maxY));
 
@@ -65,9 +70,10 @@ export function writeCollapsedPreference(collapsed: boolean): void {
   }
 }
 
-/** 把窗口调成胶囊或展开尺寸，并贴到当前显示器右侧。 */
+/** 把窗口调成胶囊或展开尺寸；默认以当前窗口右边缘为锚点。 */
 export async function applyWidgetLayout(
   collapsed: boolean,
+  dockToEdge = false,
 ): Promise<void> {
   const monitor = await currentMonitor();
   if (!monitor) {
@@ -75,8 +81,12 @@ export async function applyWidgetLayout(
   }
 
   const window = getCurrentWindow();
-  const current = await window.outerPosition();
+  const position = await window.outerPosition();
+  const size = await window.outerSize();
   const workArea = monitor.workArea;
+  const rightEdge = dockToEdge
+    ? workArea.position.x + workArea.size.width
+    : position.x + size.width;
   const placement = computeWidgetPlacement(
     {
       x: workArea.position.x,
@@ -85,7 +95,8 @@ export async function applyWidgetLayout(
       height: workArea.size.height,
     },
     monitor.scaleFactor,
-    current.y,
+    rightEdge,
+    position.y,
     collapsed,
   );
 

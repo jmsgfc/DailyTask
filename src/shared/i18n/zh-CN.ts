@@ -182,6 +182,7 @@ export const zhCN = {
   "widget.minimize": "最小化挂件",
   "widget.collapse": "收起挂件",
   "widget.expandCapsule": "展开挂件，今日进度 {done}/{total}",
+  "widget.capsuleHint": "点击展开，拖动移动",
 
   "grid.title": "任务表",
   "grid.range": "{start} – {end} · {days} 天",

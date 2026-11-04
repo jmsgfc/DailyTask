@@ -21,13 +21,15 @@ import { Widget } from "./Widget";
 const windowApi = vi.hoisted(() => ({
   setAlwaysOnTop: vi.fn(async () => undefined),
   hide: vi.fn(async () => undefined),
-  outerPosition: vi.fn(async () => ({ x: 0, y: 300 })),
+  outerPosition: vi.fn(async () => ({ x: 1480, y: 300 })),
+  outerSize: vi.fn(async () => ({ width: 440, height: 560 })),
   setSize: vi.fn(async (size: { width: number; height: number }) => {
     void size;
   }),
   setPosition: vi.fn(async (position: { x: number; y: number }) => {
     void position;
   }),
+  startDragging: vi.fn(async () => undefined),
 }));
 
 const monitorApi = vi.hoisted(() => ({
@@ -138,8 +140,10 @@ describe("Widget", () => {
     windowApi.setAlwaysOnTop.mockClear();
     windowApi.hide.mockClear();
     windowApi.outerPosition.mockClear();
+    windowApi.outerSize.mockClear();
     windowApi.setSize.mockClear();
     windowApi.setPosition.mockClear();
+    windowApi.startDragging.mockClear();
     monitorApi.currentMonitor.mockClear();
     localStorage.removeItem(CAPSULE_STORAGE_KEY);
     seedStores();
@@ -227,6 +231,25 @@ describe("Widget", () => {
     expect(windowApi.setSize).toHaveBeenCalledWith(
       expect.objectContaining({ width: 88, height: 240 }),
     );
+    expect(
+      screen.getByRole("button", { name: /展开挂件/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("drags the capsule instead of expanding when the pointer moves", () => {
+    render(<Widget />);
+    fireEvent.click(screen.getByRole("button", { name: "收起挂件" }));
+
+    const capsule = screen.getByRole("button", { name: /展开挂件/ });
+    fireEvent.pointerDown(capsule, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(capsule, { clientX: 40, clientY: 10 });
+
+    expect(windowApi.startDragging).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerUp(capsule);
+    fireEvent.click(capsule);
+
+    // 拖动后的 click 不应触发展开。
     expect(
       screen.getByRole("button", { name: /展开挂件/ }),
     ).toBeInTheDocument();
