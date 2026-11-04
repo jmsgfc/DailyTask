@@ -94,7 +94,7 @@ export default function Manage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <ManageTableRow key={row.task.id} row={row} />
+                <ManageTableRow key={row.task.id} row={row} today={today} />
               ))}
             </tbody>
           </table>
@@ -235,6 +235,118 @@ function CreateTaskDialog({
   );
 }
 
+/** 停用 / 重新启用共用：生效日期只能选今天及以后。 */
+function IntervalDialog({
+  task,
+  mode,
+  today,
+  onClose,
+}: {
+  task: ManageRow["task"];
+  mode: "stop" | "resume";
+  today: string;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const closeInterval = useTasksStore((state) => state.closeInterval);
+  const appendInterval = useTasksStore((state) => state.appendInterval);
+  const [date, setDate] = useState(today);
+  const valid = date.length > 0 && date >= today;
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!valid) {
+      return;
+    }
+    if (mode === "stop") {
+      void closeInterval(task.id, date);
+    } else {
+      void appendInterval(task.id, date);
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <button
+        type="button"
+        aria-label={t("manage.cancel")}
+        tabIndex={-1}
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-black/25"
+      />
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-label={t(
+          mode === "stop" ? "manage.stopTitle" : "manage.resumeTitle",
+          { name: task.name },
+        )}
+        data-interval-dialog={mode}
+        onSubmit={submit}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+        className="relative z-10 flex w-[340px] flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-popover)]"
+      >
+        <h2 className="m-0 text-sm font-semibold">
+          {t(mode === "stop" ? "manage.stopTitle" : "manage.resumeTitle", {
+            name: task.name,
+          })}
+        </h2>
+
+        <label className="flex flex-col gap-1 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+          {t("manage.effectiveDate")}
+          <input
+            type="date"
+            data-interval-date
+            min={today}
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
+          />
+        </label>
+
+        <p className="m-0 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+          {t("manage.dateHint")}
+        </p>
+        {!valid ? (
+          <p
+            data-interval-error
+            className="m-0 text-[var(--text-2xs)] text-[var(--color-missed)]"
+          >
+            {t("manage.dateInvalid")}
+          </p>
+        ) : null}
+
+        <div className="mt-1 flex justify-end gap-1.5">
+          <button
+            type="button"
+            data-interval-cancel
+            onClick={onClose}
+            className="rounded-[var(--radius-control)] px-2.5 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+          >
+            {t("manage.cancel")}
+          </button>
+          <button
+            type="submit"
+            data-interval-submit
+            disabled={!valid}
+            className="rounded-[var(--radius-control)] bg-[var(--color-voluntary)] px-2.5 py-1 text-[var(--text-2xs)] font-semibold text-white disabled:opacity-40"
+          >
+            {t(
+              mode === "stop" ? "manage.confirmStop" : "manage.confirmResume",
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function Th({ children }: { children: ReactNode }) {
   return (
     <th
@@ -246,10 +358,11 @@ function Th({ children }: { children: ReactNode }) {
   );
 }
 
-function ManageTableRow({ row }: { row: ManageRow }) {
+function ManageTableRow({ row, today }: { row: ManageRow; today: string }) {
   const t = useT();
   const meta = STATUS_META[row.status];
   const retired = row.status === "disabled";
+  const [dialog, setDialog] = useState<"stop" | "resume" | null>(null);
 
   return (
     <tr
@@ -304,14 +417,32 @@ function ManageTableRow({ row }: { row: ManageRow }) {
         {row.end ? format(parseISO(row.end), "MM/dd") : t("manage.never")}
       </td>
       <td className="px-3">
-        <span
-          className={`rounded-[var(--radius-pill)] px-[7px] py-px text-[var(--text-2xs)] font-semibold ${meta.className}`}
-        >
-          {t(meta.labelKey)}
-        </span>
+        <div className="flex items-center gap-1">
+          <span
+            className={`rounded-[var(--radius-pill)] px-[7px] py-px text-[var(--text-2xs)] font-semibold ${meta.className}`}
+          >
+            {t(meta.labelKey)}
+          </span>
+        </div>
       </td>
-      <td className="px-3 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-        —
+      <td className="px-3">
+        <button
+          type="button"
+          data-manage-action={retired ? "resume" : "stop"}
+          onClick={() => setDialog(retired ? "resume" : "stop")}
+          className="rounded-[var(--radius-control)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-active)]"
+        >
+          {t(retired ? "manage.resume" : "manage.stop")}
+        </button>
+
+        {dialog ? (
+          <IntervalDialog
+            task={row.task}
+            mode={dialog}
+            today={today}
+            onClose={() => setDialog(null)}
+          />
+        ) : null}
       </td>
     </tr>
   );

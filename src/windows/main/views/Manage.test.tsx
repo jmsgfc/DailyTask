@@ -1,12 +1,43 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DEFAULT_SETTINGS, type Task } from "../../../domain/types";
+import { DEFAULT_SETTINGS, type Interval, type Task } from "../../../domain/types";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
 import Manage from "./Manage";
 
 const NOW = new Date(2026, 10, 4, 9, 0, 0);
+
+function withIntervals(taskId: string, change: (task: Task) => Task["intervals"]) {
+  useTasksStore.setState({
+    tasks: useTasksStore
+      .getState()
+      .tasks.map((task) =>
+        task.id === taskId ? { ...task, intervals: change(task) } : task,
+      ),
+  });
+}
+
+const closeInterval = vi.fn(async (taskId: string, endDate: string) => {
+  withIntervals(taskId, (task) =>
+    task.intervals.map((interval) =>
+      interval.end === null ? { ...interval, end: endDate } : interval,
+    ),
+  );
+});
+
+const appendInterval = vi.fn(
+  async (taskId: string, startDate: string): Promise<Interval> => {
+    const interval: Interval = {
+      id: `${taskId}-new`,
+      taskId,
+      start: startDate,
+      end: null,
+    };
+    withIntervals(taskId, (task) => [...task.intervals, interval]);
+    return interval;
+  },
+);
 
 const create = vi.fn(
   async (input: {
@@ -59,11 +90,15 @@ describe("Manage", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     create.mockClear();
+    closeInterval.mockClear();
+    appendInterval.mockClear();
 
     useSettingsStore.setState({ settings: DEFAULT_SETTINGS, loaded: true });
     useTasksStore.setState({
       loaded: true,
       create,
+      closeInterval,
+      appendInterval,
       tasks: [
         task("t1", "跑步", "voluntary", 0, [
           { start: "2026-09-01", end: "2026-10-01" },
@@ -155,5 +190,51 @@ describe("Manage", () => {
     fireEvent.click(container.querySelector("[data-new-cancel]") as Element);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("stops a task from today and rejects earlier dates", () => {
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t2"] [data-manage-action="stop"]',
+      ) as Element,
+    );
+    expect(container.querySelector('[data-interval-dialog="stop"]')).toBeInTheDocument();
+    expect(container.querySelector("[data-interval-date]")).toHaveValue(
+      "2026-11-04",
+    );
+
+    fireEvent.change(container.querySelector("[data-interval-date]") as Element, {
+      target: { value: "2026-11-03" },
+    });
+    expect(container.querySelector("[data-interval-submit]")).toBeDisabled();
+    expect(container.querySelector("[data-interval-error]")).toBeInTheDocument();
+
+    fireEvent.change(container.querySelector("[data-interval-date]") as Element, {
+      target: { value: "2026-11-05" },
+    });
+    fireEvent.click(container.querySelector("[data-interval-submit]") as Element);
+
+    expect(closeInterval).toHaveBeenCalledWith("t2", "2026-11-05");
+    expect(
+      container.querySelector('[data-manage-row="t2"]'),
+    ).toHaveTextContent("11/05");
+  });
+
+  it("re-enables a retired task and shows the second interval", () => {
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t3"] [data-manage-action="resume"]',
+      ) as Element,
+    );
+    fireEvent.click(container.querySelector("[data-interval-submit]") as Element);
+
+    expect(appendInterval).toHaveBeenCalledWith("t3", "2026-11-04");
+    const row = container.querySelector('[data-manage-row="t3"]') as HTMLElement;
+    expect(row).toHaveTextContent("2 段");
+    expect(row).toHaveAttribute("data-status", "active");
   });
 });
