@@ -162,15 +162,26 @@ The SQLite file is created on first launch at:
 ## Scripts
 
 ```bash
-npm run tauri dev      # run the desktop app
+npm run dev:app        # desktop app with the dev identity
+npm run tauri dev      # production identity (conflicts with an installed app)
 npm run dev            # frontend only (Tauri APIs unavailable)
 npm run test           # run the Vitest suite
 npm run test:watch     # watch mode
 npm run lint           # ESLint, including import zones
 npm run typecheck      # tsc --noEmit
 npm run build          # typecheck + production frontend build
-npm run tauri build    # packaged installer (M6, not verified yet)
+npm run tauri build    # packaged installer (see docs/upgrade.md)
 ```
+
+`dev:app` merges `src-tauri/tauri.dev.conf.json`, so development runs as
+`com.dailytask.app.dev` with its own data directory
+(`%APPDATA%\com.dailytask.app.dev`) and its own single-instance lock. The installed
+app and the dev build can run side by side, and update checks are disabled in dev.
+Release builds ignore this file.
+
+To debug with your real data, quit both apps and copy
+`%APPDATA%\com.dailytask.app\dailytask.db` into `%APPDATA%\com.dailytask.app.dev\`
+(or use Settings → 导入 JSON).
 
 Backend check without launching the app:
 

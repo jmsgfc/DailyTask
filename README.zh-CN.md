@@ -145,15 +145,25 @@ npm run tauri dev
 ## 常用命令
 
 ```bash
-npm run tauri dev      # 启动桌面应用
+npm run dev:app        # 桌面应用（开发身份）
+npm run tauri dev      # 生产身份（会和已安装版本互斥）
 npm run dev            # 只启动前端（Tauri API 不可用）
 npm run test           # 运行 Vitest
 npm run test:watch     # 监听模式
 npm run lint           # ESLint，含依赖 zone 规则
 npm run typecheck      # tsc --noEmit
 npm run build          # 类型检查 + 前端生产构建
-npm run tauri build    # 打包安装包（M6，尚未验证）
+npm run tauri build    # 打包安装包（见 docs/upgrade.md）
 ```
+
+`dev:app` 会合并 `src-tauri/tauri.dev.conf.json`，开发时使用
+`com.dailytask.app.dev` 这个独立身份，数据目录是
+`%APPDATA%\com.dailytask.app.dev`，单实例锁也独立。安装版和开发版可以同时运行，
+开发版不检查更新；发布构建完全忽略这份配置。
+
+想用真实数据调试时，先退出两个应用，把
+`%APPDATA%\com.dailytask.app\dailytask.db` 复制到
+`%APPDATA%\com.dailytask.app.dev\`（或用设置里的「导入 JSON」）。
 
 不启动应用时检查 Rust 侧：
 

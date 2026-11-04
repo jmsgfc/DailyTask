@@ -10,6 +10,8 @@ import { useTransferStore } from "../../../stores/transferStore";
 import { useUpdateStore } from "../../../stores/updateStore";
 import Settings from "./Settings";
 
+vi.mock("../../../shared/env", () => ({ isDevBuild: false }));
+
 const autostart = vi.hoisted(() => ({
   isEnabled: vi.fn(async () => false),
   enable: vi.fn(async () => undefined),

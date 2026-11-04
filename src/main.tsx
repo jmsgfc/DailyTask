@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { initApp, type AppData } from "./app/init";
 import { startCrossWindowSync } from "./app/sync";
@@ -24,6 +25,13 @@ function hydrate(data: AppData): void {
 const target = windowTarget(window.location.search);
 if (target === "widget") {
   document.documentElement.dataset.window = "widget";
+}
+
+// 开发构建带 Dev 后缀，任务栏里能和安装版区分开。
+if (import.meta.env.DEV) {
+  void getCurrentWindow()
+    .setTitle(target === "widget" ? "DailyTask Dev 挂件" : "DailyTask Dev")
+    .catch(() => undefined);
 }
 
 const root = ReactDOM.createRoot(

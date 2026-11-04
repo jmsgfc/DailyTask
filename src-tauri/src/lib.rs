@@ -106,9 +106,15 @@ pub fn run() {
             });
 
             if let Some(icon) = app.default_window_icon().cloned() {
+                // dev 配置把 productName 改成 “DailyTask Dev”，托盘提示也随之区分。
+                let product = app
+                    .config()
+                    .product_name
+                    .clone()
+                    .unwrap_or_else(|| "DailyTask".to_string());
                 TrayIconBuilder::new()
                     .icon(icon)
-                    .tooltip("DailyTask")
+                    .tooltip(&product)
                     .menu(&menu)
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id().as_ref() {
