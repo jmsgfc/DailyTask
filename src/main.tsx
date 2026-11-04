@@ -4,7 +4,7 @@ import ReactDOM from "react-dom/client";
 import { initApp, type AppData } from "./app/init";
 import { startCrossWindowSync } from "./app/sync";
 import App from "./App";
-import { useCheckinsStore } from "./stores/checkinsStore";
+import { rotateDailyBackup } from "./db/backup";import { useCheckinsStore } from "./stores/checkinsStore";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useTasksStore } from "./stores/tasksStore";
 import { setLocale, t } from "./shared/i18n";
@@ -41,6 +41,11 @@ void initApp()
     hydrate(data);
     setLocale(data.settings.language);
     applyTheme(data.settings.theme);
+    void (target === "widget" ? Promise.resolve() : rotateDailyBackup()).catch(
+      (error: unknown) => {
+        console.error("[backup] 每日备份失败", error);
+      },
+    );
     void startCrossWindowSync().catch((error: unknown) => {
       console.error("[sync] 跨窗口同步启动失败", error);
     });
