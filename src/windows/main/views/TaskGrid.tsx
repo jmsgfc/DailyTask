@@ -116,6 +116,7 @@ export default function TaskGrid() {
     date: string;
   } | null>(null);
   const pendingFocus = useRef(false);
+  const scrollFrame = useRef(0);
   const cardRef = useRef<HTMLElement>(null);
   const [noteTarget, setNoteTarget] = useState<{
     taskId: string;
@@ -259,15 +260,29 @@ export default function TaskGrid() {
     }
   };
 
+  // 滚动每帧最多同步一次 state，1000 列时避免每个 scroll 事件都重渲染。
   const handleScroll = () => {
-    const element = scrollerRef.current;
-    if (element) {
-      setScrollLeft(element.scrollLeft);
+    if (scrollFrame.current) {
+      return;
     }
-    if (noteTarget) {
+    scrollFrame.current = requestAnimationFrame(() => {
+      scrollFrame.current = 0;
+      const element = scrollerRef.current;
+      if (element) {
+        setScrollLeft(element.scrollLeft);
+      }
       setNoteTarget(null);
-    }
+    });
   };
+
+  useEffect(
+    () => () => {
+      if (scrollFrame.current) {
+        cancelAnimationFrame(scrollFrame.current);
+      }
+    },
+    [],
+  );
 
   const baseGroups: { key: GroupKey; rows: GridRow[] }[] = [
     { key: "voluntary", rows: data.groups.voluntary },
@@ -662,6 +677,7 @@ export default function TaskGrid() {
         <section
           ref={cardRef}
           data-grid-zoom={cellSize}
+          data-grid-scroll={scrollLeft}
           data-mode={overview ? "overview" : "detail"}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
         >

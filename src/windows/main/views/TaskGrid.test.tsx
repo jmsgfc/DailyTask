@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkinKey } from "../../../domain/keys";
@@ -58,8 +58,7 @@ describe("TaskGrid", () => {
   );
 
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
+    vi.useFakeTimers({ now: NOW });
     setStatus.mockClear();
     setNote.mockClear();
     reorder.mockClear();
@@ -165,7 +164,28 @@ describe("TaskGrid", () => {
     ) as HTMLElement;
     scroller.scrollLeft = 395 * 32;
     fireEvent.scroll(scroller);
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
 
+    expect(container).toHaveTextContent("2026 年 12 月");
+  });
+
+  it("coalesces scroll events into one frame", () => {
+    const { container } = render(<TaskGrid />);
+    const scroller = container.querySelector(
+      "[data-grid-scroller]",
+    ) as HTMLElement;
+
+    scroller.scrollLeft = 360 * 32;
+    fireEvent.scroll(scroller);
+    scroller.scrollLeft = 395 * 32;
+    fireEvent.scroll(scroller);
+
+    expect(container).toHaveTextContent("2026 年 10 月");
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
     expect(container).toHaveTextContent("2026 年 12 月");
   });
 
