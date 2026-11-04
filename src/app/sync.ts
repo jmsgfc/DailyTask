@@ -1,10 +1,12 @@
 import {
   currentSource,
   onCheckinsChanged,
+  onSettingsChanged,
   onTasksChanged,
   onTodosChanged,
 } from "../shared/events";
 import { useCheckinsStore } from "../stores/checkinsStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import { useTasksStore } from "../stores/tasksStore";
 import { useTodosStore } from "../stores/todosStore";
 
@@ -42,6 +44,14 @@ export async function startCrossWindowSync(): Promise<Stop> {
         console.error("[sync] 待办重查失败", error);
       });
   };
+  const reloadSettings = () => {
+    void useSettingsStore
+      .getState()
+      .reload()
+      .catch((error: unknown) => {
+        console.error("[sync] 设置重查失败", error);
+      });
+  };
 
   try {
     stops.push(
@@ -62,6 +72,13 @@ export async function startCrossWindowSync(): Promise<Stop> {
       await onTodosChanged((payload) => {
         if (payload.source !== source) {
           reloadTodos();
+        }
+      }),
+    );
+    stops.push(
+      await onSettingsChanged((payload) => {
+        if (payload.source !== source) {
+          reloadSettings();
         }
       }),
     );

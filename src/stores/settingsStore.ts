@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { getDb } from "../db/client";
 import { getSettings, setSettings } from "../db/settings";
 import { DEFAULT_SETTINGS, type Settings } from "../domain/types";
+import { currentSource, emitSettingsChanged } from "../shared/events";
 import { enqueueWrite } from "../shared/queue";
 
 export interface SettingsState {
@@ -33,6 +34,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     return enqueueWrite(async () => {
       try {
         await setSettings(await getDb(), patch);
+        await emitSettingsChanged({ source: currentSource() }).catch(
+          () => undefined,
+        );
       } catch (error) {
         set({ settings: previous });
         throw error;

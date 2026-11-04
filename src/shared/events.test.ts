@@ -5,12 +5,14 @@ import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import {
   currentSource,
   emitCheckinsChanged,
+  emitSettingsChanged,
   emitTasksChanged,
   emitTodosChanged,
   emitWidgetExpand,
   Events,
   onCheckinsChanged,
   type CheckinsChanged,
+  type SettingsChanged,
   type TasksChanged,
   type TodosChanged,
   type WidgetExpand,
@@ -70,6 +72,7 @@ describe("events", () => {
       "checkins:changed",
       "tasks:changed",
       "todos:changed",
+      "settings:changed",
       "widget:expand",
     ]);
   });
@@ -77,6 +80,7 @@ describe("events", () => {
   it("emits every event with a source-only invalidation payload", async () => {
     await emitTasksChanged({ source: "main" });
     await emitTodosChanged({ source: "widget" });
+    await emitSettingsChanged({ source: "main" });
     await emitWidgetExpand({ source: "main" });
 
     expect(emit).toHaveBeenNthCalledWith(1, Events.tasksChanged, {
@@ -85,7 +89,10 @@ describe("events", () => {
     expect(emit).toHaveBeenNthCalledWith(2, Events.todosChanged, {
       source: "widget",
     });
-    expect(emit).toHaveBeenNthCalledWith(3, Events.widgetExpand, {
+    expect(emit).toHaveBeenNthCalledWith(3, Events.settingsChanged, {
+      source: "main",
+    });
+    expect(emit).toHaveBeenNthCalledWith(4, Events.widgetExpand, {
       source: "main",
     });
   });
@@ -99,6 +106,9 @@ describe("events", () => {
       source: "main" | "widget";
     }>();
     expectTypeOf<TodosChanged>().toEqualTypeOf<{
+      source: "main" | "widget";
+    }>();
+    expectTypeOf<SettingsChanged>().toEqualTypeOf<{
       source: "main" | "widget";
     }>();
     expectTypeOf<WidgetExpand>().toEqualTypeOf<{

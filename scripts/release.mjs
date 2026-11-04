@@ -28,7 +28,12 @@ const gh = process.platform === "win32" ? "gh.exe" : "gh";
 
 function run(command, commandArgs) {
   console.log(`\n$ ${command} ${commandArgs.join(" ")}`);
-  execFileSync(command, commandArgs, { cwd: root, stdio: "inherit" });
+  execFileSync(command, commandArgs, {
+    cwd: root,
+    stdio: "inherit",
+    // Node 22 不允许直接 spawn .cmd/.bat，npm.cmd 需要走 shell。
+    shell: process.platform === "win32" && command.endsWith(".cmd"),
+  });
 }
 
 function bumpJson(relativePath, mutate) {

@@ -9,6 +9,7 @@ export const Events = {
   checkinsChanged: "checkins:changed",
   tasksChanged: "tasks:changed",
   todosChanged: "todos:changed",
+  settingsChanged: "settings:changed",
   widgetExpand: "widget:expand",
 } as const;
 
@@ -24,6 +25,10 @@ export interface TasksChanged {
 }
 
 export interface TodosChanged {
+  source: EventSource;
+}
+
+export interface SettingsChanged {
   source: EventSource;
 }
 
@@ -47,6 +52,12 @@ export async function emitTasksChanged(payload: TasksChanged): Promise<void> {
 
 export async function emitTodosChanged(payload: TodosChanged): Promise<void> {
   await emit(Events.todosChanged, payload satisfies TodosChanged);
+}
+
+export async function emitSettingsChanged(
+  payload: SettingsChanged,
+): Promise<void> {
+  await emit(Events.settingsChanged, payload satisfies SettingsChanged);
 }
 
 export async function emitWidgetExpand(payload: WidgetExpand): Promise<void> {
@@ -73,6 +84,14 @@ export function onTodosChanged(
   handler: (payload: TodosChanged) => void,
 ): Promise<UnlistenFn> {
   return listen<TodosChanged>(Events.todosChanged, (event) => {
+    handler(event.payload);
+  });
+}
+
+export function onSettingsChanged(
+  handler: (payload: SettingsChanged) => void,
+): Promise<UnlistenFn> {
+  return listen<SettingsChanged>(Events.settingsChanged, (event) => {
     handler(event.payload);
   });
 }

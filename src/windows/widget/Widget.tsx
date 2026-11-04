@@ -9,6 +9,7 @@ import {
   type TodayTask,
 } from "../../stores/selectors/today";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { applyTheme } from "../../ui/theme";
 import { useT } from "../../ui/useT";
 
 const RING_RADIUS = 17;
@@ -25,6 +26,7 @@ export function Widget() {
   const data = useTodayData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
   const alwaysOnTop = useSettingsStore((state) => state.settings.alwaysOnTop);
+  const theme = useSettingsStore((state) => state.settings.theme);
   const updateSettings = useSettingsStore((state) => state.update);
 
   useEffect(() => {
@@ -32,6 +34,11 @@ export function Widget() {
       console.error("[widget] 更新置顶状态失败", error);
     });
   }, [alwaysOnTop]);
+
+  // 主窗切换主题后，挂件通过 settings:changed 重读设置并重放主题。
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const togglePin = () => {
     void updateSettings({ alwaysOnTop: !alwaysOnTop }).catch(
