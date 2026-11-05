@@ -50,9 +50,13 @@ function bumpJson(relativePath, mutate) {
   writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
 }
 
-bumpJson("package.json", (pkg) => {
-  pkg.version = version;
-});
+// 用 npm version 而不是手改 package.json，确保 package-lock 同步。
+run(npm, [
+  "version",
+  version,
+  "--no-git-tag-version",
+  "--ignore-scripts",
+]);
 bumpJson("src-tauri/tauri.conf.json", (conf) => {
   conf.version = version;
 });
