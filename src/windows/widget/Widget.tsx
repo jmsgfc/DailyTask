@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { nextCellState } from "../../domain/settle";
 import type { CellState, CheckinStatus } from "../../domain/types";
 import { emitWidgetExpand } from "../../shared/events";
 import { useCheckinsStore } from "../../stores/checkinsStore";
@@ -42,6 +43,7 @@ export function Widget() {
   const t = useT();
   const data = useTodayData();
   const setStatus = useCheckinsStore((state) => state.setStatus);
+  const setValue = useCheckinsStore((state) => state.setValue);
   const setTodoDone = useTodosStore((state) => state.setDone);
   const alwaysOnTop = useSettingsStore((state) => state.settings.alwaysOnTop);
   const theme = useSettingsStore((state) => state.settings.theme);
@@ -129,8 +131,24 @@ export function Widget() {
   const dueTodos = [...data.overdueTodos, ...data.todayTodos];
   const ratio = total === 0 ? 0 : completed / total;
 
-  const complete = (row: TodayTask) => {
-    void setStatus(row.task.id, data.today, "done");
+  const cycle = (row: TodayTask) => {
+    void setStatus(
+      row.task.id,
+      data.today,
+      nextCellState(row.state),
+    ).catch((error: unknown) => {
+      console.error("[widget] 切换任务状态失败", error);
+    });
+  };
+
+  const saveValue = (row: TodayTask, value: string) => {
+    void setValue(
+      row.task.id,
+      data.today,
+      value.trim() === "" ? null : value.trim(),
+    ).catch((error: unknown) => {
+      console.error("[widget] 保存记录值失败", error);
+    });
   };
 
   const completeTodo = (item: DueTodoItem) => {
@@ -310,7 +328,8 @@ export function Widget() {
                   color="var(--color-voluntary)"
                   rows={data.voluntary}
                   stat={data.voluntaryStat}
-                  onComplete={complete}
+                  onCycle={cycle}
+                  onValue={saveValue}
                   onMenu={openMenu}
                 />
                 <WidgetTaskGroup
@@ -318,7 +337,8 @@ export function Widget() {
                   color="var(--color-forced)"
                   rows={data.forced}
                   stat={data.forcedStat}
-                  onComplete={complete}
+                  onCycle={cycle}
+                  onValue={saveValue}
                   onMenu={openMenu}
                 />
               </>
@@ -614,14 +634,16 @@ function WidgetTaskGroup({
   color,
   rows,
   stat,
-  onComplete,
+  onCycle,
+  onValue,
   onMenu,
 }: {
   title: string;
   color: string;
   rows: TodayTask[];
   stat: CategoryStat;
-  onComplete: (row: TodayTask) => void;
+  onCycle: (row: TodayTask) => void;
+  onValue: (row: TodayTask, value: string) => void;
   onMenu: (row: TodayTask, event: ReactMouseEvent) => void;
 }) {
   if (rows.length === 0) {
@@ -645,7 +667,8 @@ function WidgetTaskGroup({
         <WidgetTaskRow
           key={row.task.id}
           row={row}
-          onComplete={() => onComplete(row)}
+          onCycle={() => onCycle(row)}
+          onValue={(value) => onValue(row, value)}
           onMenu={(event) => onMenu(row, event)}
         />
       ))}
@@ -655,15 +678,19 @@ function WidgetTaskGroup({
 
 function WidgetTaskRow({
   row,
-  onComplete,
+  onCycle,
+  onValue,
   onMenu,
 }: {
   row: TodayTask;
-  onComplete: () => void;
+  onCycle: () => void;
+  onValue: (value: string) => void;
   onMenu: (event: ReactMouseEvent) => void;
 }) {
   const t = useT();
-  const interactive = row.state === "pending" || row.state === "missed";
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(row.value ?? "");
+  const finished = useRef(false);
   const nameClass =
     row.state === "skipped"
       ? "min-w-0 flex-1 truncate text-[var(--color-text-muted)] line-through"
@@ -671,43 +698,105 @@ function WidgetTaskRow({
         ? "min-w-0 flex-1 truncate text-[var(--color-text-muted)]"
         : "min-w-0 flex-1 truncate";
 
-  const content = (
-    <>
-      <span
-        aria-hidden="true"
-        className={`grid size-[17px] shrink-0 place-items-center rounded-[4px] border-[1.4px] text-[10px] font-bold leading-none ${ROW_ICON[row.state]}`}
-      >
-        {ROW_SYMBOLS[row.state]}
-      </span>
-      <span className={nameClass}>{row.task.name}</span>
-      {row.value ? (
-        <span className="max-w-[45%] shrink-0 truncate rounded-[var(--radius-pill)] bg-[var(--state-hover)] px-1 text-[10px] tabular-nums text-[var(--color-text-muted)]">
-          {row.value}
-        </span>
-      ) : null}
-    </>
-  );
+  useEffect(() => {
+    if (!editing) {
+      setDraft(row.value ?? "");
+    }
+  }, [editing, row.value]);
+
+  const startEditing = () => {
+    finished.current = false;
+    setDraft(row.value ?? "");
+    setEditing(true);
+  };
+
+  const commit = () => {
+    if (finished.current) {
+      return;
+    }
+    finished.current = true;
+    setEditing(false);
+    onValue(draft);
+  };
+
+  const cancel = () => {
+    finished.current = true;
+    setDraft(row.value ?? "");
+    setEditing(false);
+  };
 
   const base =
-    "flex h-[26px] w-full items-center gap-[6px] rounded-[5px] px-1 pr-5 text-left text-[12px]";
+    "flex h-[26px] w-full items-center gap-[6px] rounded-[5px] px-1 pr-6 text-left text-[12px]";
 
   return (
     <div className="group relative" data-state={row.state}>
-      {interactive ? (
-        <button
-          type="button"
-          aria-label={t("widget.complete", { task: row.task.name })}
-          onClick={onComplete}
-          onContextMenu={onMenu}
-          className={`${base} hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]`}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={t("widget.cycle", { task: row.task.name })}
+        onClick={onCycle}
+        onContextMenu={onMenu}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) {
+            return;
+          }
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onCycle();
+          }
+        }}
+        className={`${base} cursor-pointer hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]`}
+      >
+        <span
+          aria-hidden="true"
+          className={`grid size-[17px] shrink-0 place-items-center rounded-[4px] border-[1.4px] text-[10px] font-bold leading-none ${ROW_ICON[row.state]}`}
         >
-          {content}
-        </button>
-      ) : (
-        <div className={`${base} hover:bg-[var(--state-hover)]`} onContextMenu={onMenu}>
-          {content}
-        </div>
-      )}
+          {ROW_SYMBOLS[row.state]}
+        </span>
+        <span className={nameClass}>{row.task.name}</span>
+
+        {editing ? (
+          <input
+            autoFocus
+            data-widget-value-input
+            value={draft}
+            aria-label={t("widget.editValue", { task: row.task.name })}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commit();
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                cancel();
+              }
+            }}
+            onBlur={commit}
+            className="w-16 shrink-0 rounded-[var(--radius-control)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-1 py-px text-[10px] text-[var(--color-text)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          />
+        ) : (
+          <button
+            type="button"
+            data-widget-value={row.value ?? undefined}
+            aria-label={t("widget.editValue", { task: row.task.name })}
+            onClick={(event) => {
+              event.stopPropagation();
+              startEditing();
+            }}
+            className={`max-w-[42%] shrink-0 truncate rounded-[var(--radius-pill)] px-1 text-[10px] tabular-nums text-[var(--color-text-muted)] hover:bg-[var(--state-active)] ${
+              row.value
+                ? "bg-[var(--state-hover)]"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+            }`}
+          >
+            {row.value ?? t("today.addValue")}
+          </button>
+        )}
+      </div>
+
       <button
         type="button"
         data-widget-task-menu

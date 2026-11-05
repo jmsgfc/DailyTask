@@ -186,7 +186,8 @@ export const zhCN = {
   "date.today": "今天",
   "date.clear": "清除",
 
-  "widget.complete": "完成 {task}",
+  "widget.cycle": "切换 {task} 状态",
+  "widget.editValue": "编辑 {task} 的记录值",
   "widget.expand": "展开主窗口",
   "widget.pin": "置顶",
   "widget.unpin": "取消置顶",

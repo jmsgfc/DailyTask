@@ -67,6 +67,7 @@ vi.mock("../../shared/events", () => ({
 const NOW = new Date(2026, 10, 2, 9, 0, 0);
 const TODAY = "2026-11-02";
 const originalSetStatus = useCheckinsStore.getState().setStatus;
+const originalSetValue = useCheckinsStore.getState().setValue;
 const originalSetDone = useTodosStore.getState().setDone;
 
 function task(
@@ -152,6 +153,7 @@ describe("Widget", () => {
   afterEach(() => {
     vi.useRealTimers();
     useCheckinsStore.setState({ setStatus: originalSetStatus });
+    useCheckinsStore.setState({ setValue: originalSetValue });
     useTodosStore.setState({ setDone: originalSetDone });
   });
 
@@ -169,16 +171,18 @@ describe("Widget", () => {
     expect(screen.getByText("0 / 1")).toBeInTheDocument();
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "完成 跑步" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "完成 交周报" }),
+      screen.getByRole("button", { name: "切换 跑步 状态" }),
     ).toBeInTheDocument();
-    // 已跳过 / 已完成的行照样显示，只是不能再点。
+    expect(
+      screen.getByRole("button", { name: "切换 交周报 状态" }),
+    ).toBeInTheDocument();
+    // 已跳过 / 已完成的行照样显示，也都能点击切换。
     expect(screen.getByText("背单词")).toBeInTheDocument();
     expect(screen.getByText("开会")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "完成 背单词" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "切换 背单词 状态" }),
+    ).toBeInTheDocument();
 
     expect(screen.getByText("今日到期待办")).toBeInTheDocument();
     expect(screen.getByText("交房租")).toBeInTheDocument();
@@ -236,7 +240,12 @@ describe("Widget", () => {
     expect(setDone).toHaveBeenCalledWith("买猫粮", true);
   });
 
-  it("shows a recorded value as read-only text", () => {    useCheckinsStore.setState({
+  it("shows a recorded value and edits it inline", () => {
+    const setStatus = vi.fn(async () => undefined);
+    const setValue = vi.fn(async () => undefined);
+    useCheckinsStore.setState({
+      setStatus,
+      setValue,
       byKey: new Map([
         [checkinKey("t1", TODAY), { ...checkin("t1", "done"), value: "3 组" }],
       ]),
@@ -245,17 +254,36 @@ describe("Widget", () => {
     render(<Widget />);
 
     expect(screen.getByText("3 组")).toBeInTheDocument();
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "编辑 跑步 的记录值" }),
+    );
+
+    const input = screen.getByRole("textbox", {
+      name: "编辑 跑步 的记录值",
+    });
+    fireEvent.change(input, { target: { value: "5 组" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(setValue).toHaveBeenCalledWith("t1", TODAY, "5 组");
+    expect(setStatus).not.toHaveBeenCalled();
   });
 
-  it("writes a checkin through the store when a task is clicked", () => {
+  it("cycles task status on click", () => {
     const setStatus = vi.fn(async () => undefined);
     useCheckinsStore.setState({ setStatus });
     render(<Widget />);
 
-    fireEvent.click(screen.getByRole("button", { name: "完成 跑步" }));
-
+    fireEvent.click(screen.getByRole("button", { name: "切换 跑步 状态" }));
     expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "done");
+
+    fireEvent.click(screen.getByRole("button", { name: "切换 开会 状态" }));
+    expect(setStatus).toHaveBeenCalledWith("t2", TODAY, "missed");
+
+    fireEvent.click(screen.getByRole("button", { name: "切换 背单词 状态" }));
+    expect(setStatus).toHaveBeenCalledWith("t3", TODAY, "done");
+
+    fireEvent.click(screen.getByRole("button", { name: "切换 交周报 状态" }));
+    expect(setStatus).toHaveBeenCalledWith("t4", TODAY, null);
   });
 
   it("marks missed, skipped and cleared from the task menu", () => {
@@ -263,12 +291,16 @@ describe("Widget", () => {
     useCheckinsStore.setState({ setStatus });
     render(<Widget />);
 
-    fireEvent.contextMenu(screen.getByRole("button", { name: "完成 跑步" }));
+    fireEvent.contextMenu(
+      screen.getByRole("button", { name: "切换 跑步 状态" }),
+    );
     expect(screen.getByRole("menu", { name: "任务操作" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "未完成" }));
     expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "missed");
 
-    fireEvent.contextMenu(screen.getByRole("button", { name: "完成 跑步" }));
+    fireEvent.contextMenu(
+      screen.getByRole("button", { name: "切换 跑步 状态" }),
+    );
     fireEvent.click(screen.getByRole("menuitem", { name: "清除" }));
     expect(setStatus).toHaveBeenCalledWith("t1", TODAY, null);
 
