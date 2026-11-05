@@ -1,8 +1,8 @@
-# DailyTask 开发进度 · v0.1.8
+# DailyTask 开发进度 · v0.1.9
 
 > 状态：迭代中
-> 当前版本：v0.1.8
-> 本轮：2026-11-05 反馈，共 17 项（原 11 项 + #13–#18，缺 #10），完成 **17/17**
+> 当前版本：v0.1.9
+> 本轮：2026-11-05 反馈，共 18 项（原 11 项 + #13–#19，缺 #10），完成 **18/18**
 > 相关：../product/changelog.md、../product/roadmap.md
 
 ---
@@ -43,6 +43,7 @@
 | 16 | P0 | 待办日期编辑 + 统一删除确认 | 日历按钮改日期；所有删除走 ConfirmDeleteButton | ☑ |
 | 17 | P1 | 应用内中英文切换 | 跟随系统 / 中文 / English；托盘、日期同步 | ☑ |
 | 18 | P1 | 文档分层重组 | docs/README 地图、架构/开发/运维/项目分层、链接检查 | ☑ |
+| 19 | P1 | 托盘左键同时显示主窗与挂件 | 两窗一起唤回，主窗聚焦 | ☑ |
 
 ---
 
@@ -154,6 +155,11 @@
 - 改动：新增 `docs/README.md` 文档地图与 `glossary.md`；`impl.md` 拆为 `architecture/*`；原 Requirements / TODO / progress / upgrade 移入 product / project / operations；补 development、operations、product、adr 文档；新增 `npm run docs:check` 校验必需文件、状态头和相对链接。
 - 验收：docs:check 通过；README 与文档内链接全部可达；发版脚本先跑 docs:check。
 
+### #19 托盘左键同时显示主窗与挂件
+
+- 改动：托盘左键由只显示挂件改为 `show_both`：先显示挂件，再 show + unminimize + focus 主窗，保证主窗拿到焦点；右键单独显示/隐藏不变。
+- 验收：两个窗口都能从托盘唤回；主窗聚焦；托盘文案同步。
+
 ---
 
 ## 5. 建议顺序
@@ -197,5 +203,6 @@
 - **#16**：待办行加日历按钮；删除统一走 `ConfirmDeleteButton`，store 删除要求确认令牌，Todos 行内/右键与 Manage 删除共用同一套二次确认。
 - **#17**：新增英文词典与语言设置（跟随系统 / 中文 / English）；托盘文案通过 `set_tray_labels` 跟随语言，日期与所有视图同步。
 - **#18**：文档重组为 product / architecture / development / operations / project / adr 六层，新增文档地图、术语表、ADR 与 `docs:check` 链接校验。
+- **#19**：托盘左键改为同时显示主窗与挂件，主窗聚焦；文档同步更新。
 
 未完成项：尚未运行 `npm run dev:app` / 安装版做真机截图走查；发版前需补 UI 走查与 `docs/architecture/*` 设计说明更新。

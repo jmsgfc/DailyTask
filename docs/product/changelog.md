@@ -6,6 +6,13 @@
 
 ---
 
+## v0.1.9
+
+- 托盘左键同时显示主窗口与挂件，主窗聚焦
+- 文档重组为 product / architecture / development / operations / project / adr
+- 新增 `docs:check` 链接与状态头校验
+- 发版前自动执行 `docs:check`
+
 ## v0.1.8
 
 - 应用内中英文切换：跟随系统 / 中文 / English
