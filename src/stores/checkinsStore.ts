@@ -114,26 +114,22 @@ export const useCheckinsStore = create<CheckinsState>()((set, get) => ({
     const before = previous.get(key);
     const normalized = value?.trim() ? value.trim() : null;
 
-    // 乐观更新：值只影响 value；清空 recorded 行时整行消失。
+    // 乐观更新：值只影响 value；没有记录时默认记为 done。
     const optimistic = new Map(previous);
     if (normalized === null) {
       if (before) {
-        if (before.status === "recorded") {
-          optimistic.delete(key);
-        } else {
-          optimistic.set(key, {
-            ...before,
-            value: null,
-            updatedAt: new Date().toISOString(),
-          });
-        }
+        optimistic.set(key, {
+          ...before,
+          value: null,
+          updatedAt: new Date().toISOString(),
+        });
       }
     } else {
       optimistic.set(key, {
         id: before?.id ?? `pending-${key}`,
         taskId,
         date,
-        status: before?.status ?? "recorded",
+        status: before?.status ?? "done",
         value: normalized,
         note: before?.note ?? null,
         updatedAt: new Date().toISOString(),

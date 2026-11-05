@@ -112,6 +112,12 @@ pub fn run() {
             sql: include_str!("../migrations/003_task_interval_every_days.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "drop recorded status",
+            sql: include_str!("../migrations/004_drop_recorded_status.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

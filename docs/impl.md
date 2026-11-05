@@ -44,7 +44,9 @@ DailyTask/
 ├─ src-tauri/
 │  ├─ src/{main.rs, lib.rs}          # 注册插件、初始化 DB、创建挂件窗口
 │  ├─ migrations/001_init.sql        # 建表 + 索引（历史，只读）
-│  ├─ migrations/002_checkin_value.sql # 打卡自由值 + recorded 状态
+│  ├─ migrations/002_checkin_value.sql # 打卡自由值（历史）
+│  ├─ migrations/003_task_interval_every_days.sql # 每 N 天
+│  ├─ migrations/004_drop_recorded_status.sql # 去掉只记录状态
 │  ├─ capabilities/default.json      # sql / dialog / fs / window 权限
 │  └─ tauri.conf.json                # 两个窗口的尺寸与属性
 ├─ src/
@@ -239,7 +241,7 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 ### 4.1 `002_checkin_value.sql`（打卡自由值）
 
-SQLite 无法放宽既有 `CHECK`，所以重建 `checkins`：加 `value`，状态枚举补 `recorded`。
+SQLite 无法放宽既有 `CHECK`，所以重建 `checkins`：加 `value`，状态枚举补 `recorded`（该状态已在 004 移除）。
 
 ```sql
 CREATE TABLE checkins_new (
@@ -264,7 +266,17 @@ CREATE INDEX idx_checkins_date ON checkins(date);
 两条写入路径分开，避免互相覆盖：
 
 - `upsertCheckin` 只改 `status` / `note`，**不碰 `value`**；
-- `setCheckinValue` 只改 `value`；新建行时状态为 `recorded`，清空值且该行只是 `recorded` 时整行删除。
+- `setCheckinValue` 只改 `value`；没有记录时新建行直接记为 `done`，清空值只清 `value`，保留判定。
+
+### 4.2 `004_drop_recorded_status.sql`（去掉只记录）
+
+`recorded` 不再作为状态存在：有值但没判定的旧行统一迁移为 `done`，值 / 备注 / 时间不变。`checkins` 重建为三状态 CHECK：
+
+```sql
+status TEXT NOT NULL CHECK (status IN ('done','missed','skipped'))
+```
+
+迁移脚本见 `src-tauri/migrations/004_drop_recorded_status.sql`；旧 JSON 导入时 `recorded` 也统一归一为 `done`。
 
 - 迁移由 `tauri-plugin-sql` 的 `Migration` 数组在 `lib.rs` 注册，版本号只增不改，禁止改历史脚本。
 - `settings` 用 kv 存 JSON 值，读写都过 `db/settings.ts` 的类型化包装（默认值集中在 `domain/types.ts` 的 `DEFAULT_SETTINGS`）。
@@ -293,7 +305,7 @@ CREATE INDEX idx_checkins_date ON checkins(date);
 | 进度区（环 40 + 完成率 + 自愿/被迫分项） | 50 |
 | 滚动区（分组头 20×2 + 任务行 26×N + 待办头 20 + 待办行 26×M） | 240 |
 
-- 展开态与「今日」页同构：标题、完成率、自愿/被迫分项、按类别分组的全部任务（含已完成 / 跳过 / 漏打 / 只记录）、全部今日到期待办（逾期在前）。
+- 展开态与「今日」页同构：标题、完成率、自愿/被迫分项、按类别分组的全部任务（含已完成 / 跳过 / 漏打）、全部今日到期待办（逾期在前）。
 - 不再设任务 4 条、待办 2 条上限，也不再显示 `+N`；一屏约 7 行，其余滚动查看，滚动条 4px 半透明。
 - 交互只保留「点未完成行 = 完成」「点到期待办 = 完成」；取消完成、跳过、填自由值仍只在主窗口提供（v0.1.3 决策）。
 - 外观：卡面、边框、文字沿用主窗 §7.1 色板；保留 16px 圆角、8px 透明边距和中性浮动阴影。日期与正文统一使用系统无衬线，标题加粗。
@@ -335,9 +347,9 @@ isApplicable(intervals: Interval[], date: string): boolean   // 任一区间命�
 applicableTasks(tasks: Task[], date: string): Task[]
 
 // domain/settle.ts
-type CellState = "done" | "missed" | "skipped" | "recorded" | "pending" | "none";
+type CellState = "done" | "missed" | "skipped" | "pending" | "none";
 projectCell(task, date, checkin, settings, today): CellState
-dayProgress(tasks, checkins, date, settings, today): { done; missed; skipped; recorded; applicable; ratio }
+dayProgress(tasks, checkins, date, settings, today): { done; missed; skipped; applicable; ratio }
 
 // domain/stats.ts
 taskStreak(task, checkins, today, settings): number       // skipped 不中断、不计数
@@ -346,8 +358,8 @@ completionRate30(task, checkins, today, settings): number // 近 30 天完成率
 
 统计口径（与 §6 投影规则一致）：
 
-- **分母**只含 `done` + `missed`；`skipped` 与 `recorded` 不计入分母，也不中断 streak。
-- `recorded` 是「有值但未判定」：只记录次数 / 时长 / 文本，不改变完成率。
+- **分母**只含 `done` + `missed`；`skipped` 不计入分母，也不中断 streak。
+- 值不是状态：写值但没判定时按 `done` 处理；判定与值互不覆盖。
 - 关闭自动结算后，过期空白没有结论，同样不进分母。
 - 统计窗口固定近 30 天；本期不做热力图与全局折线（理由见 §10）。
 
@@ -438,4 +450,4 @@ completionRate30(task, checkins, today, settings): number // 近 30 天完成率
 8. 不做系统通知；首次启动为空态引导，不预置示例任务。
 9. `Requirements.md` §8 仍写「本地 JSON 默认」，与本文件 §1/§4 冲突；**以本文件为准**，Requirements 待单独修订。
 10. （v0.1.3 起）挂件展开态改为**与今日页同构 + 内部滚动**：任务与待办全部渲染，不再设 4 条 / 2 条上限，也不再显示 `+N`；标题与进度固定，中间内容滚动。原「待办上限 2 条」的决策作废，原因见 §5 尺寸预算。
-11. **格子只加一个自由值 `value`，不做列模型**：`status` 与 `value` 相互独立，`value` 只记录不判定。这样「每组个数 / 间隔」这类参数可以直接写在格子里，又不会污染完成率；代价是应用不知道值是什么，无法按量统计。
+11. **格子只加一个自由值 `value`，不做列模型**：值附加在判定上；没有判定时写值自动记为 `done`。这样「每组个数 / 间隔」这类参数可以直接写在格子里；代价是应用不知道值是什么，无法按量统计。

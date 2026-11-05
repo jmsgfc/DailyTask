@@ -49,9 +49,7 @@ export interface TodayData {
 }
 
 function statOf(rows: TodayTask[]): CategoryStat {
-  const countable = rows.filter(
-    (row) => row.state !== "skipped" && row.state !== "recorded",
-  );
+  const countable = rows.filter((row) => row.state !== "skipped");
   return {
     done: countable.filter((row) => row.state === "done").length,
     total: countable.length,

@@ -104,7 +104,7 @@ function valueCell(value: string | null): Checkin {
     id: "c1",
     taskId: "t1",
     date: TODAY,
-    status: value === null ? "done" : "recorded",
+    status: "done",
     value,
     note: null,
     updatedAt: "2026-11-02T00:00:00.000Z",
@@ -134,9 +134,9 @@ describe("Today values", () => {
     expect(container.querySelector("[data-value]")).toHaveTextContent("3min");
   });
 
-  it("keeps recorded cells out of the progress total", () => {
+  it("counts a value-only done cell in the progress total", () => {
     render(<Today />);
 
-    expect(screen.getByText(/已完成 0 \/ 0/)).toBeInTheDocument();
+    expect(screen.getByText(/已完成 1 \/ 1/)).toBeInTheDocument();
   });
 });

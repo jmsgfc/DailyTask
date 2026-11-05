@@ -285,7 +285,7 @@ describe("TaskGrid", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the recorded value instead of the status symbol", () => {
+  it("shows the value instead of the status symbol", () => {
     useCheckinsStore.setState({
       byKey: new Map([
         [checkinKey("t1", TODAY), { ...doneToday(), value: "3 组" }],

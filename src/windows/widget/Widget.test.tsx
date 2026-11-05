@@ -240,7 +240,7 @@ describe("Widget", () => {
     expect(setDone).toHaveBeenCalledWith("买猫粮", true);
   });
 
-  it("shows a recorded value and edits it inline", () => {
+  it("shows a value and edits it inline", () => {
     const setStatus = vi.fn(async () => undefined);
     const setValue = vi.fn(async () => undefined);
     useCheckinsStore.setState({

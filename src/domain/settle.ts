@@ -52,10 +52,8 @@ export interface DayProgress {
   done: number;
   missed: number;
   skipped: number;
-  /** 只记录不判定的格子，不计入分母。 */
-  recorded: number;
   pending: number;
-  /** 分母：适用任务数扣除「今天不做」与「只记录」。 */
+  /** 分母：适用任务数扣除「今天不做」。 */
   applicable: number;
   ratio: number;
 }
@@ -70,7 +68,6 @@ export function dayProgress(
   let done = 0;
   let missed = 0;
   let skipped = 0;
-  let recorded = 0;
   let pending = 0;
   let applicable = 0;
 
@@ -97,9 +94,6 @@ export function dayProgress(
       case "skipped":
         skipped += 1;
         break;
-      case "recorded":
-        recorded += 1;
-        break;
       case "pending":
         pending += 1;
         break;
@@ -109,12 +103,11 @@ export function dayProgress(
     }
   }
 
-  const denominator = applicable - skipped - recorded;
+  const denominator = applicable - skipped;
   return {
     done,
     missed,
     skipped,
-    recorded,
     pending,
     applicable,
     ratio: denominator === 0 ? 0 : done / denominator,

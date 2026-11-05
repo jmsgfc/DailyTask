@@ -170,7 +170,6 @@ export const zhCN = {
   "checkin.done": "已完成",
   "checkin.missed": "未完成",
   "checkin.skipped": "今天不做",
-  "checkin.recorded": "只记录",
   "checkin.pending": "未打卡",
   "checkin.none": "不适用",
   "checkin.aria": "{task}：{status}",

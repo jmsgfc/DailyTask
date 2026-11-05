@@ -44,8 +44,7 @@ export default function Today() {
     );
   };
 
-  const total =
-    data.progress.applicable - data.progress.skipped - data.progress.recorded;
+  const total = data.progress.applicable - data.progress.skipped;
   const statusText =
     total === 0
       ? t("today.noTasks")

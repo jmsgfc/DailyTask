@@ -95,9 +95,8 @@ export async function upsertCheckin(
 }
 
 /**
- * 写入自由值。没有记录时建一条 recorded 行；清空值时：
- * - 该行只是 recorded → 删除，格子回到空
- * - 该行已有 done/missed/skipped → 只清值，保留判定
+ * 写入自由值。没有记录时直接建一条 done 行；清空值只清 value，
+ * 保留已有的 done/missed/skipped 判定。
  */
 export async function setCheckinValue(
   db: SqlDatabase,
@@ -113,10 +112,6 @@ export async function setCheckinValue(
     if (current === null) {
       return null;
     }
-    if (current.status === "recorded") {
-      await deleteCheckin(db, taskId, date);
-      return null;
-    }
     await db.execute(
       "UPDATE checkins SET value = NULL, updated_at = ? WHERE task_id = ? AND date = ?",
       [now, taskId, date],
@@ -126,7 +121,7 @@ export async function setCheckinValue(
 
   await db.execute(
     "INSERT INTO checkins (id, task_id, date, status, value, note, updated_at) " +
-      "VALUES (?, ?, ?, 'recorded', ?, NULL, ?) " +
+      "VALUES (?, ?, ?, 'done', ?, NULL, ?) " +
       "ON CONFLICT(task_id, date) DO UPDATE SET " +
       "value = excluded.value, updated_at = excluded.updated_at",
     [crypto.randomUUID(), taskId, date, normalized, now],

@@ -5,10 +5,10 @@
 
 export type TaskCategory = "voluntary" | "forced";
 /**
- * recorded = 只记录不判定：格子里有值（次数 / 时长 / 文本），但不计入完成率。
- * 与 done/missed/skipped 并列，避免用 null 表达「有值但未判定」。
+ * 打卡状态只有三种判定；值（value）是独立附加字段。
+ * 没有判定时写值会自动记为 done。
  */
-export type CheckinStatus = "done" | "missed" | "skipped" | "recorded";
+export type CheckinStatus = "done" | "missed" | "skipped";
 export type CellState = CheckinStatus | "pending" | "none";
 export type Theme = "light" | "dark" | "system";
 export type Language = "zh-CN" | "en";
@@ -38,7 +38,7 @@ export interface Checkin {
   taskId: string;
   date: string;
   status: CheckinStatus;
-  /** 自由值：次数 / 时长 / 任意文本。与 status 独立，只记录不判定。 */
+  /** 自由值：次数 / 时长 / 任意文本。只附加在判定上；没有判定时写值会记为 done。 */
   value: string | null;
   note: string | null;
   updatedAt: string;

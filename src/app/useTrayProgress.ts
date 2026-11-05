@@ -17,7 +17,7 @@ export function useTrayProgress(): void {
 
   const today = logicalToday(new Date(), settings.dayStartHour);
   const progress = dayProgress(tasks, checkins, today, settings, today);
-  const total = progress.applicable - progress.skipped - progress.recorded;
+  const total = progress.applicable - progress.skipped;
   const done = progress.done;
 
   useEffect(() => {

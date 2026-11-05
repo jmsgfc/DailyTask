@@ -1347,8 +1347,6 @@ function overviewBackground(state: CellState): string | undefined {
       return "color-mix(in srgb, var(--color-missed) 55%, var(--color-surface))";
     case "skipped":
       return "color-mix(in srgb, var(--color-forced) 35%, var(--color-surface))";
-    case "recorded":
-      return "color-mix(in srgb, var(--color-text-muted) 35%, var(--color-surface))";
     case "none":
       return "var(--color-na)";
     case "pending":
@@ -1397,10 +1395,7 @@ function GridCell({
   const canEdit = !overview && !disabled;
   const canNote =
     !overview &&
-    (state === "done" ||
-      state === "missed" ||
-      state === "skipped" ||
-      state === "recorded");
+    (state === "done" || state === "missed" || state === "skipped");
   const statusLabel = t(CELL_LABEL_KEYS[state]);
   const ariaLabel = value
     ? `${t("checkin.aria", { task: taskName, status: statusLabel })} · ${value}`
@@ -1449,7 +1444,7 @@ function GridCell({
             "font-semibold text-[var(--color-voluntary)]",
           !overview && state === "missed" && "text-[var(--color-missed)]",
           !overview &&
-            (state === "skipped" || state === "recorded") &&
+            state === "skipped" &&
             "text-[var(--color-text-muted)]",
           !overview && state === "pending" && "text-[var(--color-text)]",
           disabled

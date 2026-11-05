@@ -89,7 +89,13 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
-const CHECKIN_STATUSES = ["done", "missed", "skipped", "recorded"] as const;
+const CHECKIN_STATUSES = ["done", "missed", "skipped"] as const;
+/** 旧 JSON v1 可能还带 recorded；导入时统一归到 done。 */
+const IMPORT_CHECKIN_STATUSES = [...CHECKIN_STATUSES, "recorded"] as const;
+
+type ImportCheckin = Omit<Checkin, "status"> & {
+  status: Checkin["status"] | "recorded";
+};
 
 function isExportTask(value: unknown): value is ExportTask {
   return (
@@ -118,13 +124,15 @@ function isInterval(value: unknown): value is Interval {
   );
 }
 
-function isCheckin(value: unknown): value is Checkin {
+function isCheckin(value: unknown): value is ImportCheckin {
   return (
     isRecord(value) &&
     isString(value.id) &&
     isString(value.taskId) &&
     isString(value.date) &&
-    CHECKIN_STATUSES.includes(value.status as (typeof CHECKIN_STATUSES)[number]) &&
+    IMPORT_CHECKIN_STATUSES.includes(
+      value.status as (typeof IMPORT_CHECKIN_STATUSES)[number],
+    ) &&
     isNullableString(value.value) &&
     isNullableString(value.note) &&
     isString(value.updatedAt)
@@ -177,7 +185,10 @@ export function parseImportBundle(text: string): ExportBundle {
       ...interval,
       everyDays: normalizeEveryDays(interval.everyDays),
     })),
-    checkins: arrayOf(raw.checkins, isCheckin),
+    checkins: arrayOf(raw.checkins, isCheckin).map((checkin) => ({
+      ...checkin,
+      status: checkin.status === "recorded" ? "done" : checkin.status,
+    })),
     todos: arrayOf(raw.todos, isTodo),
     settings: sanitizeSettings(isRecord(raw.settings) ? raw.settings : {}),
   };

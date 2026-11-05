@@ -70,10 +70,10 @@ Implemented today:
   and a pre-update snapshot before every install.
 - **Packaging and updates** — NSIS per-user installer, tray menu with today's
   progress, signed auto-updates from GitHub Releases.
-- **Three check-in states** — done, missed, and "skip today", plus a "recorded" state
-  for value-only cells; neither skip nor record affects the progress denominator.
+- **Three check-in states** — done, missed, and "skip today"; skip does not affect
+  the progress denominator.
 - **Free-form cell value** — a cell can also carry `4`, `3min`, or `4/3/2/2`.
-  The value is recorded only; it never changes completion.
+  Writing a value without a status marks the cell done.
 - **Projected auto-settle** — past blanks render as missed without writing hundreds
   of rows to the database.
 - **Local SQLite storage** — no account, no network, no sync.
@@ -133,12 +133,12 @@ Five tables: `tasks`, `task_intervals`, `checkins`, `todos`, and `settings`.
 - A task can have multiple `task_intervals`; `end_date = NULL` means "still active".
 - `checkins` has `UNIQUE(task_id, date)`, so one cell maps to one row and writes are
   idempotent.
-- Each cell carries an optional free-form `value` that is independent of its status:
-  writing `4` does not mark the task done.
+- Each cell carries an optional free-form `value`; writing `4` without a status
+  marks the task done.
 - Cell projection order: not applicable → stored check-in → today/future pending →
   past blank with auto-settle → missed. Automatic settle is display-only.
-- The progress denominator is `applicable tasks − skipped − recorded`, so neither
-  "skip today" nor a value-only cell hurts the percentage.
+- The progress denominator is `applicable tasks − skipped`, so "skip today" never
+  hurts the percentage.
 
 <a id="getting-started"></a>
 ## Getting Started

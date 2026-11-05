@@ -119,8 +119,7 @@ export function Widget() {
 
   const rows = [...data.voluntary, ...data.forced];
   const completed = data.progress.done;
-  const total =
-    data.progress.applicable - data.progress.skipped - data.progress.recorded;
+  const total = data.progress.applicable - data.progress.skipped;
   const percent = Math.round(data.progress.ratio * 100);
   const statusText =
     total === 0
@@ -595,7 +594,6 @@ const ROW_SYMBOLS: Record<CellState, string> = {
   done: "✓",
   missed: "✗",
   skipped: "–",
-  recorded: "•",
   pending: "",
   none: "",
 };
@@ -606,8 +604,6 @@ const ROW_ICON: Record<CellState, string> = {
     "border-[var(--color-missed)] text-[var(--color-missed)]",
   skipped:
     "border-dashed border-[var(--color-border-strong)] bg-[var(--color-na)] text-[var(--color-text-muted)]",
-  recorded:
-    "border-[var(--color-border-strong)] text-[var(--color-text-muted)]",
   pending: "border-[var(--color-border-strong)] text-transparent",
   none: "border-[var(--color-border-strong)] text-transparent",
 };

@@ -171,6 +171,30 @@ describe("parseImportBundle", () => {
 
     expect(bundle.intervals[0].everyDays).toBe(1);
   });
+
+  it("normalizes legacy recorded checkins to done", () => {
+    const bundle = parseImportBundle(
+      JSON.stringify({
+        ...valid,
+        checkins: [
+          {
+            id: "c1",
+            taskId: "t1",
+            date: "2026-11-02",
+            status: "recorded",
+            value: "3min",
+            note: null,
+            updatedAt: "2026-11-02T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+
+    expect(bundle.checkins[0]).toMatchObject({
+      status: "done",
+      value: "3min",
+    });
+  });
 });
 
 const MIGRATION = readFileSync(
@@ -185,12 +209,17 @@ const MIGRATION_003 = readFileSync(
   resolve(process.cwd(), "src-tauri/migrations/003_task_interval_every_days.sql"),
   "utf8",
 );
+const MIGRATION_004 = readFileSync(
+  resolve(process.cwd(), "src-tauri/migrations/004_drop_recorded_status.sql"),
+  "utf8",
+);
 
 function createDb(seed = true): SqlDatabase {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(MIGRATION);
   sqlite.exec(MIGRATION_002);
   sqlite.exec(MIGRATION_003);
+  sqlite.exec(MIGRATION_004);
   if (seed) {
     sqlite.exec(
       "INSERT INTO tasks (id, name, category, sort_order, created_at, updated_at) " +

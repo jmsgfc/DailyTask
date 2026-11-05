@@ -21,12 +21,17 @@ const MIGRATION_002 = readFileSync(
   resolve(process.cwd(), "src-tauri/migrations/002_checkin_value.sql"),
   "utf8",
 );
+const MIGRATION_004 = readFileSync(
+  resolve(process.cwd(), "src-tauri/migrations/004_drop_recorded_status.sql"),
+  "utf8",
+);
 
 /** 用 Node 内置 SQLite 跑真实 UNIQUE/upsert，避免只测 SQL 字符串。 */
 function createDb(): SqlDatabase {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(MIGRATION);
   sqlite.exec(MIGRATION_002);
+  sqlite.exec(MIGRATION_004);
   sqlite.exec(
     "INSERT INTO tasks (id, name, category, sort_order, created_at, updated_at) " +
       "VALUES ('t1', '跑步', 'voluntary', 0, '2026-11-01', '2026-11-01')",
@@ -131,14 +136,14 @@ describe("checkin note", () => {
 });
 
 describe("checkin value", () => {
-  it("creates a recorded row for a value-only cell", async () => {
+  it("creates a done row for a value-only cell", async () => {
     const db = createDb();
 
     const saved = await setCheckinValue(db, "t1", "2026-11-02", "3min");
 
-    expect(saved).toMatchObject({ status: "recorded", value: "3min" });
+    expect(saved).toMatchObject({ status: "done", value: "3min" });
     expect(await listCheckins(db)).toMatchObject([
-      { taskId: "t1", date: "2026-11-02", status: "recorded", value: "3min" },
+      { taskId: "t1", date: "2026-11-02", status: "done", value: "3min" },
     ]);
   });
 
@@ -156,14 +161,16 @@ describe("checkin value", () => {
     expect(row).toMatchObject({ status: "done", value: "4" });
   });
 
-  it("deletes a recorded row when its value is cleared", async () => {
+  it("keeps the done status when its value is cleared", async () => {
     const db = createDb();
     await setCheckinValue(db, "t1", "2026-11-02", "4");
 
     const cleared = await setCheckinValue(db, "t1", "2026-11-02", null);
 
-    expect(cleared).toBeNull();
-    expect(await listCheckins(db)).toEqual([]);
+    expect(cleared).toMatchObject({ status: "done", value: null });
+    expect(await listCheckins(db)).toMatchObject([
+      { taskId: "t1", date: "2026-11-02", status: "done", value: null },
+    ]);
   });
 
   it("keeps the judged status when only the value is cleared", async () => {
@@ -179,5 +186,38 @@ describe("checkin value", () => {
 
     expect(cleared).toMatchObject({ status: "done", value: null });
     expect(await listCheckins(db)).toHaveLength(1);
+  });
+});
+
+describe("004_drop_recorded_status", () => {
+  it("converts legacy recorded rows to done and keeps value/note", () => {
+    const sqlite = new DatabaseSync(":memory:");
+    sqlite.exec(MIGRATION);
+    sqlite.exec(MIGRATION_002);
+    sqlite.exec(
+      "INSERT INTO tasks (id, name, category, sort_order, created_at, updated_at) " +
+        "VALUES ('t1', '跑步', 'voluntary', 0, '2026-11-01', '2026-11-01')",
+    );
+    sqlite.exec(
+      "INSERT INTO checkins (id, task_id, date, status, value, note, updated_at) " +
+        "VALUES ('c1', 't1', '2026-11-02', 'recorded', '3min', '备注', '2026-11-02')",
+    );
+
+    sqlite.exec(MIGRATION_004);
+
+    const row = sqlite
+      .prepare(
+        "SELECT id, task_id, date, status, value, note FROM checkins WHERE id = 'c1'",
+      )
+      .get();
+    expect(row).toEqual({
+      id: "c1",
+      task_id: "t1",
+      date: "2026-11-02",
+      status: "done",
+      value: "3min",
+      note: "备注",
+    });
+    sqlite.close();
   });
 });

@@ -24,7 +24,7 @@ vi.mock("../db/checkins", () => ({
       id: "c1",
       taskId,
       date,
-      status: "recorded",
+      status: "done",
       value,
       note: null,
       updatedAt: "2026-11-02T00:00:00.000Z",
@@ -106,7 +106,7 @@ describe("useCheckinsStore", () => {
     consoleError.mockRestore();
   });
 
-  it("writes a free-form value and marks the cell as recorded", async () => {
+  it("writes a free-form value and marks the cell as done", async () => {
     await useCheckinsStore.getState().setValue("t1", "2026-11-02", "4");
 
     expect(setCheckinValue).toHaveBeenCalledWith(
@@ -116,7 +116,7 @@ describe("useCheckinsStore", () => {
       "4",
     );
     expect(useCheckinsStore.getState().byKey.get("t1|2026-11-02")).toMatchObject({
-      status: "recorded",
+      status: "done",
       value: "4",
     });
     expect(emitCheckinsChanged).toHaveBeenCalledWith({
@@ -137,14 +137,17 @@ describe("useCheckinsStore", () => {
     });
   });
 
-  it("drops the cell when a recorded value is cleared", async () => {
-    useCheckinsStore.getState().hydrate([
-      { ...checkin, status: "recorded", value: "4" },
-    ]);
-    vi.mocked(setCheckinValue).mockResolvedValueOnce(null);
+  it("keeps the done cell when its value is cleared", async () => {
+    useCheckinsStore.getState().hydrate([{ ...checkin, value: "4" }]);
+    vi.mocked(setCheckinValue).mockResolvedValueOnce({
+      ...checkin,
+      value: null,
+    });
 
     await useCheckinsStore.getState().setValue("t1", "2026-11-02", null);
 
-    expect(useCheckinsStore.getState().byKey.has("t1|2026-11-02")).toBe(false);
+    expect(useCheckinsStore.getState().byKey.get("t1|2026-11-02")).toMatchObject(
+      { status: "done", value: null },
+    );
   });
 });
