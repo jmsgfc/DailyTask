@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -11,11 +13,34 @@ const TRAY_TOGGLE_WIDGET: &str = "tray:toggle-widget";
 const TRAY_PROGRESS: &str = "tray:progress";
 const TRAY_QUIT: &str = "tray:quit";
 
-/// 托盘里的「今日进度」菜单项，由前端在数据变化时更新文案。
+#[derive(Clone)]
+struct TrayLabels {
+    show_main: String,
+    hide_main: String,
+    show_widget: String,
+    hide_widget: String,
+    quit: String,
+}
+
+impl Default for TrayLabels {
+    fn default() -> Self {
+        Self {
+            show_main: "显示主窗口".to_string(),
+            hide_main: "隐藏主窗口".to_string(),
+            show_widget: "显示挂件".to_string(),
+            hide_widget: "隐藏挂件".to_string(),
+            quit: "退出".to_string(),
+        }
+    }
+}
+
+/// 托盘菜单项与当前语言文案；文案由前端在语言变化时下发。
 struct TrayState {
     progress: MenuItem<tauri::Wry>,
     main_item: MenuItem<tauri::Wry>,
     widget_item: MenuItem<tauri::Wry>,
+    quit_item: MenuItem<tauri::Wry>,
+    labels: Mutex<TrayLabels>,
 }
 
 #[tauri::command]
@@ -24,6 +49,33 @@ fn set_tray_progress(
     text: String,
 ) -> Result<(), String> {
     state.progress.set_text(text).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn set_tray_labels(
+    app: AppHandle,
+    state: tauri::State<'_, TrayState>,
+    show_main: String,
+    hide_main: String,
+    show_widget: String,
+    hide_widget: String,
+    quit: String,
+) -> Result<(), String> {
+    {
+        let mut labels = state
+            .labels
+            .lock()
+            .map_err(|_| "tray labels lock poisoned".to_string())?;
+        *labels = TrayLabels {
+            show_main,
+            hide_main,
+            show_widget,
+            hide_widget,
+            quit,
+        };
+    }
+    sync_tray_labels(&app);
+    Ok(())
 }
 
 fn is_visible(app: &AppHandle, label: &str) -> bool {
@@ -37,16 +89,22 @@ fn sync_tray_labels(app: &AppHandle) {
     let Some(state) = app.try_state::<TrayState>() else {
         return;
     };
+    let labels = state
+        .labels
+        .lock()
+        .map(|labels| labels.clone())
+        .unwrap_or_default();
     let _ = state.main_item.set_text(if is_visible(app, "main") {
-        "隐藏主窗口"
+        labels.hide_main.as_str()
     } else {
-        "显示主窗口"
+        labels.show_main.as_str()
     });
     let _ = state.widget_item.set_text(if is_visible(app, "widget") {
-        "隐藏挂件"
+        labels.hide_widget.as_str()
     } else {
-        "显示挂件"
+        labels.show_widget.as_str()
     });
+    let _ = state.quit_item.set_text(labels.quit.as_str());
 }
 
 fn show_main(app: &AppHandle) {
@@ -179,6 +237,8 @@ pub fn run() {
                 progress: progress_item,
                 main_item: show_main_item,
                 widget_item: show_widget_item,
+                quit_item,
+                labels: Mutex::new(TrayLabels::default()),
             });
 
             if let Some(icon) = app.default_window_icon().cloned() {
@@ -214,7 +274,10 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![set_tray_progress])
+        .invoke_handler(tauri::generate_handler![
+            set_tray_progress,
+            set_tray_labels
+        ])
         // 主窗关闭 = 隐藏到托盘（impl.md §5），单实例回调才能把它再唤回来。
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Focused(true)) {

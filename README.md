@@ -65,7 +65,8 @@ Implemented today:
 - **Task management** — table with active/scheduled/disabled status, stop and resume
   with future-only dates, and editing of the latest interval.
 - **Stats** — per-task streak and a 30-day completion rate that ignores skipped days.
-- **Settings** — theme, auto-settle, day-start hour, widget pin and autostart.
+- **Settings** — theme, language (System / 中文 / English), auto-settle, day-start hour,
+  widget pin and autostart.
 - **Backups and transfer** — seven daily database snapshots, JSON v1 export/import,
   and a pre-update snapshot before every install.
 - **Packaging and updates** — NSIS per-user installer, tray menu with today's

@@ -34,7 +34,7 @@ if (target === "widget") {
 // 开发构建带 Dev 后缀，任务栏里能和安装版区分开。
 if (import.meta.env.DEV) {
   void getCurrentWindow()
-    .setTitle(target === "widget" ? "DailyTask Dev 挂件" : "DailyTask Dev")
+    .setTitle(target === "widget" ? "DailyTask Dev Widget" : "DailyTask Dev")
     .catch(() => undefined);
 }
 

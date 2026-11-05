@@ -1,21 +1,37 @@
 import type { Locale as DateFnsLocale } from "date-fns";
 import { enUS, zhCN as dateFnsZhCN } from "date-fns/locale";
 
-import type { Language } from "../../domain/types";
+import type { Language, ResolvedLanguage } from "../../domain/types";
+import { en } from "./en";
 import { zhCN, type MessageKey, type Messages } from "./zh-CN";
 
 export type { MessageKey };
+export type { ResolvedLanguage };
 
 /** 新增语言时在这里注册；缺 key 会被 Messages 类型拦下。 */
-const locales: Partial<Record<Language, Messages>> = {
+const locales: Record<ResolvedLanguage, Messages> = {
   "zh-CN": zhCN,
+  en,
 };
 
-let current: Language = "zh-CN";
+let current: ResolvedLanguage = "zh-CN";
 let messages: Messages = zhCN;
 const listeners = new Set<() => void>();
 
-export function getLocale(): Language {
+/** system 跟随系统语言；当前只有 zh-CN / en 两套字典，其余语言回退中文。 */
+export function resolveLanguage(
+  language: Language,
+  systemLanguage = typeof navigator === "undefined"
+    ? "zh-CN"
+    : navigator.language,
+): ResolvedLanguage {
+  if (language !== "system") {
+    return language;
+  }
+  return systemLanguage.toLowerCase().startsWith("en") ? "en" : "zh-CN";
+}
+
+export function getLocale(): ResolvedLanguage {
   return current;
 }
 
@@ -24,18 +40,12 @@ export function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-/**
- * 切换语言。尚未注册的语言保持原样，避免设置里误存 "en" 时白屏。
- */
 export function setLocale(next: Language): void {
-  const nextMessages = locales[next];
-  if (!nextMessages) {
-    return;
-  }
-  current = next;
-  messages = nextMessages;
+  const resolved = resolveLanguage(next);
+  current = resolved;
+  messages = locales[resolved];
   if (typeof document !== "undefined") {
-    document.documentElement.lang = next;
+    document.documentElement.lang = resolved;
   }
   listeners.forEach((listener) => listener());
 }
@@ -55,5 +65,5 @@ export function t(
 
 /** date-fns 的 locale 跟语言设置对齐，日期文案不单独维护。 */
 export function dateLocale(language: Language): DateFnsLocale {
-  return language === "en" ? enUS : dateFnsZhCN;
+  return resolveLanguage(language) === "en" ? enUS : dateFnsZhCN;
 }

@@ -220,7 +220,7 @@ export function MainLayout() {
       <aside className="flex w-[var(--nav-width)] shrink-0 flex-col gap-0.5 overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-3">
         <nav
           ref={navRef}
-          aria-label="主导航"
+          aria-label={t("nav.aria")}
           className="flex flex-col gap-0.5"
         >
           {order.map((view, index) => {

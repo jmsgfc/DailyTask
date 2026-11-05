@@ -53,7 +53,7 @@ DailyTask/
 │  ├─ main.tsx  App.tsx
 │  ├─ app/init.ts                     # 启动串行加载：settings → tasks → checkins → todos
 │  ├─ shared/events.ts                # 事件名 + payload 类型（唯一允许 import 事件 API 的文件）
-│  ├─ shared/i18n/                    # zh-CN 字典 + t()；新增语言只需实现同一 Messages
+│  ├─ shared/i18n/                    # zh-CN / en 字典 + t()；system 跟随系统解析
 │  ├─ domain/                        # 纯 TS，无 IO、无 React，100% 可单测
 │  │  ├─ types.ts                    # Task / Checkin / Todo / Settings
 │  │  ├─ date.ts                     # logicalToday / addDays / range
@@ -311,7 +311,7 @@ status TEXT NOT NULL CHECK (status IN ('done','missed','skipped'))
 - 外观：卡面、边框、文字沿用主窗 §7.1 色板；保留 16px 圆角、8px 透明边距和中性浮动阴影。日期与正文统一使用系统无衬线，标题加粗。
 - **不做系统通知/到期提醒**（本期）：避免 Windows 通知权限、免打扰与点击跳转的额外复杂度，待办只在应用内展示。
 - 两窗口共用 `ui/tokens.css`；挂件不再挂纸感主题类，也不生成噪点纹理。
-- 托盘菜单：显示主窗口 / 显示挂件 / 今日进度 / 退出。
+- 托盘菜单：显示/隐藏主窗口、显示/隐藏挂件、今日进度、退出；静态文案由前端在语言变化时通过 `set_tray_labels` 下发。
 
 ### 5.1 跨窗口事件契约
 

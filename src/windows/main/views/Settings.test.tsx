@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS } from "../../../domain/types";
+import { setLocale } from "../../../shared/i18n";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
@@ -75,6 +76,7 @@ describe("Settings", () => {
 
   afterEach(() => {
     delete document.documentElement.dataset.theme;
+    setLocale("zh-CN");
   });
 
   it("does not render the footer version line inside the settings card", () => {
@@ -109,6 +111,20 @@ describe("Settings", () => {
 
     expect(update).toHaveBeenCalledWith({ theme: "dark" });
     expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("switches to English and persists the language", () => {
+    const { container } = render(<Settings />);
+
+    fireEvent.click(
+      container.querySelector('[data-language-option="en"]') as Element,
+    );
+
+    expect(update).toHaveBeenCalledWith({ language: "en" });
+    expect(document.documentElement.lang).toBe("en");
+    expect(
+      screen.getByRole("heading", { name: "Settings" }),
+    ).toBeInTheDocument();
   });
 
   it("resolves system back to the OS preference", () => {

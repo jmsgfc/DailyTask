@@ -6,6 +6,7 @@ import { applyTheme, watchSystemTheme } from "./ui/theme";
 import { MainLayout } from "./windows/main/MainLayout";
 import { useMainWindowBridge } from "./windows/main/useMainWindowBridge";
 import { useTrayProgress } from "./app/useTrayProgress";
+import { useTrayLabels } from "./app/useTrayLabels";
 import { useUpdateCheck } from "./app/useUpdateCheck";
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
 
   useMainWindowBridge();
   useTrayProgress();
+  useTrayLabels();
   useUpdateCheck();
 
   useEffect(() => {

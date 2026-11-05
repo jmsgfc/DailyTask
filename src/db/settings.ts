@@ -12,7 +12,7 @@ interface SettingRow {
 }
 
 const THEMES: Theme[] = ["light", "dark", "system"];
-const LANGUAGES: Language[] = ["zh-CN", "en"];
+const LANGUAGES: Language[] = ["system", "zh-CN", "en"];
 const GRID_ZOOM_MIN = 14;
 const GRID_ZOOM_MAX = 44;
 

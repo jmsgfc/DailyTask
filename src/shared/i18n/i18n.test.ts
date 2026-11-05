@@ -1,9 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { dateLocale, getLocale, setLocale, subscribe, t } from "./index";
+import {
+  dateLocale,
+  getLocale,
+  resolveLanguage,
+  setLocale,
+  subscribe,
+  t,
+} from "./index";
 
 afterEach(() => {
   setLocale("zh-CN");
+  Object.defineProperty(window.navigator, "language", {
+    configurable: true,
+    value: "zh-CN",
+  });
 });
 
 describe("t", () => {
@@ -35,11 +46,26 @@ describe("setLocale", () => {
     unsubscribe();
   });
 
-  it("ignores languages that are not registered yet", () => {
+  it("switches to English", () => {
     setLocale("en");
 
-    expect(getLocale()).toBe("zh-CN");
-    expect(t("nav.today")).toBe("今日");
+    expect(getLocale()).toBe("en");
+    expect(document.documentElement.lang).toBe("en");
+    expect(t("nav.today")).toBe("Today");
+  });
+
+  it("resolves system to English or Chinese", () => {
+    Object.defineProperty(window.navigator, "language", {
+      configurable: true,
+      value: "en-US",
+    });
+    expect(resolveLanguage("system")).toBe("en");
+
+    Object.defineProperty(window.navigator, "language", {
+      configurable: true,
+      value: "zh-CN",
+    });
+    expect(resolveLanguage("system")).toBe("zh-CN");
   });
 });
 
@@ -47,5 +73,11 @@ describe("dateLocale", () => {
   it("maps the app language to the date-fns locale", () => {
     expect(dateLocale("zh-CN").code).toBe("zh-CN");
     expect(dateLocale("en").code).toBe("en-US");
+
+    Object.defineProperty(window.navigator, "language", {
+      configurable: true,
+      value: "en-US",
+    });
+    expect(dateLocale("system").code).toBe("en-US");
   });
 });

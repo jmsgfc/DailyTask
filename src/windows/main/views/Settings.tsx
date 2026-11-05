@@ -1,7 +1,7 @@
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useEffect, useState, type ReactNode } from "react";
 
-import type { Theme } from "../../../domain/types";
+import type { Language, Theme } from "../../../domain/types";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
 import { useSettingsStore } from "../../../stores/settingsStore";
 import { useTasksStore } from "../../../stores/tasksStore";
@@ -9,6 +9,7 @@ import { useTodosStore } from "../../../stores/todosStore";
 import { useTransferStore } from "../../../stores/transferStore";
 import { useUpdateStore } from "../../../stores/updateStore";
 import { isDevBuild } from "../../../shared/env";
+import { setLocale } from "../../../shared/i18n";
 import { applyTheme } from "../../../ui/theme";
 import { useT } from "../../../ui/useT";
 
@@ -16,6 +17,7 @@ const CARD =
   "rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]";
 
 const THEMES: Theme[] = ["system", "light", "dark"];
+const LANGUAGES: Language[] = ["system", "zh-CN", "en"];
 const DAY_START_OPTIONS = Array.from({ length: 13 }, (_, hour) => hour);
 
 export default function Settings() {
@@ -65,6 +67,13 @@ export default function Settings() {
     applyTheme(next);
     void update({ theme: next }).catch((error: unknown) => {
       console.error("[settings] 保存主题失败", error);
+    });
+  };
+
+  const setLanguage = (next: Language) => {
+    setLocale(next);
+    void update({ language: next }).catch((error: unknown) => {
+      console.error("[settings] 保存语言失败", error);
     });
   };
 
@@ -175,6 +184,43 @@ export default function Settings() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="mt-3 flex items-center gap-4">
+            <span className="w-[120px] shrink-0 text-sm">
+              {t("settings.language")}
+            </span>
+            <div
+              role="group"
+              aria-label={t("settings.language")}
+              className="flex gap-0.5 rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-bg)] p-0.5"
+            >
+              {LANGUAGES.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  data-language-option={option}
+                  aria-pressed={settings.language === option}
+                  onClick={() => setLanguage(option)}
+                  className={
+                    settings.language === option
+                      ? "rounded-[var(--radius-pill)] bg-[var(--color-surface)] px-3 py-1 text-xs font-semibold text-[var(--color-text)] shadow-[0_1px_2px_rgba(0,0,0,.06)]"
+                      : "rounded-[var(--radius-pill)] px-3 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+                  }
+                >
+                  {t(
+                    option === "system"
+                      ? "settings.language.system"
+                      : option === "zh-CN"
+                        ? "settings.language.zh"
+                        : "settings.language.en",
+                  )}
+                </button>
+              ))}
+            </div>
+            <span className="text-[var(--text-2xs)] text-[var(--color-text-muted)]">
+              {t("settings.languageHint")}
+            </span>
           </div>
         </section>
 

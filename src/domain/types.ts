@@ -11,7 +11,8 @@ export type TaskCategory = "voluntary" | "forced";
 export type CheckinStatus = "done" | "missed" | "skipped";
 export type CellState = CheckinStatus | "pending" | "none";
 export type Theme = "light" | "dark" | "system";
-export type Language = "zh-CN" | "en";
+export type Language = "system" | "zh-CN" | "en";
+export type ResolvedLanguage = "zh-CN" | "en";
 
 /** 启用区间；end 为 null 表示至今有效。 */
 export interface Interval {
@@ -68,7 +69,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
-  language: "zh-CN",
+  language: "system",
   gridZoom: 32,
   autoSettleMissed: true,
   dayStartHour: 4,
