@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SqlDatabase } from "../db/client";
 import {
+  deleteTask,
   intervalFromRow,
   listTasks,
   reorderTasks,
@@ -25,12 +26,14 @@ const intervalRows: IntervalRow[] = [
     task_id: "t1",
     start_date: "2026-10-01",
     end_date: "2026-10-31",
+    every_days: 1,
   },
   {
     id: "i2",
     task_id: "t1",
     start_date: "2026-11-05",
     end_date: null,
+    every_days: 3,
   },
 ];
 
@@ -41,6 +44,7 @@ describe("intervalFromRow", () => {
       taskId: "t1",
       start: "2026-11-05",
       end: null,
+      everyDays: 3,
     });
   });
 });
@@ -76,6 +80,27 @@ describe("reorderTasks", () => {
       [0, "t2"],
       [1, "t1"],
       [2, "t3"],
+    ]);
+  });
+});
+
+describe("deleteTask", () => {
+  it("removes checkins, intervals and the task in cascade-safe order", async () => {
+    const queries: string[] = [];
+    const db: SqlDatabase = {
+      select: async <T>() => [] as T,
+      execute: async (query) => {
+        queries.push(query);
+        return { rowsAffected: 1 };
+      },
+    };
+
+    await deleteTask(db, "t1");
+
+    expect(queries.map((query) => query.split(" ")[2])).toEqual([
+      "checkins",
+      "task_intervals",
+      "tasks",
     ]);
   });
 });

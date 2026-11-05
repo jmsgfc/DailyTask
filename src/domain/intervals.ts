@@ -1,5 +1,16 @@
 export type IntervalError = "emptyStart" | "endBeforeStart" | "overlapsPrevious";
 
+export const EVERY_DAYS_MIN = 1;
+export const EVERY_DAYS_MAX = 365;
+
+/** 间隔天数只接受 1–365 的整数；坏值统一回退成 1（每天）。 */
+export function normalizeEveryDays(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return EVERY_DAYS_MIN;
+  }
+  return Math.min(EVERY_DAYS_MAX, Math.max(EVERY_DAYS_MIN, Math.trunc(value)));
+}
+
 /**
  * 编辑最新一段区间时的校验（D65）：
  * - 启用日期必填；

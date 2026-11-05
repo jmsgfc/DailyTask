@@ -4,11 +4,12 @@ import {
   useEffect,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 
-import type { CellState } from "../../domain/types";
+import type { CellState, CheckinStatus } from "../../domain/types";
 import { emitWidgetExpand } from "../../shared/events";
 import { useCheckinsStore } from "../../stores/checkinsStore";
 import {
@@ -47,6 +48,11 @@ export function Widget() {
   const updateSettings = useSettingsStore((state) => state.update);
   const [collapsed, setCollapsed] = useState(readCollapsedPreference);
   const [side, setSide] = useState<WidgetSide>(readSidePreference);
+  const [menu, setMenu] = useState<{
+    row: TodayTask;
+    x: number;
+    y: number;
+  } | null>(null);
   const initialCollapsed = useRef(collapsed);
   const initialSide = useRef(side);
 
@@ -109,12 +115,6 @@ export function Widget() {
     );
   };
 
-  const minimize = () => {
-    void getCurrentWindow().hide().catch((error: unknown) => {
-      console.error("[widget] 最小化挂件失败", error);
-    });
-  };
-
   const rows = [...data.voluntary, ...data.forced];
   const completed = data.progress.done;
   const total =
@@ -136,6 +136,48 @@ export function Widget() {
   const completeTodo = (item: DueTodoItem) => {
     void setTodoDone(item.todo.id, true);
   };
+
+  const openMenu = (row: TodayTask, event: ReactMouseEvent) => {
+    event.preventDefault();
+    const width = 148;
+    const height = 176;
+    setMenu({
+      row,
+      x: Math.min(event.clientX, Math.max(8, window.innerWidth - width - 8)),
+      y: Math.min(event.clientY, Math.max(8, window.innerHeight - height - 8)),
+    });
+  };
+
+  const applyStatus = (status: CheckinStatus | null) => {
+    if (!menu) {
+      return;
+    }
+    const { row } = menu;
+    setMenu(null);
+    void setStatus(row.task.id, data.today, status).catch(
+      (error: unknown) => {
+        console.error("[widget] 更新任务状态失败", error);
+      },
+    );
+  };
+
+  useEffect(() => {
+    if (!menu) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenu(null);
+      }
+    };
+    const onScroll = () => setMenu(null);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [menu]);
 
   if (collapsed) {
     return (
@@ -189,9 +231,6 @@ export function Widget() {
                 onClick={() => setCapsule(true)}
               >
                 <path d="M6 3.5L10.5 8 6 12.5" />
-              </WidgetAction>
-              <WidgetAction label={t("widget.minimize")} onClick={minimize}>
-                <path d="M3.5 8h9" />
               </WidgetAction>
             </div>
           </header>
@@ -272,6 +311,7 @@ export function Widget() {
                   rows={data.voluntary}
                   stat={data.voluntaryStat}
                   onComplete={complete}
+                  onMenu={openMenu}
                 />
                 <WidgetTaskGroup
                   title={t("today.group.forced")}
@@ -279,6 +319,7 @@ export function Widget() {
                   rows={data.forced}
                   stat={data.forcedStat}
                   onComplete={complete}
+                  onMenu={openMenu}
                 />
               </>
             )}
@@ -303,7 +344,63 @@ export function Widget() {
           </div>
         </div>
       </section>
+
+      {menu ? (
+        <>
+          <button
+            type="button"
+            aria-label={t("widget.menu.close")}
+            tabIndex={-1}
+            onClick={() => setMenu(null)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            role="menu"
+            data-widget-menu
+            aria-label={t("widget.menu")}
+            style={{ left: menu.x, top: menu.y }}
+            className="fixed z-50 flex w-[148px] flex-col gap-0.5 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-1.5 shadow-[var(--shadow-popover)]"
+          >
+            <p className="m-0 mb-0.5 truncate px-1 text-[10px] text-[var(--color-text-muted)]">
+              {menu.row.task.name}
+            </p>
+            <StatusMenuItem label={t("checkin.done")} onClick={() => applyStatus("done")} />
+            <StatusMenuItem label={t("checkin.missed")} onClick={() => applyStatus("missed")} />
+            <StatusMenuItem
+              label={t(
+                menu.row.state === "skipped" ? "today.unskip" : "checkin.skipped",
+              )}
+              onClick={() =>
+                applyStatus(menu.row.state === "skipped" ? null : "skipped")
+              }
+            />
+            <StatusMenuItem
+              label={t("widget.menu.clear")}
+              onClick={() => applyStatus(null)}
+            />
+          </div>
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function StatusMenuItem({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="rounded-[var(--radius-control)] px-1.5 py-1 text-left text-[11px] text-[var(--color-text)] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+    >
+      {label}
+    </button>
   );
 }
 
@@ -518,12 +615,14 @@ function WidgetTaskGroup({
   rows,
   stat,
   onComplete,
+  onMenu,
 }: {
   title: string;
   color: string;
   rows: TodayTask[];
   stat: CategoryStat;
   onComplete: (row: TodayTask) => void;
+  onMenu: (row: TodayTask, event: ReactMouseEvent) => void;
 }) {
   if (rows.length === 0) {
     return null;
@@ -547,6 +646,7 @@ function WidgetTaskGroup({
           key={row.task.id}
           row={row}
           onComplete={() => onComplete(row)}
+          onMenu={(event) => onMenu(row, event)}
         />
       ))}
     </div>
@@ -556,9 +656,11 @@ function WidgetTaskGroup({
 function WidgetTaskRow({
   row,
   onComplete,
+  onMenu,
 }: {
   row: TodayTask;
   onComplete: () => void;
+  onMenu: (event: ReactMouseEvent) => void;
 }) {
   const t = useT();
   const interactive = row.state === "pending" || row.state === "missed";
@@ -587,26 +689,38 @@ function WidgetTaskRow({
   );
 
   const base =
-    "flex h-[26px] w-full items-center gap-[6px] rounded-[5px] px-1 text-left text-[12px]";
-
-  if (!interactive) {
-    return (
-      <div data-state={row.state} className={base}>
-        {content}
-      </div>
-    );
-  }
+    "flex h-[26px] w-full items-center gap-[6px] rounded-[5px] px-1 pr-5 text-left text-[12px]";
 
   return (
-    <button
-      type="button"
-      data-state={row.state}
-      aria-label={t("widget.complete", { task: row.task.name })}
-      onClick={onComplete}
-      className={`${base} hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]`}
-    >
-      {content}
-    </button>
+    <div className="group relative" data-state={row.state}>
+      {interactive ? (
+        <button
+          type="button"
+          aria-label={t("widget.complete", { task: row.task.name })}
+          onClick={onComplete}
+          onContextMenu={onMenu}
+          className={`${base} hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]`}
+        >
+          {content}
+        </button>
+      ) : (
+        <div className={`${base} hover:bg-[var(--state-hover)]`} onContextMenu={onMenu}>
+          {content}
+        </div>
+      )}
+      <button
+        type="button"
+        data-widget-task-menu
+        aria-label={t("widget.menu.open", { task: row.task.name })}
+        onClick={(event) => {
+          event.stopPropagation();
+          onMenu(event);
+        }}
+        className="absolute right-0 top-1/2 grid size-4 -translate-y-1/2 place-items-center rounded-[3px] text-[11px] leading-none text-[var(--color-text-muted)] opacity-0 hover:bg-[var(--state-active)] focus:opacity-100 group-hover:opacity-100"
+      >
+        <span aria-hidden="true">⋯</span>
+      </button>
+    </div>
   );
 }
 

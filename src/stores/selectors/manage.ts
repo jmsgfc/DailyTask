@@ -18,6 +18,8 @@ export interface ManageRow {
   /** 最新一段区间的起止日期。 */
   start: string;
   end: string | null;
+  /** 最新一段区间的间隔天数；1 = 每天。 */
+  everyDays: number;
   /** 是否还有未结束（end = null）的区间；决定操作列给「停用」还是「重新启用」。 */
   hasOpen: boolean;
   intervalCount: number;
@@ -63,6 +65,7 @@ export function buildManageRows(tasks: Task[], today: string): ManageRow[] {
         status,
         start: latest?.start ?? "",
         end,
+        everyDays: latest?.everyDays ?? 1,
         hasOpen,
         intervalCount: task.intervals.length,
       };

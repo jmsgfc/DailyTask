@@ -238,52 +238,72 @@ export default function TaskGrid() {
     scrollTo(scrollerRef.current?.scrollLeft ?? 0);
   }, [dates.length, cellSize, effectiveWidth, scrollTo]);
 
-  // Ctrl + 滚轮缩放：以可视区中心为锚点，值写回 settings。
+  // Ctrl + 滚轮缩放；Shift + 滚轮横向滚动。两者都拦掉默认的页面滚动。
   useEffect(() => {
     const element = scrollerRef.current;
     if (!element) {
       return;
     }
     const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey || event.deltaY === 0) {
+      if (event.ctrlKey) {
+        if (event.deltaY === 0) {
+          return;
+        }
+        event.preventDefault();
+
+        const current = Math.min(
+          MAX_ZOOM,
+          Math.max(
+            MIN_ZOOM,
+            useSettingsStore.getState().settings.gridZoom,
+          ),
+        );
+        const next = Math.min(
+          MAX_ZOOM,
+          Math.max(
+            MIN_ZOOM,
+            current + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP),
+          ),
+        );
+        if (next === current) {
+          return;
+        }
+
+        const view = viewRef.current;
+        const dateViewport = Math.max(0, view.width - TASK_COL_WIDTH);
+        const centerIndex =
+          (view.scrollLeft + dateViewport / 2) / view.cellSize;
+        const max = Math.max(
+          0,
+          TASK_COL_WIDTH + view.dateCount * next - view.width,
+        );
+        const target = Math.min(
+          Math.max(0, centerIndex * next - dateViewport / 2),
+          max,
+        );
+
+        element.scrollLeft = target;
+        setScrollLeft(target);
+        void useSettingsStore.getState().update({ gridZoom: next });
+        return;
+      }
+
+      if (!event.shiftKey) {
+        return;
+      }
+      const delta = event.deltaY || event.deltaX;
+      if (delta === 0) {
         return;
       }
       event.preventDefault();
-
-      const current = Math.min(
-        MAX_ZOOM,
-        Math.max(
-          MIN_ZOOM,
-          useSettingsStore.getState().settings.gridZoom,
-        ),
-      );
-      const next = Math.min(
-        MAX_ZOOM,
-        Math.max(
-          MIN_ZOOM,
-          current + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP),
-        ),
-      );
-      if (next === current) {
-        return;
-      }
-
       const view = viewRef.current;
-      const dateViewport = Math.max(0, view.width - TASK_COL_WIDTH);
-      const centerIndex =
-        (view.scrollLeft + dateViewport / 2) / view.cellSize;
       const max = Math.max(
         0,
-        TASK_COL_WIDTH + view.dateCount * next - view.width,
+        TASK_COL_WIDTH + view.dateCount * view.cellSize - view.width,
       );
-      const target = Math.min(
-        Math.max(0, centerIndex * next - dateViewport / 2),
-        max,
-      );
-
+      const target = Math.min(Math.max(0, element.scrollLeft + delta), max);
       element.scrollLeft = target;
       setScrollLeft(target);
-      void useSettingsStore.getState().update({ gridZoom: next });
     };
 
     element.addEventListener("wheel", onWheel, { passive: false });
@@ -706,7 +726,7 @@ export default function TaskGrid() {
           ))}
         </select>
 
-        <label className="flex items-center gap-1">
+        <label className="flex shrink-0 items-center gap-1">
           {t("grid.filter.from")}
           <DateField
             data-filter-from
@@ -714,10 +734,10 @@ export default function TaskGrid() {
             onChange={(next) => setGridFilter({ from: next })}
             aria-label={t("grid.filter.from")}
             allowClear
-            className="w-[112px] rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+            className="w-[124px] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
           />
         </label>
-        <label className="flex items-center gap-1">
+        <label className="flex shrink-0 items-center gap-1">
           {t("grid.filter.to")}
           <DateField
             data-filter-to
@@ -725,7 +745,7 @@ export default function TaskGrid() {
             onChange={(next) => setGridFilter({ to: next })}
             aria-label={t("grid.filter.to")}
             allowClear
-            className="w-[112px] rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
+            className="w-[124px] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[var(--text-2xs)] text-[var(--color-text)]"
           />
         </label>
 

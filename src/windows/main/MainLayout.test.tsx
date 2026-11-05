@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DEFAULT_SETTINGS } from "../../domain/types";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useUpdateStore } from "../../stores/updateStore";
 import { MainLayout } from "./MainLayout";
@@ -12,10 +14,22 @@ const navOrder = (container: HTMLElement) =>
   );
 
 describe("MainLayout", () => {
+  const updateSettings = vi.fn(async () => undefined);
+
   beforeEach(() => {
     useUiStore.setState({ view: "today" });
     useUpdateStore.setState({ available: null });
+    useSettingsStore.setState({
+      settings: DEFAULT_SETTINGS,
+      loaded: true,
+      update: updateSettings,
+    });
+    updateSettings.mockClear();
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("switches between all six views", () => {
@@ -96,6 +110,64 @@ describe("MainLayout", () => {
     expect(JSON.parse(localStorage.getItem(NAV_ORDER_KEY) ?? "[]")).toEqual(
       expected,
     );
+    expect(updateSettings).toHaveBeenCalledWith({ navOrder: expected });
+  });
+
+  it("prefers the order stored in settings over the localStorage cache", () => {
+    localStorage.setItem(
+      NAV_ORDER_KEY,
+      JSON.stringify(["todos", "today", "grid", "manage", "stats", "settings"]),
+    );
+    const stored = ["stats", "today", "grid", "todos", "manage", "settings"];
+    useSettingsStore.setState({
+      settings: { ...DEFAULT_SETTINGS, navOrder: stored },
+      loaded: true,
+    });
+
+    const { container } = render(<MainLayout />);
+
+    expect(navOrder(container)).toEqual(stored);
+    expect(JSON.parse(localStorage.getItem(NAV_ORDER_KEY) ?? "[]")).toEqual(
+      stored,
+    );
+  });
+
+  it("migrates a custom localStorage order into settings on first mount", () => {
+    const stored = ["settings", "today", "grid", "todos", "manage", "stats"];
+    localStorage.setItem(NAV_ORDER_KEY, JSON.stringify(stored));
+
+    render(<MainLayout />);
+
+    expect(updateSettings).toHaveBeenCalledWith({ navOrder: stored });
+  });
+
+  it("only shows a grab cursor after a long press", () => {
+    vi.useFakeTimers();
+    const { container } = render(<MainLayout />);
+    const item = container.querySelector(
+      '[data-nav-item="today"]',
+    ) as HTMLElement;
+    const pointer = (type: string, clientY: number) => {
+      const event = new Event(type, { bubbles: true });
+      Object.defineProperties(event, {
+        clientY: { value: clientY },
+        button: { value: 0 },
+        pointerId: { value: 1 },
+      });
+      return event;
+    };
+
+    fireEvent(item, pointer("pointerdown", 10));
+    expect(item).toHaveClass("cursor-default");
+    expect(item).not.toHaveClass("cursor-grab");
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(item).toHaveClass("cursor-grab");
+
+    fireEvent(item, pointer("pointerup", 10));
+    expect(item).not.toHaveClass("cursor-grab");
   });
 
   it("restores the saved nav order on mount", () => {

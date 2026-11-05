@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -6,13 +7,16 @@ import {
 } from "react";
 
 import type { MessageKey } from "../../shared/i18n";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUiStore, type ViewName } from "../../stores/uiStore";
 import { useUpdateStore } from "../../stores/updateStore";
 import { Icon, type IconName } from "../../ui/Icon";
 import { useT } from "../../ui/useT";
 import {
+  DEFAULT_NAV_ORDER,
   moveNavItem,
   readNavOrder,
+  sanitizeNavOrder,
   writeNavOrder,
 } from "./navOrder";
 import Manage from "./views/Manage";
@@ -33,6 +37,9 @@ const NAV_BY_VIEW: Record<
   stats: { labelKey: "nav.stats", icon: "stats" },
   settings: { labelKey: "nav.settings", icon: "settings" },
 };
+
+/** 只有按住超过这个时长，侧栏才显示抓取光标。 */
+const LONG_PRESS_MS = 300;
 
 function renderView(view: ViewName) {
   switch (view) {
@@ -56,10 +63,16 @@ export function MainLayout() {
   const currentView = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
   const hasUpdate = useUpdateStore((state) => state.available !== null);
+  const settingsLoaded = useSettingsStore((state) => state.loaded);
+  const navOrderSetting = useSettingsStore((state) => state.settings.navOrder);
+  const updateSettings = useSettingsStore((state) => state.update);
   const [order, setOrder] = useState<ViewName[]>(readNavOrder);
   const [dragging, setDragging] = useState<ViewName | null>(null);
+  const [grabCursor, setGrabCursor] = useState<ViewName | null>(null);
   const [gap, setGap] = useState<number | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
+  const holdTimer = useRef<number | null>(null);
+  const migrated = useRef(false);
   const dragRef = useRef<{
     view: ViewName;
     startY: number;
@@ -68,9 +81,54 @@ export function MainLayout() {
   const gapRef = useRef<number | null>(null);
   const suppressClick = useRef(false);
 
+  const clearHold = () => {
+    if (holdTimer.current !== null) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  };
+
+  useEffect(
+    () => () => {
+      if (holdTimer.current !== null) {
+        window.clearTimeout(holdTimer.current);
+      }
+    },
+    [],
+  );
+
+  // settings 表是唯一事实来源；首次启动把旧 localStorage 顺序迁过去。
+  useEffect(() => {
+    if (!settingsLoaded) {
+      return;
+    }
+    if (navOrderSetting.length > 0) {
+      const next = sanitizeNavOrder(navOrderSetting);
+      setOrder(next);
+      writeNavOrder(next);
+      migrated.current = true;
+      return;
+    }
+    if (!migrated.current) {
+      migrated.current = true;
+      const cached = readNavOrder();
+      if (cached.join("|") !== DEFAULT_NAV_ORDER.join("|")) {
+        void updateSettings({ navOrder: cached }).catch((error: unknown) => {
+          console.error("[nav] 迁移侧栏顺序失败", error);
+        });
+        return;
+      }
+    }
+    setOrder([...DEFAULT_NAV_ORDER]);
+    writeNavOrder(DEFAULT_NAV_ORDER);
+  }, [navOrderSetting, settingsLoaded, updateSettings]);
+
   const applyOrder = (next: ViewName[]) => {
     setOrder(next);
     writeNavOrder(next);
+    void updateSettings({ navOrder: next }).catch((error: unknown) => {
+      console.error("[nav] 保存侧栏顺序失败", error);
+    });
   };
 
   const updateGap = (next: number | null) => {
@@ -87,6 +145,12 @@ export function MainLayout() {
     }
     dragRef.current = { view, startY: event.clientY, active: false };
     suppressClick.current = false;
+    clearHold();
+    setGrabCursor(null);
+    holdTimer.current = window.setTimeout(() => {
+      holdTimer.current = null;
+      setGrabCursor(view);
+    }, LONG_PRESS_MS);
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
@@ -101,6 +165,8 @@ export function MainLayout() {
       }
       drag.active = true;
       suppressClick.current = true;
+      clearHold();
+      setGrabCursor(null);
       setDragging(drag.view);
     }
     const nav = navRef.current;
@@ -116,6 +182,8 @@ export function MainLayout() {
   const endDrag = () => {
     const drag = dragRef.current;
     dragRef.current = null;
+    clearHold();
+    setGrabCursor(null);
     const targetGap = gapRef.current;
     if (drag?.active && targetGap !== null) {
       const from = order.indexOf(drag.view);
@@ -148,8 +216,8 @@ export function MainLayout() {
   };
 
   return (
-    <div className="flex h-full bg-[var(--color-bg)] text-[var(--color-text)]">
-      <aside className="flex w-[var(--nav-width)] shrink-0 flex-col gap-0.5 border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-3">
+    <div className="flex h-full overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]">
+      <aside className="flex w-[var(--nav-width)] shrink-0 flex-col gap-0.5 overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-3">
         <nav
           ref={navRef}
           aria-label="主导航"
@@ -188,8 +256,12 @@ export function MainLayout() {
                     active
                       ? "bg-[var(--state-selected)] font-semibold text-[var(--color-voluntary)]"
                       : "text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
-                  } flex h-9 w-full touch-none cursor-grab items-center gap-2 rounded-[var(--radius-control)] px-2 text-left active:cursor-grabbing ${
-                    draggingThis ? "opacity-50" : ""
+                  } flex h-9 w-full touch-none cursor-default items-center gap-2 rounded-[var(--radius-control)] px-2 text-left ${
+                    draggingThis
+                      ? "cursor-grabbing opacity-50"
+                      : grabCursor === view
+                        ? "cursor-grab"
+                        : ""
                   }`}
                 >
                   <Icon name={item.icon} />
@@ -212,7 +284,7 @@ export function MainLayout() {
         </div>
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col gap-4 p-6">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden p-6">
         {renderView(currentView)}
       </section>
     </div>

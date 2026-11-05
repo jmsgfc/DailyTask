@@ -5,6 +5,7 @@ import type {
   Task,
   Todo,
 } from "../domain/types";
+import { normalizeEveryDays } from "../domain/intervals";
 import type { SqlDatabase } from "./client";
 import { listCheckins } from "./checkins";
 import { getSettings, sanitizeSettings, setSettings } from "./settings";
@@ -108,7 +109,12 @@ function isInterval(value: unknown): value is Interval {
     isString(value.id) &&
     isString(value.taskId) &&
     isString(value.start) &&
-    isNullableString(value.end)
+    isNullableString(value.end) &&
+    (value.everyDays === undefined ||
+      (typeof value.everyDays === "number" &&
+        Number.isInteger(value.everyDays) &&
+        value.everyDays >= 1 &&
+        value.everyDays <= 365))
   );
 }
 
@@ -167,7 +173,10 @@ export function parseImportBundle(text: string): ExportBundle {
     version: 1,
     exportedAt: isString(raw.exportedAt) ? raw.exportedAt : new Date().toISOString(),
     tasks: arrayOf(raw.tasks, isExportTask),
-    intervals: arrayOf(raw.intervals, isInterval),
+    intervals: arrayOf(raw.intervals, isInterval).map((interval) => ({
+      ...interval,
+      everyDays: normalizeEveryDays(interval.everyDays),
+    })),
     checkins: arrayOf(raw.checkins, isCheckin),
     todos: arrayOf(raw.todos, isTodo),
     settings: sanitizeSettings(isRecord(raw.settings) ? raw.settings : {}),
@@ -209,11 +218,17 @@ export async function importData(
 
   for (const interval of bundle.intervals) {
     await db.execute(
-      "INSERT INTO task_intervals (id, task_id, start_date, end_date) " +
-        "VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET " +
+      "INSERT INTO task_intervals (id, task_id, start_date, end_date, every_days) " +
+        "VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET " +
         "task_id = excluded.task_id, start_date = excluded.start_date, " +
-        "end_date = excluded.end_date",
-      [interval.id, interval.taskId, interval.start, interval.end],
+        "end_date = excluded.end_date, every_days = excluded.every_days",
+      [
+        interval.id,
+        interval.taskId,
+        interval.start,
+        interval.end,
+        normalizeEveryDays(interval.everyDays),
+      ],
     );
   }
 

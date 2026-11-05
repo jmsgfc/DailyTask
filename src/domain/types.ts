@@ -19,6 +19,8 @@ export interface Interval {
   taskId: string;
   start: string;
   end: string | null;
+  /** 每 N 天一次；1 = 每天。以 start 为第 1 天，缺省按 1 处理。 */
+  everyDays?: number;
 }
 
 export interface Task {
@@ -60,6 +62,8 @@ export interface Settings {
   dayStartHour: number;
   alwaysOnTop: boolean;
   autoLaunch: boolean;
+  /** 侧边栏顺序；空数组表示使用默认顺序。 */
+  navOrder: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -70,4 +74,5 @@ export const DEFAULT_SETTINGS: Settings = {
   dayStartHour: 4,
   alwaysOnTop: true,
   autoLaunch: false,
+  navOrder: [],
 };

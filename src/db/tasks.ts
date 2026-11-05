@@ -3,6 +3,7 @@ import type {
   Task,
   TaskCategory,
 } from "../domain/types";
+import { normalizeEveryDays } from "../domain/intervals";
 import type { SqlDatabase } from "./client";
 
 export interface TaskRow {
@@ -19,6 +20,7 @@ export interface IntervalRow {
   task_id: string;
   start_date: string;
   end_date: string | null;
+  every_days: number;
 }
 
 export function intervalFromRow(row: IntervalRow): Interval {
@@ -27,6 +29,7 @@ export function intervalFromRow(row: IntervalRow): Interval {
     taskId: row.task_id,
     start: row.start_date,
     end: row.end_date,
+    everyDays: normalizeEveryDays(row.every_days),
   };
 }
 
@@ -62,7 +65,7 @@ export async function listTasks(db: SqlDatabase): Promise<Task[]> {
         "FROM tasks ORDER BY sort_order ASC, created_at ASC",
     ),
     db.select<IntervalRow[]>(
-      "SELECT id, task_id, start_date, end_date " +
+      "SELECT id, task_id, start_date, end_date, every_days " +
         "FROM task_intervals ORDER BY start_date ASC",
     ),
   ]);
@@ -75,6 +78,7 @@ export interface CreateTaskInput {
   name: string;
   category: TaskCategory;
   startDate: string;
+  everyDays?: number;
   order?: number;
 }
 
@@ -101,11 +105,18 @@ export async function createTask(
     taskId: id,
     start: input.startDate,
     end: null,
+    everyDays: normalizeEveryDays(input.everyDays),
   };
   await db.execute(
-    "INSERT INTO task_intervals (id, task_id, start_date, end_date) " +
-      "VALUES (?, ?, ?, ?)",
-    [interval.id, interval.taskId, interval.start, interval.end],
+    "INSERT INTO task_intervals (id, task_id, start_date, end_date, every_days) " +
+      "VALUES (?, ?, ?, ?, ?)",
+    [
+      interval.id,
+      interval.taskId,
+      interval.start,
+      interval.end,
+      interval.everyDays,
+    ],
   );
 
   return {
@@ -158,6 +169,9 @@ export async function updateTask(
 }
 
 export async function deleteTask(db: SqlDatabase, id: string): Promise<void> {
+  // SQLite 外键默认可能关闭，级联删除不要只依赖 ON DELETE CASCADE。
+  await db.execute("DELETE FROM checkins WHERE task_id = ?", [id]);
+  await db.execute("DELETE FROM task_intervals WHERE task_id = ?", [id]);
   await db.execute("DELETE FROM tasks WHERE id = ?", [id]);
 }
 
@@ -193,30 +207,40 @@ export async function appendInterval(
   db: SqlDatabase,
   taskId: string,
   startDate: string,
+  everyDays = 1,
 ): Promise<Interval> {
   const interval: Interval = {
     id: crypto.randomUUID(),
     taskId,
     start: startDate,
     end: null,
+    everyDays: normalizeEveryDays(everyDays),
   };
   await db.execute(
-    "INSERT INTO task_intervals (id, task_id, start_date, end_date) " +
-      "VALUES (?, ?, ?, ?)",
-    [interval.id, interval.taskId, interval.start, interval.end],
+    "INSERT INTO task_intervals (id, task_id, start_date, end_date, every_days) " +
+      "VALUES (?, ?, ?, ?, ?)",
+    [
+      interval.id,
+      interval.taskId,
+      interval.start,
+      interval.end,
+      interval.everyDays,
+    ],
   );
   return interval;
 }
 
-/** 编辑单段区间的起止日期（M5 D65）；历史区间默认只读，由 UI 限定。 */
+/** 编辑单段区间的起止日期与间隔天数（M5 D65）；历史区间默认只读，由 UI 限定。 */
 export async function updateIntervalDates(
   db: SqlDatabase,
   intervalId: string,
   startDate: string,
   endDate: string | null,
+  everyDays = 1,
 ): Promise<void> {
   await db.execute(
-    "UPDATE task_intervals SET start_date = ?, end_date = ? WHERE id = ?",
-    [startDate, endDate, intervalId],
+    "UPDATE task_intervals SET start_date = ?, end_date = ?, every_days = ? " +
+      "WHERE id = ?",
+    [startDate, endDate, normalizeEveryDays(everyDays), intervalId],
   );
 }

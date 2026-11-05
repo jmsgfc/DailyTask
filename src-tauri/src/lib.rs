@@ -6,14 +6,16 @@ use tauri::{
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 const DB_URL: &str = "sqlite:dailytask.db";
-const TRAY_SHOW_MAIN: &str = "tray:show-main";
-const TRAY_SHOW_WIDGET: &str = "tray:show-widget";
+const TRAY_TOGGLE_MAIN: &str = "tray:toggle-main";
+const TRAY_TOGGLE_WIDGET: &str = "tray:toggle-widget";
 const TRAY_PROGRESS: &str = "tray:progress";
 const TRAY_QUIT: &str = "tray:quit";
 
 /// 托盘里的「今日进度」菜单项，由前端在数据变化时更新文案。
 struct TrayState {
     progress: MenuItem<tauri::Wry>,
+    main_item: MenuItem<tauri::Wry>,
+    widget_item: MenuItem<tauri::Wry>,
 }
 
 #[tauri::command]
@@ -24,12 +26,36 @@ fn set_tray_progress(
     state.progress.set_text(text).map_err(|error| error.to_string())
 }
 
+fn is_visible(app: &AppHandle, label: &str) -> bool {
+    app.get_webview_window(label)
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false)
+}
+
+/// 托盘菜单复用同一项：可见时显示「隐藏」，不可见时显示「显示」。
+fn sync_tray_labels(app: &AppHandle) {
+    let Some(state) = app.try_state::<TrayState>() else {
+        return;
+    };
+    let _ = state.main_item.set_text(if is_visible(app, "main") {
+        "隐藏主窗口"
+    } else {
+        "显示主窗口"
+    });
+    let _ = state.widget_item.set_text(if is_visible(app, "widget") {
+        "隐藏挂件"
+    } else {
+        "显示挂件"
+    });
+}
+
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
+    sync_tray_labels(app);
 }
 
 fn show_widget(app: &AppHandle) {
@@ -37,6 +63,32 @@ fn show_widget(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+    sync_tray_labels(app);
+}
+
+fn toggle_main(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if is_visible(app, "main") {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }
+    sync_tray_labels(app);
+}
+
+fn toggle_widget(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("widget") {
+        if is_visible(app, "widget") {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+    sync_tray_labels(app);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -52,6 +104,12 @@ pub fn run() {
             version: 2,
             description: "checkin value",
             sql: include_str!("../migrations/002_checkin_value.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "task interval every days",
+            sql: include_str!("../migrations/003_task_interval_every_days.sql"),
             kind: MigrationKind::Up,
         },
     ];
@@ -82,10 +140,20 @@ pub fn run() {
                 false,
                 None::<&str>,
             )?;
-            let show_main_item =
-                MenuItem::with_id(app, TRAY_SHOW_MAIN, "显示主窗口", true, None::<&str>)?;
-            let show_widget_item =
-                MenuItem::with_id(app, TRAY_SHOW_WIDGET, "显示挂件", true, None::<&str>)?;
+            let show_main_item = MenuItem::with_id(
+                app,
+                TRAY_TOGGLE_MAIN,
+                "隐藏主窗口",
+                true,
+                None::<&str>,
+            )?;
+            let show_widget_item = MenuItem::with_id(
+                app,
+                TRAY_TOGGLE_WIDGET,
+                "隐藏挂件",
+                true,
+                None::<&str>,
+            )?;
             let quit_item = MenuItem::with_id(app, TRAY_QUIT, "退出", true, None::<&str>)?;
             let separator_a = PredefinedMenuItem::separator(app)?;
             let separator_b = PredefinedMenuItem::separator(app)?;
@@ -103,6 +171,8 @@ pub fn run() {
 
             app.manage(TrayState {
                 progress: progress_item,
+                main_item: show_main_item,
+                widget_item: show_widget_item,
             });
 
             if let Some(icon) = app.default_window_icon().cloned() {
@@ -118,8 +188,8 @@ pub fn run() {
                     .menu(&menu)
                     .show_menu_on_left_click(false)
                     .on_menu_event(|app, event| match event.id().as_ref() {
-                        TRAY_SHOW_MAIN => show_main(app),
-                        TRAY_SHOW_WIDGET => show_widget(app),
+                        TRAY_TOGGLE_MAIN => toggle_main(app),
+                        TRAY_TOGGLE_WIDGET => toggle_widget(app),
                         TRAY_QUIT => app.exit(0),
                         _ => {}
                     })
@@ -141,10 +211,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![set_tray_progress])
         // 主窗关闭 = 隐藏到托盘（impl.md §5），单实例回调才能把它再唤回来。
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Focused(true)) {
+                sync_tray_labels(window.app_handle());
+            }
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = window.hide();
+                    sync_tray_labels(window.app_handle());
                 }
             }
         })

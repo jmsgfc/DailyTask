@@ -64,7 +64,11 @@ export default function Today() {
         </span>
       </header>
 
-      <section className={`${CARD} flex items-center gap-6 px-6 py-4`}>
+      <div
+        data-today-scroll
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1"
+      >
+        <section className={`${CARD} flex items-center gap-6 px-6 py-4`}>
         <ProgressRing done={data.progress.done} total={total} />
         <div className="flex flex-col gap-0.5">
           <div>{t("today.doneOfTotal", { done: data.progress.done, total })}</div>
@@ -142,6 +146,7 @@ export default function Today() {
           ))}
         </section>
       ) : null}
+      </div>
     </>
   );
 }

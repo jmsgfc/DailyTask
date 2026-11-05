@@ -77,6 +77,12 @@ describe("Settings", () => {
     delete document.documentElement.dataset.theme;
   });
 
+  it("does not render the footer version line inside the settings card", () => {
+    const { container } = render(<Settings />);
+
+    expect(container).not.toHaveTextContent("DailyTask v");
+  });
+
   it("marks the configured theme as pressed", () => {
     useSettingsStore.setState({
       settings: { ...DEFAULT_SETTINGS, theme: "light" },

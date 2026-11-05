@@ -46,6 +46,13 @@ describe("sanitizeSettings", () => {
     expect(sanitizeSettings({ gridZoom: 4 }).gridZoom).toBe(14);
     expect(sanitizeSettings({ gridZoom: 100 }).gridZoom).toBe(44);
   });
+
+  it("keeps a string navOrder and rejects mixed values", () => {
+    const order = ["settings", "today", "grid", "todos", "manage", "stats"];
+
+    expect(sanitizeSettings({ navOrder: order }).navOrder).toEqual(order);
+    expect(sanitizeSettings({ navOrder: ["today", 3] }).navOrder).toEqual([]);
+  });
 });
 
 describe("getSettings", () => {

@@ -424,6 +424,22 @@ describe("TaskGrid", () => {
     expect(updateSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("scrolls horizontally with Shift + wheel without zooming", () => {
+    const { container } = render(<TaskGrid />);
+    const scroller = container.querySelector(
+      "[data-grid-scroller]",
+    ) as HTMLElement;
+    const section = container.querySelector(
+      "[data-grid-zoom]",
+    ) as HTMLElement;
+    const before = Number(section.dataset.gridScroll);
+
+    fireEvent.wheel(scroller, { shiftKey: true, deltaY: 120 });
+
+    expect(Number(section.dataset.gridScroll)).toBeGreaterThan(before);
+    expect(updateSettings).not.toHaveBeenCalled();
+  });
+
   it("filters rows by category and by task", () => {
     const { container } = render(<TaskGrid />);
 

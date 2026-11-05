@@ -385,10 +385,6 @@ export default function Settings() {
             ) : null}
           </section>
         )}
-
-        <p className="mt-auto text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-          {t("settings.version", { version: __APP_VERSION__ })}
-        </p>
       </div>
     </>
   );

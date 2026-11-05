@@ -8,7 +8,7 @@ const TODAY = "2026-11-04";
 function task(
   id: string,
   order: number,
-  intervals: { start: string; end: string | null }[],
+  intervals: { start: string; end: string | null; everyDays?: number }[],
 ): Task {
   return {
     id,
@@ -47,6 +47,15 @@ describe("buildManageRows", () => {
       "disabled",
     ]);
     expect(rows[2].end).toBe("2026-10-01");
+  });
+
+  it("exposes the latest segment everyDays value", () => {
+    const rows = buildManageRows(
+      [task("cyclic", 0, [{ start: "2026-10-01", end: null, everyDays: 3 }])],
+      TODAY,
+    );
+
+    expect(rows[0].everyDays).toBe(3);
   });
 
   it("keeps earlier segments visible only as a count", () => {

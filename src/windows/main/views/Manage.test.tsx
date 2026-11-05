@@ -27,12 +27,17 @@ const closeInterval = vi.fn(async (taskId: string, endDate: string) => {
 });
 
 const appendInterval = vi.fn(
-  async (taskId: string, startDate: string): Promise<void> => {
+  async (
+    taskId: string,
+    startDate: string,
+    everyDays = 1,
+  ): Promise<void> => {
     const interval: Interval = {
       id: `${taskId}-new`,
       taskId,
       start: startDate,
       end: null,
+      everyDays,
     };
     withIntervals(taskId, (task) => [...task.intervals, interval]);
   },
@@ -56,7 +61,7 @@ const update = vi.fn(
 const updateInterval = vi.fn(
   async (
     intervalId: string,
-    patch: { start: string; end: string | null },
+    patch: { start: string; end: string | null; everyDays?: number },
   ) => {
     useTasksStore.setState({
       tasks: useTasksStore.getState().tasks.map((task) => ({
@@ -69,18 +74,31 @@ const updateInterval = vi.fn(
   },
 );
 
+const remove = vi.fn(async (taskId: string) => {
+  useTasksStore.setState({
+    tasks: useTasksStore.getState().tasks.filter((task) => task.id !== taskId),
+  });
+});
+
 const create = vi.fn(
   async (input: {
     name: string;
     category: Task["category"];
     startDate: string;
+    everyDays?: number;
   }) => {
     const created: Task = {
       id: "created",
       name: input.name,
       category: input.category,
       intervals: [
-        { id: "created-i", taskId: "created", start: input.startDate, end: null },
+        {
+          id: "created-i",
+          taskId: "created",
+          start: input.startDate,
+          end: null,
+          everyDays: input.everyDays ?? 1,
+        },
       ],
       order: 99,
       createdAt: "2026-11-04T00:00:00.000Z",
@@ -124,6 +142,7 @@ describe("Manage", () => {
     appendInterval.mockClear();
     update.mockClear();
     updateInterval.mockClear();
+    remove.mockClear();
 
     useSettingsStore.setState({ settings: DEFAULT_SETTINGS, loaded: true });
     useTasksStore.setState({
@@ -133,6 +152,7 @@ describe("Manage", () => {
       appendInterval,
       update,
       updateInterval,
+      remove,
       tasks: [
         task("t1", "跑步", "voluntary", 0, [
           { start: "2026-09-01", end: "2026-10-01" },
@@ -208,6 +228,7 @@ describe("Manage", () => {
       name: "阅读",
       category: "forced",
       startDate: "2026-11-04",
+      everyDays: 1,
     });
     expect(
       container.querySelector('[data-manage-row="created"]'),
@@ -215,8 +236,49 @@ describe("Manage", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("blocks blank names and closes on cancel", () => {
+  it("creates and edits a task with an every-N-days interval", () => {
     const { container } = render(<Manage />);
+
+    fireEvent.click(container.querySelector("[data-manage-new]") as Element);
+    fireEvent.change(container.querySelector("[data-new-name]") as Element, {
+      target: { value: "健身" },
+    });
+    fireEvent.change(
+      container.querySelector('[data-every-days="new"]') as Element,
+      { target: { value: "3" } },
+    );
+    fireEvent.click(container.querySelector("[data-new-submit]") as Element);
+
+    expect(create).toHaveBeenCalledWith({
+      name: "健身",
+      category: "voluntary",
+      startDate: "2026-11-04",
+      everyDays: 3,
+    });
+    expect(
+      container.querySelector('[data-manage-row="created"]'),
+    ).toHaveTextContent("每 3 天");
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t1"] [data-manage-action="edit"]',
+      ) as Element,
+    );
+    expect(container.querySelector('[data-every-days="edit"]')).toHaveValue(1);
+    fireEvent.change(
+      container.querySelector('[data-every-days="edit"]') as Element,
+      { target: { value: "2" } },
+    );
+    fireEvent.click(container.querySelector("[data-edit-submit]") as Element);
+
+    expect(updateInterval).toHaveBeenCalledWith("t1-1", {
+      start: "2026-10-16",
+      end: null,
+      everyDays: 2,
+    });
+  });
+
+  it("blocks blank names and closes on cancel", () => {    const { container } = render(<Manage />);
 
     fireEvent.click(container.querySelector("[data-manage-new]") as Element);
     expect(container.querySelector("[data-new-submit]")).toBeDisabled();
@@ -266,7 +328,7 @@ describe("Manage", () => {
     );
     fireEvent.click(container.querySelector("[data-interval-submit]") as Element);
 
-    expect(appendInterval).toHaveBeenCalledWith("t3", "2026-11-04");
+    expect(appendInterval).toHaveBeenCalledWith("t3", "2026-11-04", 1);
     const row = container.querySelector('[data-manage-row="t3"]') as HTMLElement;
     expect(row).toHaveTextContent("2 段");
     expect(row).toHaveAttribute("data-status", "active");
@@ -346,6 +408,9 @@ describe("Manage", () => {
     );
     expect(container.querySelector("[data-edit-open]")).toBeChecked();
     expect(container.querySelector("[data-edit-end]")).toBeDisabled();
+    expect(
+      container.querySelector("[data-edit-end]")?.closest("[data-date-field]"),
+    ).toHaveClass("min-w-0");
     expect(screen.getByText("09/01 – 10/01")).toBeInTheDocument();
 
     fireEvent.change(container.querySelector("[data-edit-name]") as Element, {
@@ -363,6 +428,7 @@ describe("Manage", () => {
     expect(updateInterval).toHaveBeenCalledWith("t1-1", {
       start: "2026-10-20",
       end: null,
+      everyDays: 1,
     });
     expect(
       container.querySelector('[data-manage-row="t1"]'),
@@ -396,5 +462,54 @@ describe("Manage", () => {
     ).toBeInTheDocument();
     expect(container.querySelector("[data-edit-submit]")).toBeDisabled();
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("deletes a task only after confirmation", async () => {
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t2"] [data-manage-action="delete"]',
+      ) as Element,
+    );
+    expect(container.querySelector("[data-delete-task]")).toBeInTheDocument();
+    expect(container.querySelector("[data-delete-task]")).toHaveTextContent(
+      "启用区间与全部打卡记录会一并删除",
+    );
+
+    fireEvent.click(container.querySelector("[data-delete-cancel]") as Element);
+    expect(container.querySelector("[data-delete-task]")).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t2"] [data-manage-action="delete"]',
+      ) as Element,
+    );
+    fireEvent.click(container.querySelector("[data-delete-confirm]") as Element);
+    await act(async () => undefined);
+
+    expect(remove).toHaveBeenCalledWith("t2");
+    expect(
+      container.querySelector('[data-manage-row="t2"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the delete dialog open when removal fails", async () => {
+    remove.mockRejectedValueOnce(new Error("database is locked"));
+    const { container } = render(<Manage />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-manage-row="t2"] [data-manage-action="delete"]',
+      ) as Element,
+    );
+    fireEvent.click(container.querySelector("[data-delete-confirm]") as Element);
+    await act(async () => undefined);
+
+    expect(container.querySelector("[data-delete-error]")).toHaveTextContent(
+      "删除失败",
+    );
+    expect(container.querySelector("[data-delete-task]")).toBeInTheDocument();
   });
 });

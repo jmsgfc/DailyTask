@@ -204,7 +204,8 @@ export function DateField({
   return (
     <div
       ref={rootRef}
-      className={`relative flex items-center ${className ?? ""}`}
+      data-date-field
+      className={`relative flex min-w-0 items-center ${className ?? ""}`}
     >
       <input
         {...inputProps}

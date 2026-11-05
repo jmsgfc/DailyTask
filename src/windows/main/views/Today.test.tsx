@@ -55,6 +55,10 @@ describe("Today due todos", () => {  beforeEach(() => {
   it("renders overdue before today in one block and drops future/done items", () => {
     const { container } = render(<Today />);
 
+    expect(container.querySelector("[data-today-scroll]")).toHaveClass(
+      "overflow-y-auto",
+    );
+
     const rows = Array.from(container.querySelectorAll("[data-group]"));
     expect(rows.map((row) => row.getAttribute("data-group"))).toEqual([
       "overdue",

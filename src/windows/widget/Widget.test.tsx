@@ -258,6 +258,31 @@ describe("Widget", () => {
     expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "done");
   });
 
+  it("marks missed, skipped and cleared from the task menu", () => {
+    const setStatus = vi.fn(async () => undefined);
+    useCheckinsStore.setState({ setStatus });
+    render(<Widget />);
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "完成 跑步" }));
+    expect(screen.getByRole("menu", { name: "任务操作" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "未完成" }));
+    expect(setStatus).toHaveBeenCalledWith("t1", TODAY, "missed");
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "完成 跑步" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "清除" }));
+    expect(setStatus).toHaveBeenCalledWith("t1", TODAY, null);
+
+    // 已完成行也能打开菜单，改成跳过。
+    fireEvent.contextMenu(screen.getByText("开会"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "今天不做" }));
+    expect(setStatus).toHaveBeenCalledWith("t2", TODAY, "skipped");
+
+    // 已跳过行显示「取消」，点清除写 null。
+    fireEvent.contextMenu(screen.getByText("背单词"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "取消" }));
+    expect(setStatus).toHaveBeenCalledWith("t3", TODAY, null);
+  });
+
   it("asks the main window to expand and collapses the widget", async () => {
     render(<Widget />);
 
@@ -360,7 +385,7 @@ describe("Widget", () => {
     ).toBeInTheDocument();
   });
 
-  it("toggles always-on-top and hides the widget", async () => {
+  it("toggles always-on-top without a minimize action", async () => {
     vi.useRealTimers();
     const update = vi.fn(async (patch: Partial<Settings>) => {
       useSettingsStore.setState({
@@ -383,8 +408,10 @@ describe("Widget", () => {
       expect(windowApi.setAlwaysOnTop).toHaveBeenCalledWith(false),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "最小化挂件" }));
-    expect(windowApi.hide).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "最小化挂件" }),
+    ).not.toBeInTheDocument();
+    expect(windowApi.hide).not.toHaveBeenCalled();
   });
 
   it("shows an empty state when nothing is scheduled", () => {

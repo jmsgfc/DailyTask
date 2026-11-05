@@ -20,6 +20,7 @@ export interface TasksState {
     name: string;
     category: TaskCategory;
     startDate: string;
+    everyDays?: number;
   }) => Promise<Task>;
   update: (
     id: string,
@@ -27,11 +28,15 @@ export interface TasksState {
   ) => Promise<void>;
   remove: (id: string) => Promise<void>;
   closeInterval: (taskId: string, endDate: string) => Promise<void>;
-  appendInterval: (taskId: string, startDate: string) => Promise<void>;
-  /** 编辑最新一段区间的起止日期。 */
+  appendInterval: (
+    taskId: string,
+    startDate: string,
+    everyDays?: number,
+  ) => Promise<void>;
+  /** 编辑最新一段区间的起止日期与间隔天数。 */
   updateInterval: (
     intervalId: string,
-    patch: { start: string; end: string | null },
+    patch: { start: string; end: string | null; everyDays?: number },
   ) => Promise<void>;
   /** 按传入的全局顺序重排任务（拖拽排序）。 */
   reorder: (taskIds: string[]) => Promise<void>;
@@ -103,12 +108,13 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
       notifyTasksChanged();
     }),
 
-  appendInterval: (taskId, startDate) =>
+  appendInterval: (taskId, startDate, everyDays) =>
     enqueueWrite(async () => {
       const interval = await repo.appendInterval(
         await getDb(),
         taskId,
         startDate,
+        everyDays,
       );
       const stamp = now();
       set({
@@ -132,6 +138,7 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
         intervalId,
         patch.start,
         patch.end,
+        patch.everyDays,
       );
       const stamp = now();
       set({
@@ -144,7 +151,12 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
             updatedAt: stamp,
             intervals: task.intervals.map((interval) =>
               interval.id === intervalId
-                ? { ...interval, start: patch.start, end: patch.end }
+                ? {
+                    ...interval,
+                    start: patch.start,
+                    end: patch.end,
+                    everyDays: patch.everyDays ?? interval.everyDays ?? 1,
+                  }
                 : interval,
             ),
           };

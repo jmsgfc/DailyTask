@@ -23,11 +23,17 @@ const MIGRATION_002 = readFileSync(
   "utf8",
 );
 
+const MIGRATION_003 = readFileSync(
+  resolve(process.cwd(), "src-tauri/migrations/003_task_interval_every_days.sql"),
+  "utf8",
+);
+
 /** 真实 SQLite：验证停用/重新启用只追加区间，历史区间与打卡行都不动。 */
 function createDb(): SqlDatabase {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(MIGRATION);
   sqlite.exec(MIGRATION_002);
+  sqlite.exec(MIGRATION_003);
   sqlite.exec(
     "INSERT INTO tasks (id, name, category, sort_order, created_at, updated_at) " +
       "VALUES ('t1', '跑步', 'voluntary', 0, '2026-10-01', '2026-10-01')",
@@ -94,9 +100,9 @@ describe("interval history", () => {
   it("editing the latest interval leaves the earlier segment untouched", async () => {
     const db = createDb();
     await closeOpenInterval(db, "t1", "2026-11-04");
-    const second = await appendInterval(db, "t1", "2026-11-10");
+    const second = await appendInterval(db, "t1", "2026-11-10", 3);
 
-    await updateIntervalDates(db, second.id, "2026-11-12", "2026-12-01");
+    await updateIntervalDates(db, second.id, "2026-11-12", "2026-12-01", 2);
 
     const [task] = await listTasks(db);
     expect(task.intervals).toEqual([
@@ -105,6 +111,7 @@ describe("interval history", () => {
         id: second.id,
         start: "2026-11-12",
         end: "2026-12-01",
+        everyDays: 2,
       }),
     ]);
   });

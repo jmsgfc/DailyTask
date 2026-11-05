@@ -106,6 +106,21 @@ describe("taskStreak", () => {
     expect(taskStreak(makeTask(), checkins, TODAY, off)).toBe(2);
   });
 
+  it("does not count or break on off-cycle days", () => {
+    const task: Task = {
+      ...makeTask("2026-11-02"),
+      intervals: [
+        { id: "i1", taskId: "t1", start: "2026-11-02", end: null, everyDays: 2 },
+      ],
+    };
+    const checkins = withCheckins([
+      ["2026-11-10", "done"],
+      ["2026-11-08", "done"],
+      ["2026-11-06", "done"],
+    ]);
+
+    expect(taskStreak(task, checkins, TODAY, settings)).toBe(3);  });
+
   it("returns 0 for a task without intervals", () => {
     expect(
       taskStreak(
@@ -142,6 +157,21 @@ describe("completionRate30", () => {
 
     // 区间只覆盖 10-01/10-02，均在窗口外。
     expect(completionRate30(task, checkins, TODAY, settings)).toBe(0);
+  });
+
+  it("ignores off-cycle days in the denominator", () => {
+    const task: Task = {
+      ...makeTask("2026-10-12"),
+      intervals: [
+        { id: "i1", taskId: "t1", start: "2026-10-12", end: null, everyDays: 3 },
+      ],
+    };
+    const checkins = withCheckins([["2026-11-08", "done"]]);
+
+    // 30 天窗口内命中 10 天：1 done + 9 投影 missed。
+    expect(completionRate30(task, checkins, TODAY, settings)).toBeCloseTo(
+      1 / 10,
+    );
   });
 
   it("returns 0 when there is nothing to settle", () => {

@@ -153,6 +153,24 @@ describe("parseImportBundle", () => {
       ),
     ).toThrow("invalid-structure");
   });
+
+  it("defaults everyDays to 1 for bundles written before the field existed", () => {
+    const bundle = parseImportBundle(
+      JSON.stringify({
+        ...valid,
+        intervals: [
+          {
+            id: "i1",
+            taskId: "t1",
+            start: "2026-10-01",
+            end: null,
+          },
+        ],
+      }),
+    );
+
+    expect(bundle.intervals[0].everyDays).toBe(1);
+  });
 });
 
 const MIGRATION = readFileSync(
@@ -163,11 +181,16 @@ const MIGRATION_002 = readFileSync(
   resolve(process.cwd(), "src-tauri/migrations/002_checkin_value.sql"),
   "utf8",
 );
+const MIGRATION_003 = readFileSync(
+  resolve(process.cwd(), "src-tauri/migrations/003_task_interval_every_days.sql"),
+  "utf8",
+);
 
 function createDb(seed = true): SqlDatabase {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(MIGRATION);
   sqlite.exec(MIGRATION_002);
+  sqlite.exec(MIGRATION_003);
   if (seed) {
     sqlite.exec(
       "INSERT INTO tasks (id, name, category, sort_order, created_at, updated_at) " +

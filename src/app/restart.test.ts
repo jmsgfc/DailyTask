@@ -15,6 +15,7 @@ import { loadAppData } from "./init";
 const MIGRATION = [
   "001_init.sql",
   "002_checkin_value.sql",
+  "003_task_interval_every_days.sql",
 ]
   .map((name) =>
     readFileSync(resolve(process.cwd(), "src-tauri/migrations", name), "utf8"),

@@ -59,6 +59,11 @@ export function sanitizeSettings(raw: Record<string, unknown>): Settings {
       typeof raw.autoLaunch === "boolean"
         ? raw.autoLaunch
         : DEFAULT_SETTINGS.autoLaunch,
+    navOrder:
+      Array.isArray(raw.navOrder) &&
+      raw.navOrder.every((item) => typeof item === "string")
+        ? (raw.navOrder as string[])
+        : DEFAULT_SETTINGS.navOrder,
   };
 }
 

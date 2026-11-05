@@ -1,6 +1,6 @@
 import type { ViewName } from "../../stores/uiStore";
 
-/** 侧边栏顺序存 localStorage：纯 UI 偏好，不进数据库，也不进导出。 */
+/** 侧边栏顺序以 settings 表为准；localStorage 只做首屏缓存。 */
 export const NAV_ORDER_KEY = "dailytask.nav.order";
 
 export const DEFAULT_NAV_ORDER: ViewName[] = [
