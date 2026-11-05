@@ -124,6 +124,12 @@ fn show_widget(app: &AppHandle) {
     sync_tray_labels(app);
 }
 
+/// 托盘左键：同时唤回主窗与挂件，最后聚焦主窗。
+fn show_both(app: &AppHandle) {
+    show_widget(app);
+    show_main(app);
+}
+
 fn toggle_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if is_visible(app, "main") {
@@ -266,7 +272,7 @@ pub fn run() {
                             ..
                         } = event
                         {
-                            show_widget(tray.app_handle());
+                            show_both(tray.app_handle());
                         }
                     })
                     .build(app)?;
