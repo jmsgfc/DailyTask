@@ -1,6 +1,10 @@
 # 升级与回退
 
-> 适用版本：v0.1.0 起。更新由 `tauri-plugin-updater` + GitHub Releases 提供，
+> 状态：稳定
+> 适用版本：v0.1.8+
+> 相关：operations/release.md、operations/backup.md
+
+> 更新由 `tauri-plugin-updater` + GitHub Releases 提供，
 > 端点固定在 `https://github.com/yearzen1/DailyTask/releases/latest/download/latest.json`。
 
 ## 1. 产物与签名

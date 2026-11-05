@@ -11,7 +11,7 @@ import type {
 export type { CellState };
 
 /**
- * 判定顺序（impl.md §6）：
+ * 判定顺序（docs/architecture/domain.md）：
  * 1. 不在启用区间 → none
  * 2. 有打卡记录 → 直接返回记录状态
  * 3. 今天及以后 → pending

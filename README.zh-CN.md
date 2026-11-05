@@ -36,7 +36,7 @@ DailyTask 不需要「表头」这个概念，也不会因为调整任务而改�
 任务在「任务管理」页新建：启用日期默认今天；停用或重新启用只追加区间，历史打卡不动。
 
 NSIS 安装包发布在 GitHub Releases，更新走签名校验的 `latest.json`；发版与回退步骤见
-[docs/upgrade.md](docs/upgrade.md)。每日备份写在 `%APPDATA%\com.dailytask.app\backup`。
+[docs/operations/upgrade-rollback.md](docs/operations/upgrade-rollback.md)。每日备份写在 `%APPDATA%\com.dailytask.app\backup`。
 
 <a id="features"></a>
 ## 功能特性
@@ -155,7 +155,7 @@ npm run test:watch     # 监听模式
 npm run lint           # ESLint，含依赖 zone 规则
 npm run typecheck      # tsc --noEmit
 npm run build          # 类型检查 + 前端生产构建
-npm run tauri build    # 打包安装包（见 docs/upgrade.md）
+npm run tauri build    # 打包安装包（见 docs/operations/upgrade-rollback.md）
 ```
 
 `dev:app` 会合并 `src-tauri/tauri.dev.conf.json`，开发时使用
@@ -176,7 +176,7 @@ cargo check --manifest-path src-tauri/Cargo.toml
 <a id="workflow"></a>
 ## 开发方式
 
-项目按每天 40 分钟推进。`docs/progress.md` 是打卡清单：每个完成的日程都会打勾，
+项目按每天 40 分钟推进。`docs/project/progress.md` 是打卡清单：每个完成的日程都会打勾，
 并写一句实际验证结果。只有 lint、test 通过且代码已提交，才算完成一天。
 
 提交信息使用 Conventional Commits，例如：
@@ -206,14 +206,16 @@ UI 文案集中在 `src/shared/i18n/zh-CN.ts`，组件通过 `t()` 取文案。�
 | M5 | 待办与任务管理 | 2027-01-05 |
 | M6 | 统计、设置、自动更新与发布 | 2027-01-22 |
 
-每日排期见 `docs/progress.md`，验收标准见 `docs/impl.md`。
+每日排期见 `docs/project/progress.md`，验收标准见 `docs/impl.md`。
 
 <a id="docs"></a>
 ## 文档
 
-- [需求文档](./docs/Requirements.md) —— 产品与交互设计。
-- [实施文档](./docs/impl.md) —— 架构、数据模型、风险与里程碑。
-- [开发进度](./docs/progress.md) —— 每日排期与打卡清单。
+- [文档地图](./docs/README.md) —— 从这里进入分层文档。
+- [需求文档](./docs/product/requirements.md) —— 产品与交互设计。
+- [实施文档](./docs/impl.md) —— 架构入口与子文档链接。
+- [开发进度](./docs/project/progress.md) —— 当前迭代清单。
+- [升级与回退](./docs/operations/upgrade-rollback.md) —— 签名、升级、备份与回退。
 - [设计稿](./design/preview.html) —— 浏览器直接打开，无需构建。
 - [设计 token](./design/tokens.css) —— `src/ui/tokens.css` 的来源。
 

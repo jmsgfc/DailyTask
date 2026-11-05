@@ -74,6 +74,7 @@ if (!process.env.TAURI_SIGNING_PRIVATE_KEY) {
   );
 }
 
+run(npm, ["run", "docs:check"]);
 run(npm, ["run", "tauri", "build"]);
 
 const artifact = join(

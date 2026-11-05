@@ -41,7 +41,7 @@ Tasks are created from the task management page: the start date defaults to toda
 and pausing or resuming a task appends an interval without touching history.
 
 The NSIS installer lives in GitHub Releases. Updates are signed and delivered through
-`latest.json`; see [docs/upgrade.md](docs/upgrade.md) for the release and rollback
+`latest.json`; see [docs/operations/upgrade-rollback.md](docs/operations/upgrade-rollback.md) for the release and rollback
 runbook. Daily backups are written to `%APPDATA%\com.dailytask.app\backup`.
 
 <a id="features"></a>
@@ -174,7 +174,7 @@ npm run test:watch     # watch mode
 npm run lint           # ESLint, including import zones
 npm run typecheck      # tsc --noEmit
 npm run build          # typecheck + production frontend build
-npm run tauri build    # packaged installer (see docs/upgrade.md)
+npm run tauri build    # packaged installer (see docs/operations/upgrade-rollback.md)
 ```
 
 `dev:app` merges `src-tauri/tauri.dev.conf.json`, so development runs as
@@ -196,7 +196,7 @@ cargo check --manifest-path src-tauri/Cargo.toml
 <a id="workflow"></a>
 ## Development Workflow
 
-This project is built in 40-minute daily slices. `docs/progress.md` is the
+This project is built in 40-minute daily slices. `docs/project/progress.md` is the
 checklist: every completed day is ticked with the actual verification result.
 A day is done only when lint and tests pass and the change is committed.
 
@@ -228,14 +228,16 @@ keeps one README per language, with English as the default.
 | M5 | Todos and task management | 2027-01-05 |
 | M6 | Stats, settings, auto-update, release | 2027-01-22 |
 
-See `docs/progress.md` for the daily plan and `docs/impl.md` for acceptance criteria.
+See `docs/project/progress.md` for the daily plan and `docs/impl.md` for acceptance criteria.
 
 <a id="docs"></a>
 ## Documentation
 
-- [Requirements](./docs/Requirements.md) — product and interaction design.
-- [Implementation](./docs/impl.md) — architecture, data model, risks, milestones.
-- [Progress](./docs/progress.md) — daily schedule and checklist.
+- [Documentation map](./docs/README.md) — start here for the layered docs.
+- [Requirements](./docs/product/requirements.md) — product and interaction design.
+- [Implementation](./docs/impl.md) — architecture entry and sub-document links.
+- [Progress](./docs/project/progress.md) — current iteration checklist.
+- [Release and rollback](./docs/operations/upgrade-rollback.md) — signing, upgrade, backup and rollback.
 - [Design preview](./design/preview.html) — open directly in a browser; no build step.
 - [Design tokens](./design/tokens.css) — source of `src/ui/tokens.css`.
 

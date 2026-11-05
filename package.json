@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "docs:check": "node scripts/check-docs.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

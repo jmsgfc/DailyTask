@@ -20,7 +20,7 @@ export interface StatsData {
   rows: TaskStat[];
 }
 
-/** 统计口径见 impl.md §6：skipped 不进分母，也不中断 streak。 */
+/** 统计口径见 docs/architecture/domain.md：skipped 不进分母，也不中断 streak。 */
 export function buildStats(
   tasks: Task[],
   checkins: Map<string, Checkin>,

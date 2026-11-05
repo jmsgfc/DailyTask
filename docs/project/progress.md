@@ -1,8 +1,9 @@
-# DailyTask 开发进度 · v0.1.4
+# DailyTask 开发进度 · v0.1.8
 
+> 状态：迭代中
 > 当前版本：v0.1.8
-> 本轮：2026-11-05 反馈，共 16 项（原 11 项 + #13–#17，缺 #10），完成 **16/16**
-> 本文件自 v0.1.4 起只记录当前迭代；M1–M6 历史见 Git 提交记录
+> 本轮：2026-11-05 反馈，共 17 项（原 11 项 + #13–#18，缺 #10），完成 **17/17**
+> 相关：../product/changelog.md、../product/roadmap.md
 
 ---
 
@@ -41,6 +42,7 @@
 | 15 | P0 | 全局去掉 recorded「只记录」状态 | 旧数据迁移为 done，值不再单独成状态 | ☑ |
 | 16 | P0 | 待办日期编辑 + 统一删除确认 | 日历按钮改日期；所有删除走 ConfirmDeleteButton | ☑ |
 | 17 | P1 | 应用内中英文切换 | 跟随系统 / 中文 / English；托盘、日期同步 | ☑ |
+| 18 | P1 | 文档分层重组 | docs/README 地图、架构/开发/运维/项目分层、链接检查 | ☑ |
 
 ---
 
@@ -147,6 +149,11 @@
 - 改动：新增完整 `en` 字典；`Language` 增加 `system`，启动时按 `navigator.language` 解析，中文系统回中文、英文系统回英文。设置页外观区新增语言三档；日期格式、任务表、挂件、统计、设置页全部跟随。托盘静态菜单项通过 `set_tray_labels` 命令由前端下发，语言切换后立即刷新。
 - 验收：中文 / English / 跟随系统均可切换并持久化；托盘与进度文案同步；英文下挂件宽度、任务管理表格和长文案不溢出。
 
+### #18 文档分层重组
+
+- 改动：新增 `docs/README.md` 文档地图与 `glossary.md`；`impl.md` 拆为 `architecture/*`；原 Requirements / TODO / progress / upgrade 移入 product / project / operations；补 development、operations、product、adr 文档；新增 `npm run docs:check` 校验必需文件、状态头和相对链接。
+- 验收：docs:check 通过；README 与文档内链接全部可达；发版脚本先跑 docs:check。
+
 ---
 
 ## 5. 建议顺序
@@ -156,7 +163,7 @@
 3. 删除任务：#2
 4. 间隔天数：#11（迁移 003 + 全链路）
 5. 导航顺序：#7（settings 字段 + 首启迁移）
-6. 回归、截图、更新 `docs/impl.md` 与 README，发 v0.1.4
+6. 回归、截图、更新 `docs/architecture/*` 与 README，发 v0.1.8
 
 ---
 
@@ -171,7 +178,7 @@
 
 ## 7. 完成记录（2026-11-05）
 
-全量校验：`npm run test` **289 passed**、`npm run lint`、`npm run typecheck`、`cargo check` 全绿。
+全量校验：`npm run test` **301 passed**、`npm run lint`、`npm run typecheck`、`cargo check` 全绿。
 
 - **#1**：编辑弹窗改为 420px 两列栅格，`DateField` 根节点补 `min-w-0`；`Manage.test` 断言日期字段收在弹窗栅格内。
 - **#6**：筛选日期字段加 `shrink-0` 并加宽到 124px，占位不再被压缩。
@@ -189,5 +196,6 @@
 - **#15**：删除 recorded 状态；迁移 004 把旧 recorded 转为 done，值写入不再产生第四种状态，进度分母统一为 `applicable − skipped`。
 - **#16**：待办行加日历按钮；删除统一走 `ConfirmDeleteButton`，store 删除要求确认令牌，Todos 行内/右键与 Manage 删除共用同一套二次确认。
 - **#17**：新增英文词典与语言设置（跟随系统 / 中文 / English）；托盘文案通过 `set_tray_labels` 跟随语言，日期与所有视图同步。
+- **#18**：文档重组为 product / architecture / development / operations / project / adr 六层，新增文档地图、术语表、ADR 与 `docs:check` 链接校验。
 
-未完成项：尚未运行 `npm run dev:app` / 安装版做真机截图走查；发版前需补 UI 走查与 `docs/impl.md` 设计说明更新。
+未完成项：尚未运行 `npm run dev:app` / 安装版做真机截图走查；发版前需补 UI 走查与 `docs/architecture/*` 设计说明更新。

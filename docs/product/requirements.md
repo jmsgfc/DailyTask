@@ -1,7 +1,11 @@
-# DailyTask 设计稿
+# DailyTask 产品需求
+
+> 状态：稳定
+> 适用版本：v0.1.8+
+> 相关：product/decisions.md、architecture/overview.md
 
 > 支持每日任务打卡 + 待办事项的桌面应用（仅电脑端）。
-> 本文档聚焦 **UI / 交互 / 数据模型** 设计，技术栈待定。
+> 本文档聚焦 **UI / 交互 / 数据模型** 设计；技术栈与实现见 `architecture/`。
 
 ---
 
