@@ -1,5 +1,5 @@
 /**
- * 领域实体：与数据库行结构解耦，字段命名遵 docs/product/requirements.md §6。
+ * 领域实体：与数据库行结构解耦，字段命名遵 docs/reference/tasks-and-intervals.md。
  * 这里只放类型与默认值，不放任何 IO 或业务计算。
  */
 

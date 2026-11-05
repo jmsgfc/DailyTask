@@ -37,7 +37,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
  * 展开态与「今日」页内容一致：日期、完成率、自愿/被迫分项、全部任务、全部到期待办。
- * 标题与进度固定，中间内容滚动；高度预算见 docs/architecture/windows.md（内容区 240px）。
+ * 标题与进度固定，中间内容滚动；高度预算见 docs/reference/windows-and-tray.md（内容区 240px）。
  */
 export function Widget() {
   const t = useT();

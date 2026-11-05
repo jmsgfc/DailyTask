@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 文档守卫：必需文件、状态头、Markdown 相对链接。
+ * 文档守卫：必需文件、Diátaxis 类型、状态头、Markdown 相对链接。
  * 用法：npm run docs:check
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -12,30 +12,42 @@ const docsRoot = join(root, "docs");
 
 const required = [
   "docs/README.md",
-  "docs/glossary.md",
-  "docs/impl.md",
-  "docs/product/requirements.md",
-  "docs/product/decisions.md",
-  "docs/product/backlog.md",
-  "docs/product/changelog.md",
-  "docs/product/roadmap.md",
-  "docs/architecture/overview.md",
-  "docs/architecture/data.md",
-  "docs/architecture/domain.md",
-  "docs/architecture/windows.md",
-  "docs/architecture/grid.md",
-  "docs/architecture/i18n.md",
-  "docs/development/setup.md",
-  "docs/development/testing.md",
-  "docs/development/conventions.md",
-  "docs/development/debugging.md",
-  "docs/operations/release.md",
-  "docs/operations/upgrade-rollback.md",
-  "docs/operations/backup.md",
-  "docs/operations/troubleshooting.md",
+  "docs/tutorials/first-run.md",
+  "docs/tutorials/local-development.md",
+  "docs/how-to/daily-use.md",
+  "docs/how-to/manage-tasks.md",
+  "docs/how-to/manage-todos.md",
+  "docs/how-to/use-the-grid.md",
+  "docs/how-to/switch-language.md",
+  "docs/how-to/add-a-language.md",
+  "docs/how-to/backup-and-restore.md",
+  "docs/how-to/upgrade-and-rollback.md",
+  "docs/how-to/release.md",
+  "docs/how-to/testing.md",
+  "docs/how-to/troubleshoot.md",
+  "docs/reference/checkins.md",
+  "docs/reference/tasks-and-intervals.md",
+  "docs/reference/todos.md",
+  "docs/reference/settings.md",
+  "docs/reference/data-model.md",
+  "docs/reference/domain-functions.md",
+  "docs/reference/grid.md",
+  "docs/reference/windows-and-tray.md",
+  "docs/reference/i18n.md",
+  "docs/reference/ui-spec.md",
+  "docs/reference/conventions.md",
+  "docs/reference/commands.md",
+  "docs/reference/file-locations.md",
+  "docs/reference/glossary.md",
+  "docs/explanation/product-decisions.md",
+  "docs/explanation/architecture.md",
+  "docs/explanation/roadmap.md",
   "docs/project/progress.md",
+  "docs/project/changelog.md",
+  "docs/project/backlog.md",
 ];
 
+const allowedTypes = ["教程", "操作指南", "参考", "解释", "项目记录", "入口"];
 const failures = [];
 
 function walk(dir) {
@@ -65,8 +77,16 @@ for (const file of files) {
   const text = readFileSync(file, "utf8");
   const relative = file.slice(root.length + 1);
 
-  if (file.startsWith(docsRoot) && !/^> 状态：/m.test(text)) {
-    failures.push(`缺少状态头：${relative}`);
+  if (file.startsWith(docsRoot)) {
+    const type = text.match(/^> 类型：(.+)$/m)?.[1]?.trim();
+    if (!type) {
+      failures.push(`缺少类型头：${relative}`);
+    } else if (!allowedTypes.includes(type)) {
+      failures.push(`未知文档类型「${type}」：${relative}`);
+    }
+    if (!/^> 状态：/m.test(text)) {
+      failures.push(`缺少状态头：${relative}`);
+    }
   }
 
   for (const match of text.matchAll(linkPattern)) {

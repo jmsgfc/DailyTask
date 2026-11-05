@@ -16,7 +16,7 @@ export interface DateAxis {
 }
 
 /**
- * 日期轴（docs/architecture/grid.md）：
+ * 日期轴（docs/reference/grid.md）：
  * start = min(最早区间启用日, today − 365)
  * end   = max(today + 30, 最晚区间启用日)
  * 超过 1200 列时从左侧截断，保证今天和未来 30 天在轴内。

@@ -2,246 +2,70 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-A local-first desktop app for daily habit check-ins and todos, built to replace the
-"one Excel sheet per habit set" workflow. It runs on Windows with a floating
-widget that matches the main window palette and a dense, spreadsheet-style task grid.
+A local-first desktop app for daily habit check-ins and todos. It replaces the
+"copy a new Excel sheet every time a habit changes" workflow with interval-based
+tasks, a floating widget, and a spreadsheet-style grid. Windows only.
 
-<a id="overview"></a>
-## Overview
+<a id="what-it-does"></a>
+## What it does
 
-DailyTask keeps a history of every task without forcing you to duplicate a
-spreadsheet header. Each task owns one or more **active date intervals**; adding,
-pausing, or resuming a habit only appends interval data and never rewrites the past.
+- **Daily check-ins** — done / missed / skip today, optional free-form values.
+- **Intervals** — pause and resume a task without rewriting history; repeat every N days.
+- **Today** — progress ring, voluntary/forced groups, due todos.
+- **Widget** — always-on-top card sharing the main window palette; click to cycle states.
+- **Grid** — date columns, sticky headers, keyboard navigation, filters, zoom.
+- **Todos** — overdue / today / this week / later, with date editing and safe delete.
+- **Stats** — per-task streak and 30-day completion rate.
+- **Local first** — SQLite on disk, no account, no cloud sync; signed updates from GitHub.
 
-The product has two windows:
+<a id="install"></a>
+## Install
 
-- **Widget** — always-on-top card matching the main window palette, with today's progress and quick check-ins.
-- **Main window** — sidebar navigation with Today, Task Grid, Todos, Manage, Stats,
-  and Settings.
+1. Open [GitHub Releases](https://github.com/yearzen1/DailyTask/releases/latest).
+2. Download `DailyTask_x.y.z_x64-setup.exe`.
+3. Install for the current user and launch.
 
-<a id="status"></a>
-## Status
+Updates are signed and delivered in-app. See [upgrade and rollback](docs/how-to/upgrade-and-rollback.md).
 
-Early development, feature-complete for the first cycle. All six views, the floating
-widget, the installer and signed auto-updates are working. Treat it as a personal
-daily tool, not a multi-user product.
+<a id="first-run"></a>
+## First run
 
-| Area | State |
-|---|---|
-| SQLite schema, repositories, domain rules | Done |
-| Today view, check-ins, progress ring, due todos | Done |
-| Theme tokens and light/dark skeleton | Done |
-| UI copy dictionary (zh-CN, English planned) | Done |
-| Floating widget with cross-window sync | Done |
-| Task grid with date columns | Done |
-| Todos and task management UI | Done |
-| Stats, settings, backups, tray, installer, updater | Done |
+1. Create a task in **Tasks**.
+2. Check it off in **Today**.
+3. Add a todo in **Todos**.
 
-Tasks are created from the task management page: the start date defaults to today,
-and pausing or resuming a task appends an interval without touching history.
-
-The NSIS installer lives in GitHub Releases. Updates are signed and delivered through
-`latest.json`; see [docs/operations/upgrade-rollback.md](docs/operations/upgrade-rollback.md) for the release and rollback
-runbook. Daily backups are written to `%APPDATA%\com.dailytask.app\backup`.
-
-<a id="features"></a>
-## Features
-
-Implemented today:
-
-- **Interval-based tasks** — a task can be paused and resumed; history stays intact.
-- **Today view** — voluntary/forced groups, progress ring, overdue and due-today
-  todos, and one-click check-ins with optimistic updates.
-- **Floating widget** — starts as a draggable 96×36 edge capsule docked left or right,
-  expands to a 260×360 always-on-top card on click (same palette, inline check-ins,
-  sync to the main window in under 200 ms), and returns to the capsule when you open
-  the main window. In expanded form it mirrors the Today tab — grouped tasks with
-  values, every due todo — and scrolls when the list grows.
-- **Task grid** — sticky headers, a one-year date axis, `Ctrl + wheel` zoom, detail
-  and overview modes, keyboard navigation, notes, filters, and drag sorting inside
-  a group.
-- **Todos** — overdue/today/this-week/later groups, inline create, rename, complete
-  and delete, plus a right-click menu to reschedule or remove.
-- **Task management** — table with active/scheduled/disabled status, stop and resume
-  with future-only dates, and editing of the latest interval.
-- **Stats** — per-task streak and a 30-day completion rate that ignores skipped days.
-- **Settings** — theme, language (System / 中文 / English), auto-settle, day-start hour,
-  widget pin and autostart.
-- **Backups and transfer** — seven daily database snapshots, JSON v1 export/import,
-  and a pre-update snapshot before every install.
-- **Packaging and updates** — NSIS per-user installer, tray menu with today's
-  progress, signed auto-updates from GitHub Releases.
-- **Three check-in states** — done, missed, and "skip today"; skip does not affect
-  the progress denominator.
-- **Free-form cell value** — a cell can also carry `4`, `3min`, or `4/3/2/2`.
-  Writing a value without a status marks the cell done.
-- **Projected auto-settle** — past blanks render as missed without writing hundreds
-  of rows to the database.
-- **Local SQLite storage** — no account, no network, no sync.
-- **Typed architecture boundaries** — domain, db, stores, and views are enforced by
-  ESLint zones.
-- **Design tokens** — colors, spacing, radii, and shadows live in CSS variables.
-
-Planned:
-
-- English UI.
-- Richer statistics: 90/365-day rates and a heatmap.
-- System notifications for due todos (explicitly out of scope for now).
-
-<a id="stack"></a>
-## Tech Stack
-
-| Layer | Choice |
-|---|---|
-| Shell | Tauri 2 |
-| UI | React 19 + TypeScript + Vite 7 |
-| Styling | Tailwind CSS 4 + CSS variables |
-| State | Zustand 5 |
-| Storage | SQLite via `tauri-plugin-sql` (sqlx migrations) |
-| Dates | date-fns 4 |
-| Tests | Vitest 3 + jsdom + Testing Library |
-| Lint | ESLint 9 + typescript-eslint + import zones |
-
-<a id="architecture"></a>
-## Architecture
-
-```text
-src/
-  app/           startup sequence and data hydration
-  domain/        pure date, applicability, settlement, and stats rules
-  db/            SQLite client and repositories (the only SQL layer)
-  stores/        Zustand stores + selectors
-  shared/        typed cross-window events, i18n dictionary
-  ui/            tokens, CheckCell, ProgressRing, theme helpers
-  windows/main/  MainLayout and view components
-src-tauri/
-  migrations/    001_init.sql (versioned, append-only)
-  capabilities/  SQL / window permissions
-  src/           Tauri entry points
-design/          static design reference, not part of the build
-docs/            requirements, architecture, progress log
-```
-
-Data flow: `view → store → db → SQLite`. Derived values (progress, cell state,
-streak) are computed by `domain/` and `stores/selectors/`, never persisted.
-`src/domain` is free of React, Tauri, and database imports.
-
-<a id="data-model"></a>
-## Data Model
-
-Five tables: `tasks`, `task_intervals`, `checkins`, `todos`, and `settings`.
-
-- A task can have multiple `task_intervals`; `end_date = NULL` means "still active".
-- `checkins` has `UNIQUE(task_id, date)`, so one cell maps to one row and writes are
-  idempotent.
-- Each cell carries an optional free-form `value`; writing `4` without a status
-  marks the task done.
-- Cell projection order: not applicable → stored check-in → today/future pending →
-  past blank with auto-settle → missed. Automatic settle is display-only.
-- The progress denominator is `applicable tasks − skipped`, so "skip today" never
-  hurts the percentage.
-
-<a id="getting-started"></a>
-## Getting Started
-
-Requirements:
-
-- Node.js 22+
-- Rust stable (MSVC toolchain on Windows)
-- Windows 10/11 with WebView2
-- Tauri 2 prerequisites for your platform
-
-```bash
-npm install
-npm run tauri dev
-```
-
-The SQLite file is created on first launch at:
-
-```text
-%APPDATA%\com.dailytask.app\dailytask.db
-```
-
-<a id="scripts"></a>
-## Scripts
-
-```bash
-npm run dev:app        # desktop app with the dev identity
-npm run tauri dev      # production identity (conflicts with an installed app)
-npm run dev            # frontend only (Tauri APIs unavailable)
-npm run test           # run the Vitest suite
-npm run test:watch     # watch mode
-npm run lint           # ESLint, including import zones
-npm run typecheck      # tsc --noEmit
-npm run build          # typecheck + production frontend build
-npm run tauri build    # packaged installer (see docs/operations/upgrade-rollback.md)
-```
-
-`dev:app` merges `src-tauri/tauri.dev.conf.json`, so development runs as
-`com.dailytask.app.dev` with its own data directory
-(`%APPDATA%\com.dailytask.app.dev`) and its own single-instance lock. The installed
-app and the dev build can run side by side, and update checks are disabled in dev.
-Release builds ignore this file.
-
-To debug with your real data, quit both apps and copy
-`%APPDATA%\com.dailytask.app\dailytask.db` into `%APPDATA%\com.dailytask.app.dev\`
-(or use Settings → 导入 JSON).
-
-Backend check without launching the app:
-
-```bash
-cargo check --manifest-path src-tauri/Cargo.toml
-```
-
-<a id="workflow"></a>
-## Development Workflow
-
-This project is built in 40-minute daily slices. `docs/project/progress.md` is the
-checklist: every completed day is ticked with the actual verification result.
-A day is done only when lint and tests pass and the change is committed.
-
-Commits follow Conventional Commits, for example:
-
-```text
-feat(today): render today view with progress and task groups
-fix(db): grant execute permission for SQLite writes
-docs(progress): close M2 days D15-D23
-```
-
-<a id="i18n"></a>
-## Internationalization
-
-UI copy lives in `src/shared/i18n/zh-CN.ts` and is accessed through `t()`. The
-`Messages` type makes missing keys a compile error when a new language is added.
-The app is currently Chinese-only; English UI strings are planned. This repository
-keeps one README per language, with English as the default.
-
-<a id="roadmap"></a>
-## Roadmap
-
-| Milestone | Scope | Target |
-|---|---|---|
-| M1 | Data layer and architecture guardrails | 2026-11-14 |
-| M2 | Main window and Today view | 2026-11-26 |
-| M3 | Floating widget and cross-window sync | 2026-12-07 |
-| M4 | Task grid | 2026-12-25 |
-| M5 | Todos and task management | 2027-01-05 |
-| M6 | Stats, settings, auto-update, release | 2027-01-22 |
-
-See `docs/project/progress.md` for the daily plan and `docs/impl.md` for acceptance criteria.
+Full walkthrough: [First run tutorial](docs/tutorials/first-run.md).
 
 <a id="docs"></a>
 ## Documentation
 
-- [Documentation map](./docs/README.md) — start here for the layered docs.
-- [Requirements](./docs/product/requirements.md) — product and interaction design.
-- [Implementation](./docs/impl.md) — architecture entry and sub-document links.
-- [Progress](./docs/project/progress.md) — current iteration checklist.
-- [Release and rollback](./docs/operations/upgrade-rollback.md) — signing, upgrade, backup and rollback.
-- [Design preview](./design/preview.html) — open directly in a browser; no build step.
-- [Design tokens](./design/tokens.css) — source of `src/ui/tokens.css`.
+Start at the [documentation map](docs/README.md).
+
+- **Learn** — [first run](docs/tutorials/first-run.md) · [local development](docs/tutorials/local-development.md)
+- **Do** — [daily use](docs/how-to/daily-use.md) · [manage tasks](docs/how-to/manage-tasks.md) · [backup](docs/how-to/backup-and-restore.md) · [release](docs/how-to/release.md)
+- **Check** — [check-in rules](docs/reference/checkins.md) · [data model](docs/reference/data-model.md) · [commands](docs/reference/commands.md) · [glossary](docs/reference/glossary.md)
+- **Understand** — [product decisions](docs/explanation/product-decisions.md) · [architecture](docs/explanation/architecture.md) · [ADRs](docs/explanation/adr/0001-tauri-sqlite-react.md)
+
+<a id="development"></a>
+## Development
+
+```bash
+npm install
+npm run dev:app
+npm test
+```
+
+Dev builds use `com.dailytask.app.dev` and their own data directory. Full guide:
+[local development](docs/tutorials/local-development.md).
+
+<a id="data"></a>
+## Data
+
+- Database: `%APPDATA%\com.dailytask.app\dailytask.db`
+- Backups: `%APPDATA%\com.dailytask.app\backup\`
+- Export / import: JSON v1 in Settings
 
 <a id="license"></a>
 ## License
 
-[MIT](./LICENSE) © 2026 DailyTask contributors.
+[MIT](./LICENSE) © 2026 DailyTask contributors
