@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { getDb } from "../db/client";
 import * as repo from "../db/tasks";
 import type { Task, TaskCategory } from "../domain/types";
+import type { DeleteConfirmation } from "../shared/deleteConfirmation";
 import { currentSource, emitTasksChanged } from "../shared/events";
 import { enqueueWrite } from "../shared/queue";
 
@@ -26,7 +27,7 @@ export interface TasksState {
     id: string,
     patch: { name?: string; category?: TaskCategory; order?: number },
   ) => Promise<void>;
-  remove: (id: string) => Promise<void>;
+  remove: (id: string, confirmation: DeleteConfirmation) => Promise<void>;
   closeInterval: (taskId: string, endDate: string) => Promise<void>;
   appendInterval: (
     taskId: string,
@@ -74,8 +75,9 @@ export const useTasksStore = create<TasksState>()((set, get) => ({
       notifyTasksChanged();
     }),
 
-  remove: (id) =>
+  remove: (id, confirmation) =>
     enqueueWrite(async () => {
+      void confirmation;
       await repo.deleteTask(await getDb(), id);
       set({ tasks: get().tasks.filter((task) => task.id !== id) });
       notifyTasksChanged();

@@ -472,13 +472,15 @@ describe("Manage", () => {
         '[data-manage-row="t2"] [data-manage-action="delete"]',
       ) as Element,
     );
-    expect(container.querySelector("[data-delete-task]")).toBeInTheDocument();
-    expect(container.querySelector("[data-delete-task]")).toHaveTextContent(
+    expect(screen.getByRole("dialog", { name: "删除「开会」" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent(
       "启用区间与全部打卡记录会一并删除",
     );
 
-    fireEvent.click(container.querySelector("[data-delete-cancel]") as Element);
-    expect(container.querySelector("[data-delete-task]")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "取消" }),
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(remove).not.toHaveBeenCalled();
 
     fireEvent.click(
@@ -486,16 +488,17 @@ describe("Manage", () => {
         '[data-manage-row="t2"] [data-manage-action="delete"]',
       ) as Element,
     );
-    fireEvent.click(container.querySelector("[data-delete-confirm]") as Element);
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
     await act(async () => undefined);
 
-    expect(remove).toHaveBeenCalledWith("t2");
+    expect(remove).toHaveBeenCalledWith("t2", expect.anything());
     expect(
       container.querySelector('[data-manage-row="t2"]'),
     ).not.toBeInTheDocument();
   });
 
   it("keeps the delete dialog open when removal fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     remove.mockRejectedValueOnce(new Error("database is locked"));
     const { container } = render(<Manage />);
 
@@ -504,12 +507,13 @@ describe("Manage", () => {
         '[data-manage-row="t2"] [data-manage-action="delete"]',
       ) as Element,
     );
-    fireEvent.click(container.querySelector("[data-delete-confirm]") as Element);
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
     await act(async () => undefined);
 
-    expect(container.querySelector("[data-delete-error]")).toHaveTextContent(
+    expect(document.querySelector("[data-confirm-delete-error]")).toHaveTextContent(
       "删除失败",
     );
-    expect(container.querySelector("[data-delete-task]")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    consoleError.mockRestore();
   });
 });

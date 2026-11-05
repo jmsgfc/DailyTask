@@ -17,6 +17,11 @@ const directDbPattern = {
   message: "view 必须通过 store 访问数据，不能直接 import db/*。",
 };
 
+const deleteTokenPattern = {
+  group: ["**/shared/deleteConfirmation", "**/shared/deleteConfirmation.ts"],
+  message: "删除确认令牌只能由 ui/ConfirmDeleteButton 构造，view 不允许导入。",
+};
+
 export default tseslint.config(
   {
     ignores: ["dist", "node_modules", "src-tauri", "design", "coverage"],
@@ -85,7 +90,7 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": [
         "error",
-        { patterns: [directDbPattern, eventPattern, sqlPattern] },
+        { patterns: [directDbPattern, deleteTokenPattern, eventPattern, sqlPattern] },
       ],
     },
   },

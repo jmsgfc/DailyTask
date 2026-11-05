@@ -15,6 +15,7 @@ import {
   type ManageStatus,
 } from "../../../stores/selectors/manage";
 import { useTasksStore } from "../../../stores/tasksStore";
+import { ConfirmDeleteButton } from "../../../ui/ConfirmDeleteButton";
 import { DateField } from "../../../ui/DateField";
 import { useT } from "../../../ui/useT";
 
@@ -655,88 +656,6 @@ function IntervalDialog({
   );
 }
 
-/** 删除任务：显式确认，区间与打卡一并删除后不可恢复。 */
-function DeleteTaskDialog({
-  task,
-  onClose,
-}: {
-  task: Task;
-  onClose: () => void;
-}) {
-  const t = useT();
-  const remove = useTasksStore((state) => state.remove);
-  const [error, setError] = useState(false);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(false);
-    try {
-      await remove(task.id);
-      onClose();
-    } catch {
-      setError(true);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <button
-        type="button"
-        aria-label={t("manage.cancel")}
-        tabIndex={-1}
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-black/25"
-      />
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("manage.deleteTitle", { name: task.name })}
-        data-delete-task
-        onSubmit={submit}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.stopPropagation();
-            onClose();
-          }
-        }}
-        className="relative z-10 flex w-[380px] max-w-[calc(100vw-32px)] flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-[var(--shadow-popover)]"
-      >
-        <h2 className="m-0 text-sm font-semibold">
-          {t("manage.deleteTitle", { name: task.name })}
-        </h2>
-        <p className="m-0 text-[var(--text-2xs)] text-[var(--color-text-muted)]">
-          {t("manage.deleteHint")}
-        </p>
-        {error ? (
-          <p
-            data-delete-error
-            className="m-0 text-[var(--text-2xs)] text-[var(--color-missed)]"
-          >
-            {t("manage.deleteFailed")}
-          </p>
-        ) : null}
-        <div className="mt-1 flex justify-end gap-1.5">
-          <button
-            type="button"
-            data-delete-cancel
-            onClick={onClose}
-            className="rounded-[var(--radius-control)] px-2.5 py-1 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
-          >
-            {t("manage.cancel")}
-          </button>
-          <button
-            type="submit"
-            data-delete-confirm
-            className="rounded-[var(--radius-control)] bg-[var(--color-missed)] px-2.5 py-1 text-[var(--text-2xs)] font-semibold text-white"
-          >
-            {t("manage.confirmDelete")}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
 function Th({ children }: { children: ReactNode }) {
   return (
     <th
@@ -750,11 +669,12 @@ function Th({ children }: { children: ReactNode }) {
 
 function ManageTableRow({ row, today }: { row: ManageRow; today: string }) {
   const t = useT();
+  const remove = useTasksStore((state) => state.remove);
   const meta = STATUS_META[row.status];
   const retired = row.status === "disabled";
-  const [dialog, setDialog] = useState<
-    "stop" | "resume" | "edit" | "delete" | null
-  >(null);
+  const [dialog, setDialog] = useState<"stop" | "resume" | "edit" | null>(
+    null,
+  );
 
   return (
     <tr
@@ -843,14 +763,16 @@ function ManageTableRow({ row, today }: { row: ManageRow; today: string }) {
           >
             {t("manage.edit")}
           </button>
-          <button
-            type="button"
+          <ConfirmDeleteButton
             data-manage-action="delete"
-            onClick={() => setDialog("delete")}
+            name={row.task.name}
+            description={t("manage.deleteHint")}
+            errorMessage={t("manage.deleteFailed")}
+            onConfirm={(confirmation) => remove(row.task.id, confirmation)}
             className="rounded-[var(--radius-control)] px-1.5 py-0.5 text-[var(--text-2xs)] text-[var(--color-text-muted)] hover:bg-[var(--state-hover)] hover:text-[var(--color-missed)]"
           >
             {t("manage.delete")}
-          </button>
+          </ConfirmDeleteButton>
         </div>
 
         {dialog === "stop" || dialog === "resume" ? (
@@ -862,8 +784,6 @@ function ManageTableRow({ row, today }: { row: ManageRow; today: string }) {
           />
         ) : dialog === "edit" ? (
           <EditTaskDialog task={row.task} onClose={() => setDialog(null)} />
-        ) : dialog === "delete" ? (
-          <DeleteTaskDialog task={row.task} onClose={() => setDialog(null)} />
         ) : null}
       </td>
     </tr>

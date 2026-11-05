@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_SETTINGS, type Todo } from "../../../domain/types";
@@ -168,7 +168,7 @@ describe("Todos", () => {
     expect(update).toHaveBeenCalledWith("买猫粮", { title: "买狗粮" });
   });
 
-  it("deletes a todo", () => {
+  it("asks for confirmation before deleting a todo", async () => {
     const { container } = render(<Todos />);
 
     fireEvent.click(
@@ -177,7 +177,42 @@ describe("Todos", () => {
       ) as Element,
     );
 
-    expect(remove).toHaveBeenCalledWith("换灯泡");
+    expect(screen.getByRole("dialog", { name: "删除「换灯泡」" })).toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(remove).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-todo="换灯泡"] [data-todo-delete]',
+      ) as Element,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "确认删除" }),
+    );
+    await act(async () => undefined);
+
+    expect(remove).toHaveBeenCalledWith("换灯泡", expect.anything());
+  });
+
+  it("reschedules a todo from the calendar button", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-todo="买猫粮"] [data-todo-date]',
+      ) as Element,
+    );
+    expect(container.querySelector("[data-todo-menu]")).toBeInTheDocument();
+
+    fireEvent.change(container.querySelector("[data-menu-date]") as Element, {
+      target: { value: "2026-11-10" },
+    });
+    fireEvent.click(container.querySelector("[data-menu-save]") as Element);
+
+    expect(update).toHaveBeenCalledWith("买猫粮", { dueDate: "2026-11-10" });
   });
 
   it("reschedules a todo from the right-click menu", () => {
@@ -197,7 +232,7 @@ describe("Todos", () => {
     expect(container.querySelector("[data-todo-menu]")).not.toBeInTheDocument();
   });
 
-  it("clears and deletes from the right-click menu", () => {
+  it("clears and deletes from the right-click menu", async () => {
     const { container } = render(<Todos />);
 
     fireEvent.contextMenu(
@@ -210,7 +245,13 @@ describe("Todos", () => {
       container.querySelector('[data-todo="交房租"]') as Element,
     );
     fireEvent.click(container.querySelector("[data-menu-delete]") as Element);
-    expect(remove).toHaveBeenCalledWith("交房租");
+    expect(screen.getByRole("dialog", { name: "删除「交房租」" })).toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    await act(async () => undefined);
+
+    expect(remove).toHaveBeenCalledWith("交房租", expect.anything());
   });
 
   it("closes the right-click menu with Escape", () => {

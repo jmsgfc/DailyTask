@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { getDb } from "../db/client";
 import * as repo from "../db/todos";
 import type { Todo } from "../domain/types";
+import type { DeleteConfirmation } from "../shared/deleteConfirmation";
 import { currentSource, emitTodosChanged } from "../shared/events";
 import { enqueueWrite } from "../shared/queue";
 
@@ -19,7 +20,7 @@ export interface TodosState {
   create: (input: { title: string; dueDate: string | null }) => Promise<Todo>;
   update: (id: string, patch: { title?: string; dueDate?: string | null }) => Promise<void>;
   setDone: (id: string, done: boolean) => Promise<void>;
-  remove: (id: string) => Promise<void>;
+  remove: (id: string, confirmation: DeleteConfirmation) => Promise<void>;
 }
 
 const now = () => new Date().toISOString();
@@ -74,8 +75,9 @@ export const useTodosStore = create<TodosState>()((set, get) => ({
       notifyTodosChanged();
     }),
 
-  remove: (id) =>
+  remove: (id, confirmation) =>
     enqueueWrite(async () => {
+      void confirmation;
       await repo.deleteTodo(await getDb(), id);
       set({ todos: get().todos.filter((todo) => todo.id !== id) });
       notifyTodosChanged();

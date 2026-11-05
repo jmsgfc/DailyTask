@@ -15,6 +15,7 @@ import {
   type TodoItem,
 } from "../../../stores/selectors/todos";
 import { useTodosStore } from "../../../stores/todosStore";
+import { ConfirmDeleteButton } from "../../../ui/ConfirmDeleteButton";
 import { DateField } from "../../../ui/DateField";
 import { useT } from "../../../ui/useT";
 
@@ -65,14 +66,6 @@ export default function Todos() {
       return;
     }
     void update(menu.todo.id, { dueDate });
-    setMenu(null);
-  };
-
-  const deleteTodo = () => {
-    if (!menu) {
-      return;
-    }
-    void remove(menu.todo.id);
     setMenu(null);
   };
 
@@ -128,6 +121,7 @@ export default function Todos() {
                 group={group}
                 today={data.today}
                 onContextMenu={openMenu}
+                onEditDue={openMenu}
               />
             ))}
 
@@ -158,6 +152,7 @@ export default function Todos() {
                       item={item}
                       today={data.today}
                       onContextMenu={openMenu}
+                      onEditDue={openMenu}
                     />
                   ))}
                 </div>
@@ -190,6 +185,7 @@ export default function Todos() {
               {t("todos.menu.date")}
               <DateField
                 data-menu-date
+                autoFocus
                 value={dueDraft || null}
                 onChange={(next) => setDueDraft(next ?? "")}
                 aria-label={t("todos.menu.date")}
@@ -215,14 +211,19 @@ export default function Todos() {
                 {t("todos.menu.save")}
               </button>
             </div>
-            <button
-              type="button"
+            <ConfirmDeleteButton
+              role="menuitem"
               data-menu-delete
-              onClick={deleteTodo}
+              name={menu.todo.title}
+              aria-label={t("todos.deleteAria", { title: menu.todo.title })}
+              onConfirm={async (confirmation) => {
+                await remove(menu.todo.id, confirmation);
+                setMenu(null);
+              }}
               className="mt-1 w-full rounded-[var(--radius-control)] px-2 py-1 text-left text-[var(--text-2xs)] text-[var(--color-missed)] hover:bg-[var(--state-hover)]"
             >
               {t("todos.menu.delete")}
-            </button>
+            </ConfirmDeleteButton>
           </div>
         </>
       ) : null}
@@ -286,10 +287,12 @@ function TodoSection({
   group,
   today,
   onContextMenu,
+  onEditDue,
 }: {
   group: TodoGroup;
   today: string;
   onContextMenu: (item: TodoItem, event: ReactMouseEvent) => void;
+  onEditDue: (item: TodoItem, event: ReactMouseEvent) => void;
 }) {
   const t = useT();
   const meta = GROUP_META[group.key];
@@ -313,6 +316,7 @@ function TodoSection({
           item={item}
           today={today}
           onContextMenu={onContextMenu}
+          onEditDue={onEditDue}
         />
       ))}
     </section>
@@ -323,10 +327,12 @@ function TodoRow({
   item,
   today,
   onContextMenu,
+  onEditDue,
 }: {
   item: TodoItem;
   today: string;
   onContextMenu: (item: TodoItem, event: ReactMouseEvent) => void;
+  onEditDue: (item: TodoItem, event: ReactMouseEvent) => void;
 }) {
   const t = useT();
   const setDone = useTodosStore((state) => state.setDone);
@@ -452,13 +458,37 @@ function TodoRow({
       </button>
       <button
         type="button"
+        data-todo-date
+        aria-label={t("todos.editDue", { title: todo.title })}
+        onClick={(event) => {
+          event.stopPropagation();
+          onEditDue(item, event);
+        }}
+        className="grid size-5 shrink-0 place-items-center rounded-[var(--radius-control)] text-[var(--color-text-muted)] opacity-0 hover:bg-[var(--state-active)] focus:opacity-100 group-hover:opacity-100"
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <rect x="2.5" y="3.5" width="11" height="10" rx="2" />
+          <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
+        </svg>
+      </button>
+      <ConfirmDeleteButton
         data-todo-delete
+        name={todo.title}
         aria-label={t("todos.deleteAria", { title: todo.title })}
-        onClick={() => void remove(todo.id)}
+        onConfirm={(confirmation) => remove(todo.id, confirmation)}
         className="shrink-0 rounded-[var(--radius-control)] px-1 text-xs text-[var(--color-text-muted)] opacity-0 hover:bg-[var(--state-active)] hover:text-[var(--color-missed)] focus:opacity-100 group-hover:opacity-100"
       >
         <span aria-hidden="true">✕</span>
-      </button>
+      </ConfirmDeleteButton>
     </div>
   );
 }
