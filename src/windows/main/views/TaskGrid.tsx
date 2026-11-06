@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -27,10 +28,15 @@ import {
   CELL_SYMBOLS,
 } from "../../../ui/CheckCell";
 import {
-  scrollLeftForToday,
-  TASK_COL_WIDTH,
-  useHorizontalWindow,
-} from "../../../ui/useHorizontalWindow";
+  buildColumnOffsets,
+  buildDateColumnWidths,
+  buildTaskColumnWidth,
+  findColumnAtOffset,
+  scrollLeftForColumn,
+  TASK_FONT_SIZE_DETAIL,
+  TASK_FONT_SIZE_OVERVIEW,
+} from "../../../ui/gridColumnLayout";
+import { useHorizontalWindowByOffsets } from "../../../ui/useHorizontalWindow";
 import { useT } from "../../../ui/useT";
 
 const MONTH_ROW_HEIGHT = 22;
@@ -103,8 +109,12 @@ export default function TaskGrid() {
       ? filter.from
       : filter.to,
   );
-  const dates = data.axis.dates.filter(
-    (date) => (!from || date >= from) && (!to || date <= to),
+  const dates = useMemo(
+    () =>
+      data.axis.dates.filter(
+        (date) => (!from || date >= from) && (!to || date <= to),
+      ),
+    [data.axis.dates, from, to],
   );
   const todayIndex = dates.indexOf(data.today);
   /** 今天不在筛选范围内时，Home 去离今天最近的边界。 */
@@ -121,34 +131,70 @@ export default function TaskGrid() {
     filter.taskId !== null ||
     filter.from !== null ||
     filter.to !== null;
-  const totalWidth = TASK_COL_WIDTH + dates.length * cellSize;
+
+  const taskFontSize = overview
+    ? TASK_FONT_SIZE_OVERVIEW
+    : TASK_FONT_SIZE_DETAIL;
+  /** 任务列与日期列都按内容取宽；同一列所有行共享同一宽度。 */
+  const taskColWidth = useMemo(
+    () => buildTaskColumnWidth(data.tasks, taskFontSize),
+    [data.tasks, taskFontSize],
+  );
+  const columnWidths = useMemo(
+    () =>
+      overview
+        ? dates.map(() => cellSize)
+        : buildDateColumnWidths(dates, data.checkins.values(), cellSize),
+    [dates, data.checkins, cellSize, overview],
+  );
+  const columnOffsets = useMemo(
+    () => buildColumnOffsets(columnWidths),
+    [columnWidths],
+  );
+  const columnsTotalWidth = columnOffsets[columnOffsets.length - 1] ?? 0;
+  const totalWidth = taskColWidth + columnsTotalWidth;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(() =>
-    scrollLeftForToday(Math.max(0, todayIndex), 832, cellSize),
+    scrollLeftForColumn(
+      Math.max(0, todayIndex),
+      columnOffsets,
+      832,
+      taskColWidth,
+    ),
   );
   const effectiveWidth = viewportWidth || 832;
   const viewRef = useRef({
     scrollLeft,
-    cellSize,
     width: effectiveWidth,
-    dateCount: dates.length,
+    taskColWidth,
+    dates,
+    checkins: data.checkins,
+    offsets: columnOffsets,
+    totalWidth,
   });
   viewRef.current = {
     scrollLeft,
-    cellSize,
     width: effectiveWidth,
-    dateCount: dates.length,
+    taskColWidth,
+    dates,
+    checkins: data.checkins,
+    offsets: columnOffsets,
+    totalWidth,
   };
 
-  const viewportWindow = useHorizontalWindow(
+  const viewportWindow = useHorizontalWindowByOffsets(
     scrollLeft,
     effectiveWidth,
-    dates.length,
-    cellSize,
+    columnOffsets,
+    taskColWidth,
   );
   const visibleDates = dates.slice(viewportWindow.start, viewportWindow.end);
+  const visibleWidths = columnWidths.slice(
+    viewportWindow.start,
+    viewportWindow.end,
+  );
 
   const [collapsed, setCollapsed] = useState<Record<GroupKey, boolean>>({
     voluntary: false,
@@ -174,9 +220,8 @@ export default function TaskGrid() {
   const [noteDraft, setNoteDraft] = useState("");
 
   const maxScrollLeft = useCallback(
-    (width: number) =>
-      Math.max(0, TASK_COL_WIDTH + dates.length * cellSize - width),
-    [cellSize, dates.length],
+    (width: number) => Math.max(0, totalWidth - width),
+    [totalWidth],
   );
 
   /** 所有程序化滚动都走这里：夹在 [0, 内容宽 − 视口宽]，状态与真实位置一致。 */
@@ -196,8 +241,15 @@ export default function TaskGrid() {
   const jumpToToday = useCallback(() => {
     const element = scrollerRef.current;
     const width = element?.clientWidth || effectiveWidth;
-    scrollTo(scrollLeftForToday(homeIndex, width, cellSize));
-  }, [cellSize, effectiveWidth, homeIndex, scrollTo]);
+    scrollTo(
+      scrollLeftForColumn(
+        homeIndex,
+        columnOffsets,
+        width,
+        taskColWidth,
+      ),
+    );
+  }, [columnOffsets, effectiveWidth, homeIndex, scrollTo, taskColWidth]);
 
   useLayoutEffect(() => {
     const element = scrollerRef.current;
@@ -229,7 +281,12 @@ export default function TaskGrid() {
     const target =
       todayIndex < 0
         ? 0
-        : scrollLeftForToday(todayIndex, width, cellSize);
+        : scrollLeftForColumn(
+            todayIndex,
+            columnOffsets,
+            width,
+            taskColWidth,
+          );
     scrollTo(target);
   }, [from, to]);
 
@@ -270,15 +327,31 @@ export default function TaskGrid() {
         }
 
         const view = viewRef.current;
-        const dateViewport = Math.max(0, view.width - TASK_COL_WIDTH);
-        const centerIndex =
-          (view.scrollLeft + dateViewport / 2) / view.cellSize;
-        const max = Math.max(
-          0,
-          TASK_COL_WIDTH + view.dateCount * next - view.width,
+        const dateViewport = Math.max(0, view.width - view.taskColWidth);
+        const centerIndex = findColumnAtOffset(
+          view.offsets,
+          view.scrollLeft + dateViewport / 2,
         );
+        const nextOverview = next < 24;
+        const nextWidths = nextOverview
+          ? view.dates.map(() => next)
+          : buildDateColumnWidths(
+              view.dates,
+              view.checkins.values(),
+              next,
+            );
+        const nextOffsets = buildColumnOffsets(nextWidths);
+        const nextTotal =
+          view.taskColWidth + nextOffsets[nextOffsets.length - 1];
+        const max = Math.max(0, nextTotal - view.width);
+        const centerWidth = nextWidths[centerIndex] ?? next;
         const target = Math.min(
-          Math.max(0, centerIndex * next - dateViewport / 2),
+          Math.max(
+            0,
+            nextOffsets[centerIndex] +
+              centerWidth / 2 -
+              dateViewport / 2,
+          ),
           max,
         );
 
@@ -297,10 +370,7 @@ export default function TaskGrid() {
       }
       event.preventDefault();
       const view = viewRef.current;
-      const max = Math.max(
-        0,
-        TASK_COL_WIDTH + view.dateCount * view.cellSize - view.width,
-      );
+      const max = Math.max(0, view.totalWidth - view.width);
       const target = Math.min(Math.max(0, element.scrollLeft + delta), max);
       element.scrollLeft = target;
       setScrollLeft(target);
@@ -317,9 +387,9 @@ export default function TaskGrid() {
       return;
     }
     const width = element.clientWidth || effectiveWidth;
-    const dateViewport = Math.max(0, width - TASK_COL_WIDTH);
-    const left = index * cellSize;
-    const right = left + cellSize;
+    const dateViewport = Math.max(0, width - taskColWidth);
+    const left = columnOffsets[index] ?? 0;
+    const right = columnOffsets[index + 1] ?? left + cellSize;
     let next = element.scrollLeft;
 
     if (left < next + cellSize * 2) {
@@ -515,10 +585,10 @@ export default function TaskGrid() {
     }
   }, [focused, focusRowVisible]);
 
-  const firstVisibleIndex = Math.min(
-    dates.length - 1,
-    Math.max(0, Math.floor(scrollLeft / cellSize)),
-  );
+  const firstVisibleIndex =
+    dates.length === 0
+      ? 0
+      : findColumnAtOffset(columnOffsets, Math.max(0, scrollLeft));
   const firstVisible = dates[firstVisibleIndex];
   const monthDate = firstVisible ? parseISO(firstVisible) : null;
   const monthLabel = monthDate
@@ -594,14 +664,23 @@ export default function TaskGrid() {
     }
     const element = scrollerRef.current;
     const width = element?.clientWidth || effectiveWidth;
-    const dateViewport = Math.max(0, width - TASK_COL_WIDTH);
+    const dateViewport = Math.max(0, width - taskColWidth);
     const nextSize = 32;
-    const max = Math.max(
-      0,
-      TASK_COL_WIDTH + dates.length * nextSize - width,
+    const nextWidths = buildDateColumnWidths(
+      dates,
+      data.checkins.values(),
+      nextSize,
     );
+    const nextOffsets = buildColumnOffsets(nextWidths);
+    const nextTotal = taskColWidth + nextOffsets[nextOffsets.length - 1];
+    const max = Math.max(0, nextTotal - width);
     const target = Math.min(
-      Math.max(0, index * nextSize - dateViewport / 2),
+      Math.max(
+        0,
+        nextOffsets[index] +
+          (nextWidths[index] ?? nextSize) / 2 -
+          dateViewport / 2,
+      ),
       max,
     );
 
@@ -795,7 +874,10 @@ export default function TaskGrid() {
           data-mode={overview ? "overview" : "detail"}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]"
         >
-          <div className="pointer-events-none absolute left-[160px] top-0 z-30 flex h-[22px] items-center border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[10px] text-[var(--color-text-muted)]">
+          <div
+            className="pointer-events-none absolute top-0 z-30 flex h-[22px] items-center border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[10px] text-[var(--color-text-muted)]"
+            style={{ left: taskColWidth }}
+          >
             {monthLabel}
           </div>
 
@@ -813,13 +895,13 @@ export default function TaskGrid() {
                 style={{ height: MONTH_ROW_HEIGHT }}
               >
                 <div
-                  className="sticky left-0 z-40 w-[160px] shrink-0 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)]"
-                  style={{ height: MONTH_ROW_HEIGHT }}
+                  className="sticky left-0 z-40 shrink-0 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)]"
+                  style={{ width: taskColWidth, height: MONTH_ROW_HEIGHT }}
                 />
                 <div
                   className="relative border-b border-[var(--color-border)]"
                   style={{
-                    width: dates.length * cellSize,
+                    width: columnsTotalWidth,
                     height: MONTH_ROW_HEIGHT,
                   }}
                 >
@@ -828,7 +910,7 @@ export default function TaskGrid() {
                       key={tick.key}
                       data-month-tick={tick.key}
                       className="absolute top-0 h-full border-l border-[var(--color-border)]"
-                      style={{ left: tick.index * cellSize }}
+                      style={{ left: columnOffsets[tick.index] ?? 0 }}
                     />
                   ))}
                 </div>
@@ -840,17 +922,17 @@ export default function TaskGrid() {
                 style={{ top: MONTH_ROW_HEIGHT, height: DATE_ROW_HEIGHT }}
               >
                 <div
-                  className="sticky left-0 z-40 flex w-[160px] shrink-0 items-center border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[var(--text-2xs)] text-[var(--color-text-muted)]"
-                  style={{ height: DATE_ROW_HEIGHT }}
+                  className="sticky left-0 z-40 flex shrink-0 items-center border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[var(--text-2xs)] text-[var(--color-text-muted)]"
+                  style={{ width: taskColWidth, height: DATE_ROW_HEIGHT }}
                 >
                   {t("grid.corner")}
                 </div>
                 <div style={{ width: viewportWindow.leftPad }} />
-                {visibleDates.map((date) => (
+                {visibleDates.map((date, index) => (
                   <DateHeader
                     key={date}
                     date={date}
-                    width={cellSize}
+                    width={visibleWidths[index] ?? cellSize}
                     isToday={date === data.today}
                     overview={overview}
                     language={data.settings.language}
@@ -872,10 +954,11 @@ export default function TaskGrid() {
                     }))
                   }
                   dates={visibleDates}
+                  widths={visibleWidths}
+                  taskColWidth={taskColWidth}
                   leftPad={viewportWindow.leftPad}
                   rightPad={viewportWindow.rightPad}
                   totalWidth={totalWidth}
-                  cellSize={cellSize}
                   rowHeight={rowHeight}
                   groupHeight={groupHeight}
                   overview={overview}
@@ -1102,10 +1185,11 @@ function GridGroup({
   open,
   onToggle,
   dates,
+  widths,
+  taskColWidth,
   leftPad,
   rightPad,
   totalWidth,
-  cellSize,
   rowHeight,
   groupHeight,
   overview,
@@ -1125,10 +1209,11 @@ function GridGroup({
   open: boolean;
   onToggle: () => void;
   dates: string[];
+  widths: number[];
+  taskColWidth: number;
   leftPad: number;
   rightPad: number;
   totalWidth: number;
-  cellSize: number;
   rowHeight: number;
   groupHeight: number;
   overview: boolean;
@@ -1160,8 +1245,8 @@ function GridGroup({
             group: label,
           })}
           onClick={onToggle}
-          style={{ height: groupHeight }}
-          className="sticky left-0 z-10 flex w-[160px] shrink-0 items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[var(--text-2xs)] font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
+          style={{ width: taskColWidth, height: groupHeight }}
+          className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[var(--text-2xs)] font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)]"
         >
           <span className="w-2 text-[9px]">{open ? "▾" : "▸"}</span>
           <i
@@ -1193,7 +1278,7 @@ function GridGroup({
               )}
               style={{
                 width: totalWidth,
-                height: rowHeight,
+                minHeight: rowHeight,
                 boxShadow:
                   dropTargetId === row.task.id
                     ? "inset 0 2px 0 var(--color-voluntary)"
@@ -1259,9 +1344,10 @@ function GridGroup({
                     : undefined
                 }
                 title={dragEnabled ? t("grid.drag") : undefined}
-                style={{ height: rowHeight }}
+                data-task-name={row.task.id}
+                style={{ width: taskColWidth, minHeight: rowHeight }}
                 className={clsx(
-                  "sticky left-0 z-10 flex w-[160px] shrink-0 cursor-grab items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 active:cursor-grabbing",
+                  "sticky left-0 z-10 flex shrink-0 cursor-grab items-center gap-1.5 border-b border-r border-[var(--color-border)] bg-[var(--color-surface)] px-2 active:cursor-grabbing",
                   overview ? "text-[var(--text-2xs)]" : "text-xs",
                   row.disabled && "text-[var(--color-text-muted)]",
                 )}
@@ -1276,7 +1362,7 @@ function GridGroup({
                     opacity: row.disabled ? 0.35 : 1,
                   }}
                 />
-                <span className="truncate">{row.task.name}</span>
+                <span className="min-w-0 break-words">{row.task.name}</span>
                 {dragEnabled ? (
                   <span
                     aria-hidden="true"
@@ -1288,7 +1374,7 @@ function GridGroup({
               </div>
 
               <div style={{ width: leftPad }} />
-              {dates.map((date) => {
+              {dates.map((date, index) => {
                 const key = checkinKey(row.task.id, date);
                 const state = states.get(key) ?? "none";
                 const checkin = checkins.get(key);
@@ -1308,7 +1394,7 @@ function GridGroup({
                     date={date}
                     state={state}
                     value={value}
-                    width={cellSize}
+                    width={widths[index] ?? 32}
                     height={rowHeight}
                     isToday={date === today}
                     overview={overview}
@@ -1409,7 +1495,10 @@ function GridCell({
       (state === "none" ? "var(--color-na)" : undefined));
 
   return (
-    <div className="group relative shrink-0" style={{ width, height }}>
+    <div
+      className="group relative flex shrink-0"
+      style={{ width, minHeight: height }}
+    >
       <button
         type="button"
         data-grid-cell={taskId}
@@ -1437,7 +1526,7 @@ function GridCell({
             : undefined
         }
         className={clsx(
-          "flex size-full items-center justify-center border-b border-l tabular-nums outline-none",
+          "flex w-full min-w-0 items-center justify-center border-b border-l tabular-nums outline-none",
           overview ? "text-[0px]" : value ? "px-0.5 text-[10px]" : "text-xs",
           !overview &&
             state === "done" &&
@@ -1454,6 +1543,7 @@ function GridCell({
               : "cursor-default hover:bg-[var(--state-hover)]",
         )}
         style={{
+          minHeight: height,
           background,
           color:
             !overview && state === "none"
@@ -1470,7 +1560,10 @@ function GridCell({
             "color-mix(in srgb, var(--color-border) 50%, transparent)",
         }}
       >
-        <span aria-hidden="true" className="max-w-full truncate">
+        <span
+          aria-hidden="true"
+          className="max-w-full break-words text-center leading-tight"
+        >
           {overview ? "" : text}
         </span>
       </button>

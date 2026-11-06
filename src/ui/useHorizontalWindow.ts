@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 
+import { findColumnAtOffset } from "./gridColumnLayout";
+
 export const TASK_COL_WIDTH = 160;
 
 export interface HorizontalWindow {
@@ -51,6 +53,58 @@ export function useHorizontalWindow(
   return useMemo(
     () => computeHorizontalWindow(scrollLeft, viewportWidth, total, cellSize),
     [scrollLeft, viewportWidth, total, cellSize],
+  );
+}
+
+/**
+ * 可变列宽版本：offsets 是列宽前缀和。
+ * 向左右各多渲染两屏像素宽度，保证宽列滚动时不会出现空白。
+ */
+export function computeHorizontalWindowByOffsets(
+  scrollLeft: number,
+  viewportWidth: number,
+  offsets: number[],
+  taskColWidth = TASK_COL_WIDTH,
+): HorizontalWindow {
+  const total = offsets.length - 1;
+  if (total <= 0) {
+    return { start: 0, end: 0, leftPad: 0, rightPad: 0 };
+  }
+
+  const dateViewport = Math.max(0, viewportWidth - taskColWidth);
+  const firstVisible = findColumnAtOffset(offsets, Math.max(0, scrollLeft));
+  const start = findColumnAtOffset(
+    offsets,
+    Math.max(0, offsets[firstVisible] - dateViewport * 2),
+  );
+  const end = Math.min(
+    total,
+    findColumnAtOffset(offsets, offsets[firstVisible] + dateViewport * 3) + 1,
+  );
+
+  return {
+    start,
+    end,
+    leftPad: offsets[start],
+    rightPad: offsets[total] - offsets[end],
+  };
+}
+
+export function useHorizontalWindowByOffsets(
+  scrollLeft: number,
+  viewportWidth: number,
+  offsets: number[],
+  taskColWidth = TASK_COL_WIDTH,
+): HorizontalWindow {
+  return useMemo(
+    () =>
+      computeHorizontalWindowByOffsets(
+        scrollLeft,
+        viewportWidth,
+        offsets,
+        taskColWidth,
+      ),
+    [scrollLeft, viewportWidth, offsets, taskColWidth],
   );
 }
 

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeHorizontalWindow,
+  computeHorizontalWindowByOffsets,
   scrollLeftForToday,
 } from "./useHorizontalWindow";
+import { buildColumnOffsets } from "./gridColumnLayout";
 
 describe("computeHorizontalWindow", () => {
   it("renders the first screen plus two screens of overscan", () => {
@@ -52,5 +54,44 @@ describe("scrollLeftForToday", () => {
 
   it("never scrolls before the axis start", () => {
     expect(scrollLeftForToday(3, 832, 32)).toBe(0);
+  });
+});
+
+describe("computeHorizontalWindowByOffsets", () => {
+  it("matches the uniform window when all columns are equal", () => {
+    const offsets = buildColumnOffsets(new Array<number>(1000).fill(32));
+    const win = computeHorizontalWindowByOffsets(0, 832, offsets);
+
+    expect(win.start).toBe(0);
+    expect(win.leftPad).toBe(0);
+    expect(win.rightPad).toBe(offsets[1000] - offsets[win.end]);
+    expect(win.leftPad + offsets[win.end] - offsets[win.start] + win.rightPad)
+      .toBe(1000 * 32);
+  });
+
+  it("keeps pads aligned when scrolling through variable widths", () => {
+    const widths = [24, 120, 32, 320, 64, 24, 200];
+    const offsets = buildColumnOffsets(widths);
+    const win = computeHorizontalWindowByOffsets(150, 832, offsets);
+
+    expect(win.start).toBe(0);
+    expect(win.leftPad).toBe(0);
+    expect(win.rightPad).toBe(offsets[widths.length] - offsets[win.end]);
+    expect(win.leftPad + offsets[win.end] - offsets[win.start] + win.rightPad)
+      .toBe(offsets[widths.length]);
+  });
+
+  it("clamps at the end and handles an empty axis", () => {
+    const offsets = buildColumnOffsets([32, 32, 32]);
+    const win = computeHorizontalWindowByOffsets(9_999_999, 832, offsets);
+    expect(win.end).toBe(3);
+    expect(win.rightPad).toBe(0);
+
+    expect(computeHorizontalWindowByOffsets(0, 832, [])).toEqual({
+      start: 0,
+      end: 0,
+      leftPad: 0,
+      rightPad: 0,
+    });
   });
 });

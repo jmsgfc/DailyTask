@@ -302,6 +302,95 @@ describe("TaskGrid", () => {
     expect(cell).toHaveAttribute("data-value", "3 组");
   });
 
+  it("widens a date column to its longest value and keeps the column uniform", () => {
+    const long = "1234567890";
+    useCheckinsStore.setState({
+      byKey: new Map([
+        [checkinKey("t1", TODAY), { ...doneToday(), value: long }],
+        [
+          checkinKey("t2", TODAY),
+          { ...doneToday(), id: "c2", taskId: "t2", value: "1" },
+        ],
+      ]),
+    });
+
+    const { container } = render(<TaskGrid />);
+    const longCell = container.querySelector(
+      `[data-task="t1"][data-date="${TODAY}"]`,
+    ) as HTMLElement;
+    const shortCell = container.querySelector(
+      `[data-task="t2"][data-date="${TODAY}"]`,
+    ) as HTMLElement;
+    const longWidth = (longCell.parentElement as HTMLElement).style.width;
+    const shortWidth = (shortCell.parentElement as HTMLElement).style.width;
+
+    expect(parseFloat(longWidth)).toBeGreaterThan(32);
+    expect(shortWidth).toBe(longWidth);
+    expect(longCell).toHaveTextContent(long);
+    expect(longCell.querySelector("span")).not.toHaveClass("truncate");
+  });
+
+  it("caps a long value column at 320px and wraps the text", () => {
+    useCheckinsStore.setState({
+      byKey: new Map([
+        [checkinKey("t1", TODAY), { ...doneToday(), value: "汉".repeat(200) }],
+      ]),
+    });
+
+    const { container } = render(<TaskGrid />);
+    const cell = container.querySelector(
+      `[data-task="t1"][data-date="${TODAY}"]`,
+    ) as HTMLElement;
+
+    expect((cell.parentElement as HTMLElement).style.width).toBe("320px");
+    expect(cell.querySelector("span")).toHaveClass("break-words");
+  });
+
+  it("widens the task column to the longest task name", () => {
+    const longName = "这是一个很长的任务名称用于测试自适应列宽";
+    useTasksStore.setState({
+      tasks: useTasksStore
+        .getState()
+        .tasks.map((item) =>
+          item.id === "t1" ? { ...item, name: longName } : item,
+        ),
+    });
+
+    const { container } = render(<TaskGrid />);
+    const nameCells = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-task-name]"),
+    );
+    const widths = nameCells.map((element) => element.style.width);
+
+    expect(widths.length).toBeGreaterThan(0);
+    expect(new Set(widths).size).toBe(1);
+    expect(parseFloat(widths[0])).toBeGreaterThan(160);
+    expect(parseFloat(widths[0])).toBeLessThanOrEqual(320);
+    expect(nameCells[0]).toHaveTextContent(longName);
+    expect(nameCells[0].querySelector("span")).not.toHaveClass("truncate");
+  });
+
+  it("keeps uniform narrow columns in overview mode", () => {
+    useSettingsStore.setState({
+      settings: { ...DEFAULT_SETTINGS, gridZoom: 16 },
+      loaded: true,
+      update: updateSettings,
+    });
+    useCheckinsStore.setState({
+      byKey: new Map([
+        [checkinKey("t1", TODAY), { ...doneToday(), value: "1234567890" }],
+      ]),
+    });
+
+    const { container } = render(<TaskGrid />);
+    const cell = container.querySelector(
+      `[data-task="t1"][data-date="${TODAY}"]`,
+    ) as HTMLElement;
+
+    expect(container.querySelector('[data-mode="overview"]')).toBeInTheDocument();
+    expect((cell.parentElement as HTMLElement).style.width).toBe("16px");
+  });
+
   it("edits status, value and note from the right-click editor", async () => {
     const { container } = render(<TaskGrid />);
     const cell = container.querySelector(
