@@ -24,8 +24,8 @@ export default function Today() {
   const setValue = useCheckinsStore((state) => state.setValue);
   const setTodoDone = useTodosStore((state) => state.setDone);
 
-  const completeTodo = (item: DueTodoItem) => {
-    void setTodoDone(item.todo.id, true);
+  const toggleTodo = (item: DueTodoItem) => {
+    void setTodoDone(item.todo.id, !item.todo.done);
   };
 
   const toggle = (row: TodayTask) => {
@@ -133,14 +133,14 @@ export default function Today() {
             <DueTodoRow
               key={item.todo.id}
               item={item}
-              onComplete={() => completeTodo(item)}
+              onToggle={() => toggleTodo(item)}
             />
           ))}
           {data.todayTodos.map((item) => (
             <DueTodoRow
               key={item.todo.id}
               item={item}
-              onComplete={() => completeTodo(item)}
+              onToggle={() => toggleTodo(item)}
             />
           ))}
         </section>
@@ -153,23 +153,28 @@ export default function Today() {
 /** 单区块内按「逾期 → 今天」排列，红条/红 chip 与黄 chip 做视觉分组。 */
 function DueTodoRow({
   item,
-  onComplete,
+  onToggle,
 }: {
   item: DueTodoItem;
-  onComplete: () => void;
+  onToggle: () => void;
 }) {
   const t = useT();
   const { todo, overdueDays } = item;
   const overdue = overdueDays > 0;
+  const done = todo.done;
 
   return (
     <button
       type="button"
       data-group={overdue ? "overdue" : "today"}
       data-overdue={overdue ? "" : undefined}
-      aria-label={t("todos.markDone", { title: todo.title })}
-      onClick={onComplete}
-      className={`relative flex h-[34px] w-full items-center gap-3 rounded-[var(--radius-control)] px-2 text-left hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${
+      data-done={done ? "" : undefined}
+      aria-pressed={done}
+      aria-label={t(done ? "todos.markUndone" : "todos.markDone", {
+        title: todo.title,
+      })}
+      onClick={onToggle}
+      className={`relative flex min-h-[34px] w-full items-center gap-3 rounded-[var(--radius-control)] px-2 py-1 text-left hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)] ${
         overdue
           ? "pl-5 before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-[3px] before:rounded-[2px] before:bg-[var(--color-missed)]"
           : ""
@@ -177,9 +182,21 @@ function DueTodoRow({
     >
       <span
         aria-hidden="true"
-        className="grid size-[18px] shrink-0 place-items-center rounded-full border-[1.5px] border-[var(--color-border-strong)] text-[10px] leading-none text-transparent"
-      />
-      <span className="min-w-0 truncate">{todo.title}</span>
+        className={`grid size-[18px] shrink-0 place-items-center rounded-full border-[1.5px] text-[10px] leading-none ${
+          done
+            ? "border-[var(--color-voluntary)] bg-[var(--color-voluntary)] text-white"
+            : "border-[var(--color-border-strong)] text-transparent"
+        }`}
+      >
+        ✓
+      </span>
+      <span
+        className={`min-w-0 flex-1 whitespace-pre-wrap break-words ${
+          done ? "text-[var(--color-text-muted)] line-through" : ""
+        }`}
+      >
+        {todo.title}
+      </span>
       <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-[var(--color-text-muted)]">
         <span>{format(parseISO(todo.dueDate as string), "MM/dd")}</span>
         <span

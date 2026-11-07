@@ -24,7 +24,7 @@ function todo(id: string, dueDate: string | null, done = false): Todo {
     title: id,
     dueDate,
     done,
-    completedAt: done ? "2026-11-02T00:00:00.000Z" : null,
+    completedAt: done ? new Date(2026, 10, 2, 9, 0, 0).toISOString() : null,
     createdAt: "2026-11-01T00:00:00.000Z",
     updatedAt: "2026-11-01T00:00:00.000Z",
   };
@@ -52,7 +52,7 @@ describe("Today due todos", () => {  beforeEach(() => {
     useTodosStore.setState({ setDone: originalSetDone });
   });
 
-  it("renders overdue before today in one block and drops future/done items", () => {
+  it("renders overdue before today in one block and keeps done-today items", () => {
     const { container } = render(<Today />);
 
     expect(container.querySelector("[data-today-scroll]")).toHaveClass(
@@ -63,14 +63,16 @@ describe("Today due todos", () => {  beforeEach(() => {
     expect(rows.map((row) => row.getAttribute("data-group"))).toEqual([
       "overdue",
       "today",
+      "today",
     ]);
     expect(rows[0]).toHaveTextContent("交房租");
     expect(rows[0]).toHaveTextContent("逾期 2 天");
     expect(rows[1]).toHaveTextContent("买猫粮");
     expect(rows[1]).toHaveTextContent("今天");
+    expect(rows[2]).toHaveTextContent("已完成的待办");
+    expect(rows[2]).toHaveAttribute("data-done");
 
     expect(screen.queryByText("以后再说")).not.toBeInTheDocument();
-    expect(screen.queryByText("已完成的待办")).not.toBeInTheDocument();
   });
 
   it("completes a due todo when its row is clicked", () => {
@@ -84,6 +86,18 @@ describe("Today due todos", () => {  beforeEach(() => {
 
     fireEvent.click(screen.getByRole("button", { name: "完成 买猫粮" }));
     expect(setDone).toHaveBeenCalledWith("买猫粮", true);
+  });
+
+  it("unchecks a todo completed today instead of hiding it", () => {
+    const setDone = vi.fn(async () => undefined);
+    useTodosStore.setState({ setDone });
+
+    render(<Today />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "取消完成 已完成的待办" }),
+    );
+
+    expect(setDone).toHaveBeenCalledWith("已完成的待办", false);
   });
 });
 

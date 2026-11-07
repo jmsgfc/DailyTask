@@ -39,13 +39,18 @@ function checkin(id: string, status: CheckinStatus): Checkin {
   };
 }
 
-function todo(id: string, dueDate: string | null, done = false): Todo {
+function todo(
+  id: string,
+  dueDate: string | null,
+  done = false,
+  completedAt = done ? new Date(2026, 10, 2, 9, 0, 0).toISOString() : null,
+): Todo {
   return {
     id,
     title: id,
     dueDate,
     done,
-    completedAt: done ? "2026-11-02T00:00:00.000Z" : null,
+    completedAt,
     createdAt: "2026-11-01T00:00:00.000Z",
     updatedAt: "2026-11-01T00:00:00.000Z",
   };
@@ -85,10 +90,16 @@ describe("buildToday", () => {
     });
   });
 
-  it("groups overdue and today todos, dropping future and done items", () => {
+  it("groups overdue and today todos, keeping ones completed today", () => {
     const todos = [
       todo("future", "2026-11-05"),
       todo("done", TODAY, true),
+      todo(
+        "stale-done",
+        "2026-10-30",
+        true,
+        new Date(2026, 10, 1, 9, 0, 0).toISOString(),
+      ),
       todo("today", TODAY),
       todo("overdue", "2026-10-31"),
       todo("no-date", null),
@@ -98,9 +109,13 @@ describe("buildToday", () => {
 
     expect(data.overdueTodos.map((item) => item.todo.id)).toEqual(["overdue"]);
     expect(data.overdueTodos[0].overdueDays).toBe(2);
-    expect(data.todayTodos.map((item) => item.todo.id)).toEqual(["today"]);
+    expect(data.todayTodos.map((item) => item.todo.id)).toEqual([
+      "done",
+      "today",
+    ]);
     expect(data.dueTodos.map((item) => item.todo.id)).toEqual([
       "overdue",
+      "done",
       "today",
     ]);
   });

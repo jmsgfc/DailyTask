@@ -121,7 +121,6 @@ export default function Todos() {
                 group={group}
                 today={data.today}
                 onContextMenu={openMenu}
-                onEditDue={openMenu}
               />
             ))}
 
@@ -152,7 +151,6 @@ export default function Todos() {
                       item={item}
                       today={data.today}
                       onContextMenu={openMenu}
-                      onEditDue={openMenu}
                     />
                   ))}
                 </div>
@@ -255,13 +253,24 @@ function TodoForm() {
       onSubmit={submit}
       className={`${CARD} flex flex-none items-center gap-2 px-3 py-2`}
     >
-      <input
+      <textarea
         data-todo-input
+        rows={1}
         value={title}
         aria-label={t("todos.addPlaceholder")}
         placeholder={t("todos.addPlaceholder")}
         onChange={(event) => setTitle(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus-visible:outline-none"
+        onKeyDown={(event) => {
+          if (
+            event.key === "Enter" &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing
+          ) {
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+          }
+        }}
+        className="field-sizing-content min-h-[20px] max-h-24 min-w-0 flex-1 resize-none bg-transparent text-sm leading-5 text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus-visible:outline-none"
       />
       <DateField
         data-todo-due
@@ -287,12 +296,10 @@ function TodoSection({
   group,
   today,
   onContextMenu,
-  onEditDue,
 }: {
   group: TodoGroup;
   today: string;
   onContextMenu: (item: TodoItem, event: ReactMouseEvent) => void;
-  onEditDue: (item: TodoItem, event: ReactMouseEvent) => void;
 }) {
   const t = useT();
   const meta = GROUP_META[group.key];
@@ -316,7 +323,6 @@ function TodoSection({
           item={item}
           today={today}
           onContextMenu={onContextMenu}
-          onEditDue={onEditDue}
         />
       ))}
     </section>
@@ -327,12 +333,10 @@ function TodoRow({
   item,
   today,
   onContextMenu,
-  onEditDue,
 }: {
   item: TodoItem;
   today: string;
   onContextMenu: (item: TodoItem, event: ReactMouseEvent) => void;
-  onEditDue: (item: TodoItem, event: ReactMouseEvent) => void;
 }) {
   const t = useT();
   const setDone = useTodosStore((state) => state.setDone);
@@ -372,7 +376,7 @@ function TodoRow({
       data-overdue={overdue ? "" : undefined}
       data-done={todo.done ? "" : undefined}
       onContextMenu={(event) => onContextMenu(item, event)}
-      className={`group relative flex h-[34px] items-center gap-3 rounded-[var(--radius-control)] px-2 hover:bg-[var(--state-hover)] ${
+      className={`group relative flex min-h-[34px] items-center gap-3 rounded-[var(--radius-control)] px-2 py-1 hover:bg-[var(--state-hover)] ${
         overdue
           ? "pl-5 before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-[3px] before:rounded-[2px] before:bg-[var(--color-missed)]"
           : ""
@@ -396,14 +400,19 @@ function TodoRow({
       </button>
 
       {editing ? (
-        <input
+        <textarea
           autoFocus
+          rows={1}
           data-todo-title-input
           value={draft}
           aria-label={t("todos.rename")}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
               event.preventDefault();
               commit();
             }
@@ -414,15 +423,13 @@ function TodoRow({
             }
           }}
           onBlur={commit}
-          className="min-w-0 flex-1 rounded-[var(--radius-control)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-1.5 py-[2px] text-sm focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          className="field-sizing-content min-h-[24px] max-h-32 min-w-0 flex-1 resize-none rounded-[var(--radius-control)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-1.5 py-[2px] text-sm leading-5 focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
         />
       ) : (
         <span
-          className={
-            todo.done
-              ? "min-w-0 truncate text-[var(--color-text-muted)] line-through"
-              : "min-w-0 truncate"
-          }
+          className={`min-w-0 flex-1 whitespace-pre-wrap break-words ${
+            todo.done ? "text-[var(--color-text-muted)] line-through" : ""
+          }`}
         >
           {todo.title}
         </span>
@@ -456,30 +463,15 @@ function TodoRow({
       >
         <span aria-hidden="true">✎</span>
       </button>
-      <button
-        type="button"
+      <DateField
+        variant="icon"
         data-todo-date
+        value={todo.dueDate}
+        onChange={(next) => void update(todo.id, { dueDate: next })}
         aria-label={t("todos.editDue", { title: todo.title })}
-        onClick={(event) => {
-          event.stopPropagation();
-          onEditDue(item, event);
-        }}
-        className="grid size-5 shrink-0 place-items-center rounded-[var(--radius-control)] text-[var(--color-text-muted)] opacity-0 hover:bg-[var(--state-active)] focus:opacity-100 group-hover:opacity-100"
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          aria-hidden="true"
-        >
-          <rect x="2.5" y="3.5" width="11" height="10" rx="2" />
-          <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
-        </svg>
-      </button>
+        allowClear
+        className="shrink-0 opacity-0 focus-within:opacity-100 group-hover:opacity-100"
+      />
       <ConfirmDeleteButton
         data-todo-delete
         name={todo.title}

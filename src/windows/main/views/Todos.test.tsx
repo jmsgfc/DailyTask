@@ -141,6 +141,21 @@ describe("Todos", () => {
     });
   });
 
+  it("inserts a line break with Shift+Enter and keeps it in the title", () => {
+    render(<Todos />);
+    const input = screen.getByLabelText("添加待办，回车保存");
+
+    fireEvent.change(input, { target: { value: "第一行\n第二行" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(create).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(create).toHaveBeenCalledWith({
+      title: "第一行\n第二行",
+      dueDate: null,
+    });
+  });
+
   it("toggles a todo done inline", () => {
     const { container } = render(<Todos />);
 
@@ -166,6 +181,25 @@ describe("Todos", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(update).toHaveBeenCalledWith("买猫粮", { title: "买狗粮" });
+  });
+
+  it("keeps line breaks when renaming with Shift+Enter", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-todo="买猫粮"] [data-todo-rename]',
+      ) as Element,
+    );
+    const input = screen.getByRole("textbox", { name: "重命名" });
+    fireEvent.change(input, { target: { value: "第一行\n第二行" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(update).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(update).toHaveBeenCalledWith("买猫粮", {
+      title: "第一行\n第二行",
+    });
   });
 
   it("asks for confirmation before deleting a todo", async () => {
@@ -197,7 +231,7 @@ describe("Todos", () => {
     expect(remove).toHaveBeenCalledWith("换灯泡", expect.anything());
   });
 
-  it("reschedules a todo from the calendar button", () => {
+  it("reschedules a todo directly from the calendar button", () => {
     const { container } = render(<Todos />);
 
     fireEvent.click(
@@ -205,14 +239,28 @@ describe("Todos", () => {
         '[data-todo="买猫粮"] [data-todo-date]',
       ) as Element,
     );
-    expect(container.querySelector("[data-todo-menu]")).toBeInTheDocument();
+    expect(container.querySelector("[data-todo-menu]")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "选择日期" })).toBeInTheDocument();
 
-    fireEvent.change(container.querySelector("[data-menu-date]") as Element, {
-      target: { value: "2026-11-10" },
-    });
-    fireEvent.click(container.querySelector("[data-menu-save]") as Element);
+    fireEvent.click(
+      document.querySelector('[data-date="2026-11-10"]') as Element,
+    );
 
     expect(update).toHaveBeenCalledWith("买猫粮", { dueDate: "2026-11-10" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("clears the due date from the calendar button", () => {
+    const { container } = render(<Todos />);
+
+    fireEvent.click(
+      container.querySelector(
+        '[data-todo="买猫粮"] [data-todo-date]',
+      ) as Element,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "清除" }));
+
+    expect(update).toHaveBeenCalledWith("买猫粮", { dueDate: null });
   });
 
   it("reschedules a todo from the right-click menu", () => {

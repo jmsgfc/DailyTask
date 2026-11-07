@@ -150,8 +150,8 @@ export function Widget() {
     });
   };
 
-  const completeTodo = (item: DueTodoItem) => {
-    void setTodoDone(item.todo.id, true);
+  const toggleTodo = (item: DueTodoItem) => {
+    void setTodoDone(item.todo.id, !item.todo.done);
   };
 
   const openMenu = (row: TodayTask, event: ReactMouseEvent) => {
@@ -355,7 +355,7 @@ export function Widget() {
                   <WidgetTodoRow
                     key={item.todo.id}
                     item={item}
-                    onComplete={() => completeTodo(item)}
+                    onToggle={() => toggleTodo(item)}
                   />
                 ))}
               </div>
@@ -811,27 +811,44 @@ function WidgetTaskRow({
 
 function WidgetTodoRow({
   item,
-  onComplete,
+  onToggle,
 }: {
   item: DueTodoItem;
-  onComplete: () => void;
+  onToggle: () => void;
 }) {
   const t = useT();
   const { todo, overdueDays } = item;
   const overdue = overdueDays > 0;
+  const done = todo.done;
 
   return (
     <button
       type="button"
-      aria-label={t("todos.markDone", { title: todo.title })}
-      onClick={onComplete}
-      className="flex h-[26px] w-full items-center gap-1.5 rounded-[5px] px-1 text-left text-[11.5px] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      data-done={done ? "" : undefined}
+      aria-pressed={done}
+      aria-label={t(done ? "todos.markUndone" : "todos.markDone", {
+        title: todo.title,
+      })}
+      onClick={onToggle}
+      className="flex min-h-[26px] w-full items-center gap-1.5 rounded-[5px] px-1 py-0.5 text-left text-[11.5px] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
     >
       <span
         aria-hidden="true"
-        className="size-3 shrink-0 rounded-full border-[1.4px] border-[var(--color-border-strong)]"
-      />
-      <span className="min-w-0 flex-1 truncate">{todo.title}</span>
+        className={`grid size-3 shrink-0 place-items-center rounded-full border-[1.4px] text-[8px] leading-none ${
+          done
+            ? "border-[var(--color-voluntary)] bg-[var(--color-voluntary)] text-white"
+            : "border-[var(--color-border-strong)] text-transparent"
+        }`}
+      >
+        ✓
+      </span>
+      <span
+        className={`min-w-0 flex-1 whitespace-pre-wrap break-words ${
+          done ? "text-[var(--color-text-muted)] line-through" : ""
+        }`}
+      >
+        {todo.title}
+      </span>
       <span className="shrink-0 text-[9.5px] tabular-nums text-[var(--color-text-muted)]">
         {format(parseISO(todo.dueDate as string), "MM/dd")}
       </span>

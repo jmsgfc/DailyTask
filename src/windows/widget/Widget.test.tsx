@@ -240,6 +240,31 @@ describe("Widget", () => {
     expect(setDone).toHaveBeenCalledWith("买猫粮", true);
   });
 
+  it("keeps a todo completed today visible and lets it be unchecked", () => {
+    const setDone = vi.fn(async () => undefined);
+    useTodosStore.setState({
+      setDone,
+      todos: [
+        todo("交房租", "2026-10-31"),
+        todo("买猫粮", TODAY),
+        {
+          ...todo("已完成待办", TODAY),
+          done: true,
+          completedAt: new Date(2026, 10, 2, 9, 0, 0).toISOString(),
+        },
+      ],
+    });
+
+    render(<Widget />);
+
+    expect(screen.getByText("已完成待办")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "取消完成 已完成待办" }),
+    );
+
+    expect(setDone).toHaveBeenCalledWith("已完成待办", false);
+  });
+
   it("shows a value and edits it inline", () => {
     const setStatus = vi.fn(async () => undefined);
     const setValue = vi.fn(async () => undefined);

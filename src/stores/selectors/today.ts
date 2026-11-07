@@ -78,8 +78,20 @@ export function buildToday(
   const voluntary = rows.filter((row) => row.task.category === "voluntary");
   const forced = rows.filter((row) => row.task.category === "forced");
 
+  // 当天完成的待办保留在列表里（打勾不消失），次日自动移除。
   const dueTodos: DueTodoItem[] = todos
-    .filter((todo) => !todo.done && todo.dueDate !== null && todo.dueDate <= today)
+    .filter((todo) => {
+      if (todo.dueDate === null || todo.dueDate > today) {
+        return false;
+      }
+      if (!todo.done) {
+        return true;
+      }
+      return (
+        todo.completedAt !== null &&
+        logicalToday(new Date(todo.completedAt), settings.dayStartHour) === today
+      );
+    })
     .map((todo) => ({
       todo,
       overdueDays: diffDays(today, todo.dueDate as string),

@@ -126,6 +126,28 @@ describe("DateField", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("opens the calendar directly in icon mode and picks a day", () => {
+    const onChange = vi.fn();
+    render(
+      <DateField
+        variant="icon"
+        value="2026-11-05"
+        onChange={onChange}
+        aria-label="修改日期"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "修改日期" }));
+
+    expect(screen.getByRole("dialog", { name: "选择日期" })).toBeInTheDocument();
+    fireEvent.click(
+      document.querySelector('[data-date="2026-11-20"]') as Element,
+    );
+
+    expect(onChange).toHaveBeenCalledWith("2026-11-20");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("jumps back to today from the footer", () => {
     const onChange = vi.fn();
     render(
