@@ -6,10 +6,12 @@ import {
   DEFAULT_SETTINGS,
   type Checkin,
   type Task,
+  type Todo,
 } from "../domain/types";
 import { useCheckinsStore } from "../stores/checkinsStore";
 import { useSettingsStore } from "../stores/settingsStore";
 import { useTasksStore } from "../stores/tasksStore";
+import { useTodosStore } from "../stores/todosStore";
 import { useTrayProgress } from "./useTrayProgress";
 
 const core = vi.hoisted(() => ({ invoke: vi.fn(async () => undefined) }));
@@ -41,6 +43,18 @@ function done(taskId: string): Checkin {
   };
 }
 
+function todo(id: string, dueDate: string, done = false): Todo {
+  return {
+    id,
+    title: id,
+    dueDate,
+    done,
+    completedAt: done ? "2026-11-04T08:00:00.000Z" : null,
+    createdAt: "2026-11-01T00:00:00.000Z",
+    updatedAt: "2026-11-04T00:00:00.000Z",
+  };
+}
+
 function Probe() {
   useTrayProgress();
   return null;
@@ -56,6 +70,7 @@ describe("useTrayProgress", () => {
     useCheckinsStore.setState({
       byKey: new Map([[checkinKey("a", "2026-11-04"), done("a")]]),
     });
+    useTodosStore.setState({ todos: [] });
   });
 
   afterEach(() => {
@@ -92,6 +107,20 @@ describe("useTrayProgress", () => {
     await waitFor(() =>
       expect(core.invoke).toHaveBeenCalledWith("set_tray_progress", {
         text: "今日进度 2/3",
+      }),
+    );
+  });
+
+  it("counts due todos in the tray progress", async () => {
+    useTodosStore.setState({
+      todos: [todo("done-today", "2026-11-04", true), todo("today", "2026-11-04")],
+    });
+
+    render(<Probe />);
+
+    await waitFor(() =>
+      expect(core.invoke).toHaveBeenCalledWith("set_tray_progress", {
+        text: "今日进度 2/5",
       }),
     );
   });

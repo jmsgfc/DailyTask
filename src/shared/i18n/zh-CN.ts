@@ -30,6 +30,7 @@ export const zhCN = {
   "today.allDone": "今天已收尾",
   "today.category.voluntary": "自愿",
   "today.category.forced": "被迫",
+  "today.category.todos": "待办",
   "today.group.voluntary": "自愿任务",
   "today.group.forced": "被迫任务",
   "today.empty": "今天没有需要打卡的任务",
@@ -185,7 +186,8 @@ export const zhCN = {
   "checkin.aria": "{task}：{status}",
 
   "progress.aria": "今日进度 {done} / {total}",
-  "common.itemCount": "{count} 项",
+  "common.expandSection": "展开{section}",
+  "common.collapseSection": "折叠{section}",
   "common.cancel": "取消",
   "common.close": "关闭",
   "common.confirmDelete": "确认删除",

@@ -29,6 +29,7 @@ export const en: Messages = {
   "today.allDone": "All done for today",
   "today.category.voluntary": "Voluntary",
   "today.category.forced": "Forced",
+  "today.category.todos": "Todos",
   "today.group.voluntary": "Voluntary tasks",
   "today.group.forced": "Forced tasks",
   "today.empty": "Nothing to check in today",
@@ -184,7 +185,8 @@ export const en: Messages = {
   "checkin.aria": "{task}: {status}",
 
   "progress.aria": "Today {done} / {total}",
-  "common.itemCount": "{count} items",
+  "common.expandSection": "Expand {section}",
+  "common.collapseSection": "Collapse {section}",
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.confirmDelete": "Delete",

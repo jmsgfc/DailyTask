@@ -7,6 +7,7 @@ import { applicableTasks } from "../../domain/applicability";
 import { diffDays, logicalToday } from "../../domain/date";
 import { checkinKey } from "../../domain/keys";
 import {
+  combineProgress,
   dayProgress,
   projectCell,
   type CellState,
@@ -43,6 +44,7 @@ export interface TodayData {
   progress: DayProgress;
   voluntaryStat: CategoryStat;
   forcedStat: CategoryStat;
+  todoStat: CategoryStat;
   overdueTodos: DueTodoItem[];
   todayTodos: DueTodoItem[];
   dueTodos: DueTodoItem[];
@@ -53,6 +55,42 @@ function statOf(rows: TodayTask[]): CategoryStat {
   return {
     done: countable.filter((row) => row.state === "done").length,
     total: countable.length,
+  };
+}
+
+/** 今日到期待办：逾期在前；当天完成的保留，次日自动移除。 */
+export function dueTodosFor(
+  todos: Todo[],
+  today: string,
+  settings: Settings,
+): DueTodoItem[] {
+  return todos
+    .filter((todo) => {
+      if (todo.dueDate === null || todo.dueDate > today) {
+        return false;
+      }
+      if (!todo.done) {
+        return true;
+      }
+      return (
+        todo.completedAt !== null &&
+        logicalToday(new Date(todo.completedAt), settings.dayStartHour) === today
+      );
+    })
+    .map((todo) => ({
+      todo,
+      overdueDays: diffDays(today, todo.dueDate as string),
+    }))
+    .sort((a, b) =>
+      (a.todo.dueDate as string).localeCompare(b.todo.dueDate as string),
+    );
+}
+
+/** 待办分母按列表行数算，当天完成保留的行也计入。 */
+export function todoStatOf(items: DueTodoItem[]): CategoryStat {
+  return {
+    done: items.filter((item) => item.todo.done).length,
+    total: items.length,
   };
 }
 
@@ -79,24 +117,8 @@ export function buildToday(
   const forced = rows.filter((row) => row.task.category === "forced");
 
   // 当天完成的待办保留在列表里（打勾不消失），次日自动移除。
-  const dueTodos: DueTodoItem[] = todos
-    .filter((todo) => {
-      if (todo.dueDate === null || todo.dueDate > today) {
-        return false;
-      }
-      if (!todo.done) {
-        return true;
-      }
-      return (
-        todo.completedAt !== null &&
-        logicalToday(new Date(todo.completedAt), settings.dayStartHour) === today
-      );
-    })
-    .map((todo) => ({
-      todo,
-      overdueDays: diffDays(today, todo.dueDate as string),
-    }))
-    .sort((a, b) => (a.todo.dueDate as string).localeCompare(b.todo.dueDate as string));
+  const dueTodos = dueTodosFor(todos, today, settings);
+  const todoStat = todoStatOf(dueTodos);
 
   return {
     today,
@@ -105,9 +127,13 @@ export function buildToday(
     }),
     voluntary,
     forced,
-    progress: dayProgress(tasks, checkins, today, settings, today),
+    progress: combineProgress(
+      dayProgress(tasks, checkins, today, settings, today),
+      todoStat,
+    ),
     voluntaryStat: statOf(voluntary),
     forcedStat: statOf(forced),
+    todoStat,
     overdueTodos: dueTodos.filter((item) => item.overdueDays > 0),
     todayTodos: dueTodos.filter((item) => item.overdueDays === 0),
     dueTodos,

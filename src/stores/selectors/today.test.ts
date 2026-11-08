@@ -82,6 +82,7 @@ describe("buildToday", () => {
 
     expect(data.voluntaryStat).toEqual({ done: 1, total: 1 });
     expect(data.forcedStat).toEqual({ done: 0, total: 1 });
+    expect(data.todoStat).toEqual({ done: 0, total: 0 });
     expect(data.progress).toMatchObject({
       done: 1,
       pending: 1,
@@ -118,5 +119,13 @@ describe("buildToday", () => {
       "done",
       "today",
     ]);
+    expect(data.todoStat).toEqual({ done: 1, total: 3 });
+    expect(data.progress).toMatchObject({
+      done: 2,
+      pending: 3,
+      skipped: 1,
+      applicable: 6,
+      ratio: 0.4,
+    });
   });
 });

@@ -58,6 +58,32 @@ export interface DayProgress {
   ratio: number;
 }
 
+/** 并入今日进度的待办完成情况。 */
+export interface TodoProgress {
+  done: number;
+  total: number;
+}
+
+/**
+ * 把到期待办并入任务进度：待办没有 skipped，直接进分母；
+ * missed 仍只统计任务。
+ */
+export function combineProgress(
+  progress: DayProgress,
+  todos: TodoProgress,
+): DayProgress {
+  const done = progress.done + todos.done;
+  const applicable = progress.applicable + todos.total;
+  const denominator = applicable - progress.skipped;
+  return {
+    ...progress,
+    done,
+    pending: progress.pending + (todos.total - todos.done),
+    applicable,
+    ratio: denominator === 0 ? 0 : done / denominator,
+  };
+}
+
 export function dayProgress(
   tasks: Task[],
   checkins: Map<string, Checkin>,

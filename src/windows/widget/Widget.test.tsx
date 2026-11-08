@@ -161,15 +161,19 @@ describe("Widget", () => {
     render(<Widget />);
 
     expect(screen.getByText(/今日 · 11\/02/)).toBeInTheDocument();
-    expect(screen.getByText("1 / 3")).toBeInTheDocument();
-    expect(screen.getByText("33%")).toBeInTheDocument();
-    expect(screen.getByText(/还剩 1 项/)).toBeInTheDocument();
+    expect(screen.getByText("1 / 5")).toBeInTheDocument();
+    expect(screen.getByText("20%")).toBeInTheDocument();
+    expect(screen.getByText(/还剩 3 项/)).toBeInTheDocument();
 
     // 两个分组与组内计数。
     expect(screen.getByText("自愿任务")).toBeInTheDocument();
     expect(screen.getByText("被迫任务")).toBeInTheDocument();
     expect(screen.getByText("0 / 1")).toBeInTheDocument();
     expect(screen.getByText("1 / 2")).toBeInTheDocument();
+
+    // 待办计入总完成率，并在汇总区和组头显示 x/n。
+    expect(screen.getByText(/待办 0 \/ 2/)).toBeInTheDocument();
+    expect(screen.getByText("0 / 2")).toBeInTheDocument();
 
     expect(
       screen.getByRole("button", { name: "切换 跑步 状态" }),
@@ -220,13 +224,50 @@ describe("Widget", () => {
     for (const name of ["待办 1", "待办 2", "待办 3", "待办 4"]) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
-    expect(screen.getByText("4 项")).toBeInTheDocument();
+    expect(screen.getByText("0 / 4")).toBeInTheDocument();
     expect(screen.queryByText(/还有 \d+ 项/)).not.toBeInTheDocument();
 
     // 全部内容都挂在同一个滚动容器里。
     const scroller = document.querySelector("[data-widget-scroll]");
     expect(scroller).not.toBeNull();
     expect(scroller?.className).toContain("overflow-y-auto");
+  });
+
+  it("collapses the three sections from their headers", () => {
+    render(<Widget />);
+
+    const voluntary = screen.getByRole("button", { name: "折叠自愿任务" });
+    expect(voluntary).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(voluntary);
+    expect(voluntary).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("跑步")).not.toBeInTheDocument();
+    expect(screen.getByText("开会")).toBeInTheDocument();
+    expect(screen.getByText("0 / 1")).toBeInTheDocument();
+
+    const todos = screen.getByRole("button", { name: "折叠今日到期待办" });
+    expect(todos).toHaveAttribute("aria-expanded", "true");
+    expect(document.querySelector("[data-todo-bar]")).not.toBeNull();
+    fireEvent.click(todos);
+    expect(todos).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("交房租")).not.toBeInTheDocument();
+    expect(screen.queryByText("买猫粮")).not.toBeInTheDocument();
+    expect(screen.getByText("0 / 2")).toBeInTheDocument();
+    // 折叠后仍保留黄色竖条。
+    expect(document.querySelector("[data-todo-bar]")).not.toBeNull();
+  });
+
+  it("expands every section again after returning from the capsule", async () => {
+    render(<Widget />);
+
+    fireEvent.click(screen.getByRole("button", { name: "折叠自愿任务" }));
+    expect(screen.queryByText("跑步")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "收起挂件" }));
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole("button", { name: /展开挂件/ }));
+    await act(async () => undefined);
+
+    expect(screen.getByText("跑步")).toBeInTheDocument();
   });
 
   it("completes a due todo when its row is clicked", () => {

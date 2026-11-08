@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { nextCellState } from "../../../domain/settle";
 import { useCheckinsStore } from "../../../stores/checkinsStore";
@@ -23,6 +23,15 @@ export default function Today() {
   const setStatus = useCheckinsStore((state) => state.setStatus);
   const setValue = useCheckinsStore((state) => state.setValue);
   const setTodoDone = useTodosStore((state) => state.setDone);
+  const [collapsed, setCollapsed] = useState({
+    voluntary: false,
+    forced: false,
+    dueTodos: false,
+  });
+
+  const toggleSection = (key: keyof typeof collapsed) => {
+    setCollapsed((current) => ({ ...current, [key]: !current[key] }));
+  };
 
   const toggleTodo = (item: DueTodoItem) => {
     void setTodoDone(item.todo.id, !item.todo.done);
@@ -89,6 +98,13 @@ export default function Today() {
             color="var(--color-forced)"
             stat={data.forcedStat}
           />
+          {data.todoStat.total > 0 ? (
+            <SplitStat
+              label={t("today.category.todos")}
+              color="var(--color-warning)"
+              stat={data.todoStat}
+            />
+          ) : null}
         </div>
       </section>
 
@@ -104,7 +120,9 @@ export default function Today() {
               color="var(--color-voluntary)"
               rows={data.voluntary}
               stat={data.voluntaryStat}
-              onToggle={toggle}
+              open={!collapsed.voluntary}
+              onToggle={() => toggleSection("voluntary")}
+              onToggleRow={toggle}
               onSkip={toggleSkip}
               onValue={saveValue}
             />
@@ -113,7 +131,9 @@ export default function Today() {
               color="var(--color-forced)"
               rows={data.forced}
               stat={data.forcedStat}
-              onToggle={toggle}
+              open={!collapsed.forced}
+              onToggle={() => toggleSection("forced")}
+              onToggleRow={toggle}
               onSkip={toggleSkip}
               onValue={saveValue}
             />
@@ -123,26 +143,50 @@ export default function Today() {
 
       {data.dueTodos.length > 0 ? (
         <section className={`${CARD} p-2`}>
-          <div className="flex h-[34px] items-center gap-2 px-2 text-xs font-semibold text-[var(--color-text-muted)]">
-            {t("today.dueTodos")}
-            <span className="ml-auto font-normal tabular-nums">
-              {t("common.itemCount", { count: data.dueTodos.length })}
+          <button
+            type="button"
+            aria-expanded={!collapsed.dueTodos}
+            aria-label={t(
+              collapsed.dueTodos
+                ? "common.expandSection"
+                : "common.collapseSection",
+              { section: t("today.dueTodos") },
+            )}
+            onClick={() => toggleSection("dueTodos")}
+            className="flex h-[34px] w-full items-center gap-2 rounded-[var(--radius-control)] px-2 text-left text-xs font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+          >
+            <i
+              aria-hidden="true"
+              data-todo-bar
+              className="h-3 w-[3px] rounded-[2px]"
+              style={{ background: "var(--color-warning)" }}
+            />
+            <span className="truncate">{t("today.dueTodos")}</span>
+            <span aria-hidden="true" className="shrink-0 text-xs leading-none">
+              {collapsed.dueTodos ? "▸" : "▾"}
             </span>
-          </div>
-          {data.overdueTodos.map((item) => (
-            <DueTodoRow
-              key={item.todo.id}
-              item={item}
-              onToggle={() => toggleTodo(item)}
-            />
-          ))}
-          {data.todayTodos.map((item) => (
-            <DueTodoRow
-              key={item.todo.id}
-              item={item}
-              onToggle={() => toggleTodo(item)}
-            />
-          ))}
+            <span className="ml-auto font-normal tabular-nums">
+              {data.todoStat.done} / {data.todoStat.total}
+            </span>
+          </button>
+          {collapsed.dueTodos ? null : (
+            <>
+              {data.overdueTodos.map((item) => (
+                <DueTodoRow
+                  key={item.todo.id}
+                  item={item}
+                  onToggle={() => toggleTodo(item)}
+                />
+              ))}
+              {data.todayTodos.map((item) => (
+                <DueTodoRow
+                  key={item.todo.id}
+                  item={item}
+                  onToggle={() => toggleTodo(item)}
+                />
+              ))}
+            </>
+          )}
         </section>
       ) : null}
       </div>
@@ -242,7 +286,9 @@ function TaskGroup({
   color,
   rows,
   stat,
+  open,
   onToggle,
+  onToggleRow,
   onSkip,
   onValue,
 }: {
@@ -250,12 +296,20 @@ function TaskGroup({
   color: string;
   rows: TodayTask[];
   stat: CategoryStat;
-  onToggle: (row: TodayTask) => void;
+  open: boolean;
+  onToggle: () => void;
+  onToggleRow: (row: TodayTask) => void;
   onSkip: (row: TodayTask) => void;
   onValue: (row: TodayTask, value: string) => void;
 }) {
   const t = useT();
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setEditingId(null);
+    }
+  }, [open]);
 
   if (rows.length === 0) {
     return null;
@@ -263,88 +317,106 @@ function TaskGroup({
 
   return (
     <div>
-      <div className="flex h-[34px] items-center gap-2 px-2 text-xs font-semibold text-[var(--color-text-muted)]">
-        <i className="h-3 w-[3px] rounded-[2px]" style={{ background: color }} />
-        {title}
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={t(
+          open ? "common.collapseSection" : "common.expandSection",
+          { section: title },
+        )}
+        onClick={onToggle}
+        className="flex h-[34px] w-full items-center gap-2 rounded-[var(--radius-control)] px-2 text-left text-xs font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      >
+        <i
+          aria-hidden="true"
+          className="h-3 w-[3px] rounded-[2px]"
+          style={{ background: color }}
+        />
+        <span className="truncate">{title}</span>
+        <span aria-hidden="true" className="shrink-0 text-xs leading-none">
+          {open ? "▾" : "▸"}
+        </span>
         <span className="ml-auto font-normal tabular-nums">
           {stat.done} / {stat.total}
         </span>
-      </div>
+      </button>
 
-      {rows.map((row) => (
-        <div
-          key={row.task.id}
-          role="button"
-          tabIndex={0}
-          data-status={row.state}
-          onClick={() => onToggle(row)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onToggle(row);
-            }
-          }}
-          className="group flex h-[34px] cursor-pointer items-center gap-3 rounded-[var(--radius-control)] px-2 hover:bg-[var(--state-hover)] active:bg-[var(--state-active)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
-        >
-          <CheckCell
-            state={row.state}
-            taskName={row.task.name}
-            onClick={() => onToggle(row)}
-          />
-          <span
-            className={
-              row.state === "skipped"
-                ? "min-w-0 truncate text-[var(--color-text-muted)] line-through"
-                : row.state === "done"
-                  ? "min-w-0 truncate text-[var(--color-text-muted)]"
-                  : "min-w-0 truncate"
-            }
-          >
-            {row.task.name}
-          </span>
-          {editingId === row.task.id ? (
-            <ValueInput
-              initial={row.value ?? ""}
-              onCommit={(next) => {
-                setEditingId(null);
-                onValue(row, next);
+      {open
+        ? rows.map((row) => (
+            <div
+              key={row.task.id}
+              role="button"
+              tabIndex={0}
+              data-status={row.state}
+              onClick={() => onToggleRow(row)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onToggleRow(row);
+                }
               }}
-              onCancel={() => setEditingId(null)}
-            />
-          ) : (
-            <button
-              type="button"
-              data-value={row.value ?? undefined}
-              aria-label={t("today.editValue")}
-              onClick={(event) => {
-                event.stopPropagation();
-                setEditingId(row.task.id);
-              }}
-              className={`shrink-0 rounded-[var(--radius-pill)] px-1.5 py-[2px] text-xs tabular-nums text-[var(--color-text-muted)] hover:bg-[var(--state-active)] ${
-                row.value
-                  ? "bg-[var(--state-hover)]"
-                  : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-              }`}
+              className="group flex h-[34px] cursor-pointer items-center gap-3 rounded-[var(--radius-control)] px-2 hover:bg-[var(--state-hover)] active:bg-[var(--state-active)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
             >
-              {row.value ?? t("today.addValue")}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onSkip(row);
-            }}
-            className={`ml-auto rounded-[var(--radius-control)] px-1.5 py-[3px] text-xs text-[var(--color-text-muted)] hover:bg-[var(--state-active)] ${
-              row.state === "skipped"
-                ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-            }`}
-          >
-            {row.state === "skipped" ? t("today.unskip") : t("today.skip")}
-          </button>
-        </div>
-      ))}
+              <CheckCell
+                state={row.state}
+                taskName={row.task.name}
+                onClick={() => onToggleRow(row)}
+              />
+              <span
+                className={
+                  row.state === "skipped"
+                    ? "min-w-0 truncate text-[var(--color-text-muted)] line-through"
+                    : row.state === "done"
+                      ? "min-w-0 truncate text-[var(--color-text-muted)]"
+                      : "min-w-0 truncate"
+                }
+              >
+                {row.task.name}
+              </span>
+              {editingId === row.task.id ? (
+                <ValueInput
+                  initial={row.value ?? ""}
+                  onCommit={(next) => {
+                    setEditingId(null);
+                    onValue(row, next);
+                  }}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  data-value={row.value ?? undefined}
+                  aria-label={t("today.editValue")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setEditingId(row.task.id);
+                  }}
+                  className={`shrink-0 rounded-[var(--radius-pill)] px-1.5 py-[2px] text-xs tabular-nums text-[var(--color-text-muted)] hover:bg-[var(--state-active)] ${
+                    row.value
+                      ? "bg-[var(--state-hover)]"
+                      : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                  }`}
+                >
+                  {row.value ?? t("today.addValue")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSkip(row);
+                }}
+                className={`ml-auto rounded-[var(--radius-control)] px-1.5 py-[3px] text-xs text-[var(--color-text-muted)] hover:bg-[var(--state-active)] ${
+                  row.state === "skipped"
+                    ? "opacity-100"
+                    : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                }`}
+              >
+                {row.state === "skipped" ? t("today.unskip") : t("today.skip")}
+              </button>
+            </div>
+          ))
+        : null}
     </div>
   );
 }

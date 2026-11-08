@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { checkinKey } from "./keys";
-import { dayProgress, projectCell } from "./settle";
+import { combineProgress, dayProgress, projectCell } from "./settle";
 import type { Checkin, CheckinStatus, Interval, Settings, Task } from "./types";
 import { DEFAULT_SETTINGS } from "./types";
 
@@ -134,5 +134,39 @@ describe("dayProgress", () => {
         "2026-11-02",
       ).ratio,
     ).toBe(0);
+  });
+});
+
+describe("combineProgress", () => {
+  const base = {
+    done: 1,
+    missed: 0,
+    skipped: 1,
+    pending: 1,
+    applicable: 3,
+    ratio: 0.5,
+  };
+
+  it("adds due todos to done, pending and the denominator", () => {
+    const combined = combineProgress(base, { done: 1, total: 2 });
+
+    expect(combined).toEqual({
+      done: 2,
+      missed: 0,
+      skipped: 1,
+      pending: 2,
+      applicable: 5,
+      ratio: 0.5,
+    });
+  });
+
+  it("keeps missed task-only and returns 0 when the denominator is empty", () => {
+    const combined = combineProgress(
+      { done: 0, missed: 0, skipped: 2, pending: 0, applicable: 2, ratio: 0 },
+      { done: 0, total: 0 },
+    );
+
+    expect(combined.missed).toBe(0);
+    expect(combined.ratio).toBe(0);
   });
 });

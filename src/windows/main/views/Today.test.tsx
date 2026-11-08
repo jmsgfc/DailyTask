@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -98,6 +98,49 @@ describe("Today due todos", () => {  beforeEach(() => {
     );
 
     expect(setDone).toHaveBeenCalledWith("已完成的待办", false);
+  });
+
+  it("collapses task groups and the due todo block from the headers", () => {
+    const voluntary = task();
+    const forced: Task = {
+      ...task(),
+      id: "t2",
+      name: "开会",
+      category: "forced",
+      order: 1,
+      intervals: [{ id: "i2", taskId: "t2", start: "2026-11-01", end: null }],
+    };
+    useTasksStore.setState({ tasks: [voluntary, forced] });
+
+    const { container } = render(<Today />);
+
+    // 待办计入总完成率，并在汇总区单独显示 x/n。
+    expect(screen.getByText(/已完成 1 \/ 5 项/)).toBeInTheDocument();
+    expect(screen.getByText("待办")).toBeInTheDocument();
+
+    const todoHeader = screen.getByRole("button", {
+      name: "折叠今日到期待办",
+    });
+    expect(todoHeader).toHaveAttribute("aria-expanded", "true");
+    expect(within(todoHeader).getByText("1 / 3")).toBeInTheDocument();
+    expect(container.querySelector("[data-todo-bar]")).not.toBeNull();
+
+    const voluntaryHeader = screen.getByRole("button", {
+      name: "折叠自愿任务",
+    });
+    fireEvent.click(voluntaryHeader);
+    expect(voluntaryHeader).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("引体向上")).not.toBeInTheDocument();
+    expect(screen.getByText("开会")).toBeInTheDocument();
+
+    fireEvent.click(voluntaryHeader);
+    expect(voluntaryHeader).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("引体向上")).toBeInTheDocument();
+
+    fireEvent.click(todoHeader);
+    expect(todoHeader).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("交房租")).not.toBeInTheDocument();
+    expect(within(todoHeader).getByText("1 / 3")).toBeInTheDocument();
   });
 });
 

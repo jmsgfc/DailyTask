@@ -35,6 +35,14 @@ import {
 const RING_RADIUS = 17;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+const EXPANDED_GROUPS = {
+  voluntary: false,
+  forced: false,
+  dueTodos: false,
+} as const;
+
+type GroupKey = keyof typeof EXPANDED_GROUPS;
+
 /**
  * 展开态与「今日」页内容一致：日期、完成率、自愿/被迫分项、全部任务、全部到期待办。
  * 标题与进度固定，中间内容滚动；高度预算见 docs/reference/windows-and-tray.md（内容区 240px）。
@@ -50,6 +58,9 @@ export function Widget() {
   const updateSettings = useSettingsStore((state) => state.update);
   const [collapsed, setCollapsed] = useState(readCollapsedPreference);
   const [side, setSide] = useState<WidgetSide>(readSidePreference);
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<GroupKey, boolean>
+  >({ ...EXPANDED_GROUPS });
   const [menu, setMenu] = useState<{
     row: TodayTask;
     x: number;
@@ -80,9 +91,16 @@ export function Widget() {
     }
   }, []);
 
+  const toggleGroup = (key: GroupKey) => {
+    setMenu(null);
+    setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }));
+  };
+
   const setCapsule = (next: boolean) => {
     writeCollapsedPreference(next);
     setCollapsed(next);
+    // 不记住分组折叠：每次从胶囊展开都回到全展开。
+    setCollapsedGroups({ ...EXPANDED_GROUPS });
     void applyWidgetLayout(next, next ? undefined : side)
       .then((used) => {
         if (used) {
@@ -252,7 +270,7 @@ export function Widget() {
             </div>
           </header>
 
-          <div className="my-1 flex h-[50px] shrink-0 items-center gap-3">
+          <div className="my-1 flex min-h-[50px] shrink-0 items-center gap-3">
             <div
               role="img"
               aria-label={t("progress.aria", { done: completed, total })}
@@ -297,7 +315,7 @@ export function Widget() {
                   · {statusText}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--color-text-muted)]">
                 <CategoryCount
                   label={t("today.category.voluntary")}
                   color="var(--color-voluntary)"
@@ -308,6 +326,13 @@ export function Widget() {
                   color="var(--color-forced)"
                   stat={data.forcedStat}
                 />
+                {data.todoStat.total > 0 ? (
+                  <CategoryCount
+                    label={t("today.category.todos")}
+                    color="var(--color-warning)"
+                    stat={data.todoStat}
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -327,6 +352,8 @@ export function Widget() {
                   color="var(--color-voluntary)"
                   rows={data.voluntary}
                   stat={data.voluntaryStat}
+                  open={!collapsedGroups.voluntary}
+                  onToggle={() => toggleGroup("voluntary")}
                   onCycle={cycle}
                   onValue={saveValue}
                   onMenu={openMenu}
@@ -336,6 +363,8 @@ export function Widget() {
                   color="var(--color-forced)"
                   rows={data.forced}
                   stat={data.forcedStat}
+                  open={!collapsedGroups.forced}
+                  onToggle={() => toggleGroup("forced")}
                   onCycle={cycle}
                   onValue={saveValue}
                   onMenu={openMenu}
@@ -345,19 +374,41 @@ export function Widget() {
 
             {dueTodos.length > 0 ? (
               <div className={rows.length > 0 ? "mt-1" : ""}>
-                <div className="flex h-5 items-center gap-1.5 px-1 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
-                  <span className="truncate">{t("today.dueTodos")}</span>
-                  <span className="ml-auto shrink-0 font-normal tabular-nums">
-                    {t("common.itemCount", { count: dueTodos.length })}
-                  </span>
-                </div>
-                {dueTodos.map((item) => (
-                  <WidgetTodoRow
-                    key={item.todo.id}
-                    item={item}
-                    onToggle={() => toggleTodo(item)}
+                <button
+                  type="button"
+                  aria-expanded={!collapsedGroups.dueTodos}
+                  aria-label={t(
+                    collapsedGroups.dueTodos
+                      ? "common.expandSection"
+                      : "common.collapseSection",
+                    { section: t("today.dueTodos") },
+                  )}
+                  onClick={() => toggleGroup("dueTodos")}
+                  className="flex h-5 w-full items-center gap-1.5 rounded-[4px] px-1 text-left text-[10.5px] font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+                >
+                  <i
+                    aria-hidden="true"
+                    data-todo-bar
+                    className="h-3 w-[3px] shrink-0 rounded-[2px]"
+                    style={{ background: "var(--color-warning)" }}
                   />
-                ))}
+                  <span className="truncate">{t("today.dueTodos")}</span>
+                  <span aria-hidden="true" className="shrink-0 text-[11px] leading-none">
+                    {collapsedGroups.dueTodos ? "▸" : "▾"}
+                  </span>
+                  <span className="ml-auto shrink-0 font-normal tabular-nums">
+                    {data.todoStat.done} / {data.todoStat.total}
+                  </span>
+                </button>
+                {collapsedGroups.dueTodos
+                  ? null
+                  : dueTodos.map((item) => (
+                      <WidgetTodoRow
+                        key={item.todo.id}
+                        item={item}
+                        onToggle={() => toggleTodo(item)}
+                      />
+                    ))}
               </div>
             ) : null}
           </div>
@@ -618,7 +669,7 @@ function CategoryCount({
   stat: CategoryStat;
 }) {
   return (
-    <span className="flex shrink-0 items-center gap-1 tabular-nums">
+    <span className="flex shrink-0 items-center gap-1 whitespace-nowrap tabular-nums">
       <i className="size-2 rounded-full" style={{ background: color }} />
       {label} {stat.done} / {stat.total}
     </span>
@@ -630,6 +681,8 @@ function WidgetTaskGroup({
   color,
   rows,
   stat,
+  open,
+  onToggle,
   onCycle,
   onValue,
   onMenu,
@@ -638,36 +691,53 @@ function WidgetTaskGroup({
   color: string;
   rows: TodayTask[];
   stat: CategoryStat;
+  open: boolean;
+  onToggle: () => void;
   onCycle: (row: TodayTask) => void;
   onValue: (row: TodayTask, value: string) => void;
   onMenu: (row: TodayTask, event: ReactMouseEvent) => void;
 }) {
+  const t = useT();
   if (rows.length === 0) {
     return null;
   }
 
   return (
     <div>
-      <div className="flex h-5 items-center gap-1.5 px-1 text-[10.5px] font-semibold text-[var(--color-text-muted)]">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={t(
+          open ? "common.collapseSection" : "common.expandSection",
+          { section: title },
+        )}
+        onClick={onToggle}
+        className="flex h-5 w-full items-center gap-1.5 rounded-[4px] px-1 text-left text-[10.5px] font-semibold text-[var(--color-text-muted)] hover:bg-[var(--state-hover)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
+      >
         <i
           aria-hidden="true"
           className="h-3 w-[3px] shrink-0 rounded-[2px]"
           style={{ background: color }}
         />
         <span className="truncate">{title}</span>
+        <span aria-hidden="true" className="shrink-0 text-[11px] leading-none">
+          {open ? "▾" : "▸"}
+        </span>
         <span className="ml-auto shrink-0 font-normal tabular-nums">
           {stat.done} / {stat.total}
         </span>
-      </div>
-      {rows.map((row) => (
-        <WidgetTaskRow
-          key={row.task.id}
-          row={row}
-          onCycle={() => onCycle(row)}
-          onValue={(value) => onValue(row, value)}
-          onMenu={(event) => onMenu(row, event)}
-        />
-      ))}
+      </button>
+      {open
+        ? rows.map((row) => (
+            <WidgetTaskRow
+              key={row.task.id}
+              row={row}
+              onCycle={() => onCycle(row)}
+              onValue={(value) => onValue(row, value)}
+              onMenu={(event) => onMenu(row, event)}
+            />
+          ))
+        : null}
     </div>
   );
 }
