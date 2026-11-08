@@ -278,6 +278,12 @@ pub fn run() {
                     .build(app)?;
             }
 
+            // 仅在 debug 构建自动打开 DevTools，方便排查前端初始化与 IPC 问题。
+            #[cfg(debug_assertions)]
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
