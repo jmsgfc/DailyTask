@@ -46,14 +46,20 @@ missed            → null（删除该行）
 
 ## 5. 今日进度
 
+任务 + 今日到期待办的合并口径：
+
 ```text
-分母 = applicable − skipped
-ratio = done / 分母
+任务分母 = applicable − skipped
+总分母   = 任务分母 + 待办行数
+ratio    = (任务 done + 待办 done) / 总分母
 ```
 
-- `done` / `missed` 计数
+- `done` / `missed` 计数（`missed` 只统计任务）
 - `skipped` 不进分母
 - `none` 不计入 applicable
+- 待办分母按列表行数算，当天完成仍保留的行也计入
+- 没有到期待办时退回纯任务口径
+- 今日页、挂件、托盘共用这一口径
 
 ## 6. 近 30 天完成率
 

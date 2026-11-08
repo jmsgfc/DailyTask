@@ -69,12 +69,18 @@ projectCell(
 dayProgress(tasks, checkins, date, settings, today): {
   done, missed, skipped, applicable, ratio
 }
+
+combineProgress(progress, { done, total }): DayProgress
 ```
 
-- 分母 = `applicable - skipped`
+- 任务分母 = `applicable - skipped`
+- 总分母 = 任务分母 + 到期待办行数
 - `skipped` 不进分母
 - 值不是状态；没有判定时写值按 `done` 计算
 - `recorded` 已移除
+- 待办没有 `skipped` / `missed`：`done` 进分子，未完成进 `pending`；`missed` 仍只统计任务
+- 待办分母按当日列表行数算，当天完成保留的行也计入
+- 没有到期待办时结果与纯任务进度一致
 
 ## 5. 连续天数
 
