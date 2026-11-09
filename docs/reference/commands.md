@@ -30,6 +30,14 @@ cd src-tauri
 cargo check
 ```
 
+只跑 `cargo build --release` 不会启用 `custom-protocol`，二进制运行时会去连 `devUrl`（`localhost:1420`）。手动做生产构建要带该 feature：
+
+```bash
+cargo build --release --features tauri/custom-protocol
+```
+
+日常发版仍用 `npm run tauri build`，CLI 会自动处理。
+
 ## 发版
 
 ```bash
