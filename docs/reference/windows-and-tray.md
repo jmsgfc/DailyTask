@@ -14,8 +14,9 @@
 | 默认尺寸 | 1080×720 |
 | 最小尺寸 | 900×640 |
 | 装饰 | 原生标题栏 |
-| 关闭行为 | 隐藏到托盘，不退出进程 |
-| 入口 | 启动时显示；托盘或单实例唤回 |
+| 关闭行为 | 销毁窗口（收进托盘），不再常驻 renderer |
+| 入口 | 启动时显示；托盘、单实例、挂件展开按钮唤回时按配置重建 |
+| 几何 | 隐藏前记在 Rust 内存，重建后恢复位置、大小与最大化 |
 
 布局：左侧 200px 导航 + 右侧内容区。导航支持拖动排序、`Alt + ↑/↓`、长按显示抓取光标；顺序存 settings 表。
 
@@ -28,7 +29,7 @@
 | 装饰 | `decorations:false`、`transparent:true`、圆角 16 |
 | 层级 | `alwaysOnTop` 可配置；`skipTaskbar` |
 | 拖拽 | 标题区 `data-tauri-drag-region`；胶囊拖动后吸附左右边缘 |
-| 创建 | 不在启动时无条件创建；按上次可见性决定（见 [内存与进程](memory-and-processes.md#5-挂件可见性)） |
+| 创建 | 不在启动时无条件创建；按上次可见性决定（见 [内存与进程](memory-and-processes.md#6-挂件可见性)） |
 | 关闭 | 隐藏即销毁窗口，可从托盘唤回；重建时回到胶囊态，停靠侧沿用 `localStorage` |
 
 ### 2.1 展开态内容
@@ -108,14 +109,20 @@ export const Events = {
 ## 5. 关闭 / 隐藏 / 唤回
 
 ```text
-主窗 X        → hide + 同步托盘文案
-托盘切换主窗   → hide / show + sync
+主窗 X        → 记住几何 → destroy + 同步托盘文案
+托盘切换主窗   → 可见：记住几何 + destroy
+                不可见：按配置重建 + 恢复几何 + show + 同步托盘
 托盘切换挂件   → 可见：destroy + 记录不可见
                 不可见：按配置重建 + show + 记录可见
-挂件展开按钮   → emit widget:expand → 主窗 show + unminimize + setFocus
-托盘左键      → 重建（如已销毁）+ 显示挂件 → show 主窗 + sync
-单实例第二次启动 → show 主窗 + sync
+挂件展开按钮   → emit widget:expand → Rust 收到后重建 / 唤回主窗
+托盘左键      → 重建并显示挂件 → 重建 / 显示主窗 + 聚焦
+单实例第二次启动 → 重建 / 显示主窗 + 同步托盘
 ```
 
-挂件不常驻：隐藏后窗口被销毁，下次显示时用 `WebviewWindowBuilder::from_config`
-按 `tauri.conf.json` 的 `widget` 配置重建。详见 [内存与进程](memory-and-processes.md)。
+主窗与挂件都不常驻：隐藏后窗口被销毁，下次显示时用
+`WebviewWindowBuilder::from_config` 按 `tauri.conf.json` 配置重建。主窗的
+位置、大小和最大化状态保存在进程内存里，重启应用后回到配置默认值。
+详见 [内存与进程](memory-and-processes.md)。
+
+两个窗口都销毁后，托盘「今日进度」停在最后一次写入的值；只要挂件可见，
+就由挂件继续更新。
