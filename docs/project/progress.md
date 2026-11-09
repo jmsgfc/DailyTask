@@ -48,8 +48,8 @@
 | 20 | P1 | 按 Diátaxis 重写文档 | 教程 / 指南 / 参考 / 解释四象限，README 改为落地页 | ☑ |
 | 21 | P1 | 任务表格子自适应文字 | 任务名与自由值完整显示，同列同宽，超长换行，缩放保留 | ☑ |
 | 22 | P0 | 今日页与挂件区块折叠 + 待办进度 | 三个组头可折叠；待办 `x / n`、黄竖条，并计入今日与托盘完成率 | ☑ |
-| 23 | P2 | 内存测量脚本与基线文档 | `npm run perf:memory` 按角色输出私有工作集，三个场景可复现 | ☐ |
-| 24 | P1 | 挂件按需创建 + 启动恢复上次可见性 | 隐藏挂件后重启不再创建；进程数 8 → 7 | ☐ |
+| 23 | P2 | 内存测量脚本与基线文档 | `npm run perf:memory` 按角色输出私有工作集，三个场景可复现 | ☑ |
+| 24 | P1 | 挂件按需创建 + 启动恢复上次可见性 | 隐藏挂件后重启不再创建；进程数 8 → 7 | ☑ |
 
 ---
 
@@ -261,3 +261,15 @@
 - 汇总区新增「待办 x / n」；挂件统计行允许换行，避免英文标签溢出。
 - debug 构建启动时自动打开 DevTools，方便排查前端初始化与 IPC 问题。
 - 测试：`settle.test`、`today.test`、`useTrayProgress.test`、`Today.test`、`Widget.test` 覆盖合并口径、折叠、胶囊往返重置与黄竖条。
+
+---
+
+## 11. v0.1.13 完成记录（2026-11-09）
+
+全量校验：`npm run test` **330 passed**、`npm run lint`、`npm run typecheck`、`npm run docs:check`、`cargo test`（7 passed）、`cargo clippy` 全绿。
+
+- **#23**：新增 `scripts/measure-memory.ps1` 与 `npm run perf:memory`，按 `app / browser / gpu-process / network / storage / renderer / crashpad` 输出私有工作集。冷启动 20 秒实测 v0.1.12：8 进程 / 144.6 MB，其中 GPU 51.7 MB、两个 renderer 28.7 + 16.0 MB；确认 8 进程 = 1 个 Rust 进程 + 7 个 WebView2 进程。
+- **#24**：`widget` 改 `create: false`，Rust 侧用 `WebviewWindowBuilder::from_config` 按需创建；隐藏时 `destroy()`，显示时重建；可见性写入 `widget-visible`，启动时按标记决定，缺失按可见处理。`destroy()` 异步，托盘文案改在 `WindowEvent::Destroyed` 同步。实测：隐藏后重启 7 进程 / 122.4 MB；托盘左键重建后 8 进程、标记回到 `1`；右键「隐藏挂件」后销毁、菜单变为「显示挂件」。
+- 视图按需加载：今日页保持同步，其余五个走 `React.lazy` + `Suspense`，首包 435 KB → 351 KB；挂件显示时内存 144.6 → 142.5 MB。
+- 未采用：`--process-per-site`、`--disable-gpu`、`--enable-low-end-device-mode`，原因见 [内存与进程](../reference/memory-and-processes.md)。
+- 待手动走查：安装版升级后首次启动的挂件位置/胶囊恢复（自动化只覆盖了窗口创建与销毁）。
