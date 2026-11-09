@@ -93,7 +93,7 @@ npm run perf:memory -- -Samples 10 -IntervalSec 30
 
 - 文件缺失、不可读或内容异常时按 `1` 处理，保证首次启动与旧版本行为一致。
 - 托盘「显示 / 隐藏挂件」与左键唤回都会更新该文件。
-- 挂件隐藏时窗口被销毁，再次显示时按 `tauri.conf.json` 里的 `widget` 配置重建，胶囊态与停靠侧仍从 `localStorage` 恢复。
+- 挂件隐藏时窗口被销毁，再次显示时按 `tauri.conf.json` 里的 `widget` 配置重建，并按启动规则回到胶囊态，停靠侧沿用 `localStorage`。
 
 ## 6. 预期效果
 

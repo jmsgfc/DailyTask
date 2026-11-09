@@ -29,7 +29,7 @@
 | 层级 | `alwaysOnTop` 可配置；`skipTaskbar` |
 | 拖拽 | 标题区 `data-tauri-drag-region`；胶囊拖动后吸附左右边缘 |
 | 创建 | 不在启动时无条件创建；按上次可见性决定（见 [内存与进程](memory-and-processes.md#5-挂件可见性)） |
-| 关闭 | 隐藏即销毁窗口，可从托盘唤回；重建后胶囊态与停靠侧从 `localStorage` 恢复 |
+| 关闭 | 隐藏即销毁窗口，可从托盘唤回；重建时回到胶囊态，停靠侧沿用 `localStorage` |
 
 ### 2.1 展开态内容
 
