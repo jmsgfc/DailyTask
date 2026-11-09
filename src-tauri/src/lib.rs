@@ -10,6 +10,8 @@ use tauri::{
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 const DB_URL: &str = "sqlite:dailytask.db";
+const WIDGET_LABEL: &str = "widget";
+const WIDGET_VISIBILITY_FILE: &str = "widget-visible";
 const TRAY_TOGGLE_MAIN: &str = "tray:toggle-main";
 const TRAY_TOGGLE_WIDGET: &str = "tray:toggle-widget";
 const TRAY_PROGRESS: &str = "tray:progress";
@@ -118,11 +120,60 @@ fn show_main(app: &AppHandle) {
     sync_tray_labels(app);
 }
 
+fn widget_visibility_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|dir| dir.join(WIDGET_VISIBILITY_FILE))
+}
+
+/// 标记文件读不到时按可见处理，和 `widget_visibility::read_visibility` 保持一致。
+fn widget_starts_visible(app: &AppHandle) -> bool {
+    widget_visibility_path(app)
+        .map(|path| widget_visibility::read_visibility(&path))
+        .unwrap_or(true)
+}
+
+fn persist_widget_visibility(app: &AppHandle, visible: bool) {
+    let Some(path) = widget_visibility_path(app) else {
+        return;
+    };
+    if let Err(error) = widget_visibility::write_visibility(&path, visible) {
+        eprintln!("[widget] 保存可见性失败: {error}");
+    }
+}
+
+/// 挂件配置仍在 `tauri.conf.json`，只是 `create: false`；销毁后按同一份配置重建。
+/// 这样 transparent / skipTaskbar 等参数只维护一处。
+fn ensure_widget(app: &AppHandle) -> Result<(), String> {
+    if app.get_webview_window(WIDGET_LABEL).is_some() {
+        return Ok(());
+    }
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == WIDGET_LABEL)
+        .cloned()
+        .ok_or_else(|| "tauri.conf.json 缺少 widget 窗口配置".to_string())?;
+    tauri::WebviewWindowBuilder::from_config(app, &config)
+        .map_err(|error| error.to_string())?
+        .build()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
 fn show_widget(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("widget") {
+    if let Err(error) = ensure_widget(app) {
+        eprintln!("[widget] 创建挂件失败: {error}");
+        return;
+    }
+    if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+    persist_widget_visibility(app, true);
     sync_tray_labels(app);
 }
 
@@ -146,13 +197,13 @@ fn toggle_main(app: &AppHandle) {
 }
 
 fn toggle_widget(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("widget") {
-        if is_visible(app, "widget") {
-            let _ = window.hide();
-        } else {
-            let _ = window.show();
-            let _ = window.set_focus();
+    if is_visible(app, WIDGET_LABEL) {
+        if let Some(window) = app.get_webview_window(WIDGET_LABEL) {
+            let _ = window.destroy();
         }
+        persist_widget_visibility(app, false);
+    } else {
+        show_widget(app);
     }
     sync_tray_labels(app);
 }
@@ -285,6 +336,14 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 window.open_devtools();
             }
+
+            // 挂件不在 conf 里自动创建：上次隐藏过就等到托盘再重建。
+            if widget_starts_visible(app.handle()) {
+                if let Err(error) = ensure_widget(app.handle()) {
+                    eprintln!("[widget] 启动时创建挂件失败: {error}");
+                }
+            }
+            sync_tray_labels(app.handle());
 
             Ok(())
         })
