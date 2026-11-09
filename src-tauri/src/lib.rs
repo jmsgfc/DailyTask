@@ -356,6 +356,12 @@ pub fn run() {
             if matches!(event, tauri::WindowEvent::Focused(true)) {
                 sync_tray_labels(window.app_handle());
             }
+            // destroy() 是异步的：销毁当刻 is_visible 仍为 true，必须等 Destroyed 再同步文案。
+            if window.label() == WIDGET_LABEL
+                && matches!(event, tauri::WindowEvent::Destroyed)
+            {
+                sync_tray_labels(window.app_handle());
+            }
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();

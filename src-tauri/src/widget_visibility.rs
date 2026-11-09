@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::path::PathBuf;
 
 const VISIBLE: &str = "1";
 const HIDDEN: &str = "0";
@@ -31,7 +30,8 @@ pub fn write_visibility(path: &Path, visible: bool) -> std::io::Result<()> {
     std::fs::write(path, encode_visibility(visible))
 }
 
-fn temp_dir(name: &str) -> PathBuf {
+#[cfg(test)]
+fn temp_dir(name: &str) -> std::path::PathBuf {
     let mut path = std::env::temp_dir();
     path.push(format!(
         "dailytask-visibility-{}-{}",
