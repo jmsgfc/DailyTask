@@ -1,3 +1,5 @@
+mod widget_visibility;
+
 use std::sync::Mutex;
 
 use tauri::{
