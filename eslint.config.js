@@ -62,7 +62,14 @@ export default tseslint.config(
             {
               target: "./src/windows",
               from: "./src",
-              except: ["./windows", "./stores", "./domain", "./ui", "./shared"],
+              except: [
+                "./windows",
+                "./app",
+                "./stores",
+                "./domain",
+                "./ui",
+                "./shared",
+              ],
             },
           ],
         },

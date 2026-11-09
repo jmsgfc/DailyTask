@@ -5,11 +5,12 @@ use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager,
+    AppHandle, Listener, Manager, PhysicalPosition, PhysicalSize,
 };
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 const DB_URL: &str = "sqlite:dailytask.db";
+const MAIN_LABEL: &str = "main";
 const WIDGET_LABEL: &str = "widget";
 const WIDGET_VISIBILITY_FILE: &str = "widget-visible";
 const TRAY_TOGGLE_MAIN: &str = "tray:toggle-main";
@@ -45,6 +46,19 @@ struct TrayState {
     widget_item: MenuItem<tauri::Wry>,
     quit_item: MenuItem<tauri::Wry>,
     labels: Mutex<TrayLabels>,
+}
+
+/// 主窗销毁前的几何；只存在进程内存，应用退出后回到 conf 默认值。
+#[derive(Clone, Copy)]
+struct MainGeometry {
+    position: PhysicalPosition<i32>,
+    /// 与 `set_size` 配对的是 inner size；用 outer size 会每轮把边框再加一遍。
+    inner_size: Option<PhysicalSize<u32>>,
+    maximized: bool,
+}
+
+struct MainState {
+    geometry: Mutex<Option<MainGeometry>>,
 }
 
 #[tauri::command]
@@ -98,12 +112,12 @@ fn sync_tray_labels(app: &AppHandle) {
         .lock()
         .map(|labels| labels.clone())
         .unwrap_or_default();
-    let _ = state.main_item.set_text(if is_visible(app, "main") {
+    let _ = state.main_item.set_text(if is_visible(app, MAIN_LABEL) {
         labels.hide_main.as_str()
     } else {
         labels.show_main.as_str()
     });
-    let _ = state.widget_item.set_text(if is_visible(app, "widget") {
+    let _ = state.widget_item.set_text(if is_visible(app, WIDGET_LABEL) {
         labels.hide_widget.as_str()
     } else {
         labels.show_widget.as_str()
@@ -111,8 +125,89 @@ fn sync_tray_labels(app: &AppHandle) {
     let _ = state.quit_item.set_text(labels.quit.as_str());
 }
 
+/// 窗口配置仍在 `tauri.conf.json`；销毁后按同一份配置重建，
+/// 这样 transparent / skipTaskbar / 尺寸等参数只维护一处。
+fn ensure_window(app: &AppHandle, label: &str) -> Result<(), String> {
+    if app.get_webview_window(label).is_some() {
+        return Ok(());
+    }
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == label)
+        .cloned()
+        .ok_or_else(|| format!("tauri.conf.json 缺少 {label} 窗口配置"))?;
+    tauri::WebviewWindowBuilder::from_config(app, &config)
+        .map_err(|error| error.to_string())?
+        .build()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
+fn remember_main(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(MAIN_LABEL) else {
+        return;
+    };
+    let Ok(position) = window.outer_position() else {
+        return;
+    };
+    let maximized = window.is_maximized().unwrap_or(false);
+    // 最大化时 inner_size 是最大化后的内容区，还原时会以它为尺寸，所以只保留上次普通尺寸。
+    let inner_size = if maximized {
+        None
+    } else {
+        window.inner_size().ok()
+    };
+    let Some(state) = app.try_state::<MainState>() else {
+        return;
+    };
+    let Ok(mut geometry) = state.geometry.lock() else {
+        return;
+    };
+    let previous = *geometry;
+    *geometry = Some(MainGeometry {
+        position,
+        inner_size: inner_size.or(previous.and_then(|geometry| geometry.inner_size)),
+        maximized,
+    });
+}
+
+fn restore_main(app: &AppHandle, window: &tauri::WebviewWindow) {
+    let Some(state) = app.try_state::<MainState>() else {
+        return;
+    };
+    let Ok(geometry) = state.geometry.lock() else {
+        return;
+    };
+    let Some(geometry) = *geometry else {
+        return;
+    };
+    if let Some(inner_size) = geometry.inner_size {
+        let _ = window.set_size(inner_size);
+    }
+    let _ = window.set_position(geometry.position);
+    if geometry.maximized {
+        let _ = window.maximize();
+    }
+}
+
+fn hide_main(app: &AppHandle) {
+    remember_main(app);
+    if let Some(window) = app.get_webview_window(MAIN_LABEL) {
+        let _ = window.destroy();
+    }
+    sync_tray_labels(app);
+}
+
 fn show_main(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
+    if let Err(error) = ensure_window(app, MAIN_LABEL) {
+        eprintln!("[window] 创建主窗口失败: {error}");
+        return;
+    }
+    if let Some(window) = app.get_webview_window(MAIN_LABEL) {
+        restore_main(app, &window);
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
@@ -144,28 +239,8 @@ fn persist_widget_visibility(app: &AppHandle, visible: bool) {
 }
 
 /// 挂件配置仍在 `tauri.conf.json`，只是 `create: false`；销毁后按同一份配置重建。
-/// 这样 transparent / skipTaskbar 等参数只维护一处。
-fn ensure_widget(app: &AppHandle) -> Result<(), String> {
-    if app.get_webview_window(WIDGET_LABEL).is_some() {
-        return Ok(());
-    }
-    let config = app
-        .config()
-        .app
-        .windows
-        .iter()
-        .find(|window| window.label == WIDGET_LABEL)
-        .cloned()
-        .ok_or_else(|| "tauri.conf.json 缺少 widget 窗口配置".to_string())?;
-    tauri::WebviewWindowBuilder::from_config(app, &config)
-        .map_err(|error| error.to_string())?
-        .build()
-        .map(|_| ())
-        .map_err(|error| error.to_string())
-}
-
 fn show_widget(app: &AppHandle) {
-    if let Err(error) = ensure_widget(app) {
+    if let Err(error) = ensure_window(app, WIDGET_LABEL) {
         eprintln!("[widget] 创建挂件失败: {error}");
         return;
     }
@@ -184,14 +259,10 @@ fn show_both(app: &AppHandle) {
 }
 
 fn toggle_main(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        if is_visible(app, "main") {
-            let _ = window.hide();
-        } else {
-            let _ = window.show();
-            let _ = window.unminimize();
-            let _ = window.set_focus();
-        }
+    if is_visible(app, MAIN_LABEL) {
+        hide_main(app);
+    } else {
+        show_main(app);
     }
     sync_tray_labels(app);
 }
@@ -299,6 +370,9 @@ pub fn run() {
                 quit_item,
                 labels: Mutex::new(TrayLabels::default()),
             });
+            app.manage(MainState {
+                geometry: Mutex::new(None),
+            });
 
             if let Some(icon) = app.default_window_icon().cloned() {
                 // dev 配置把 productName 改成 “DailyTask Dev”，托盘提示也随之区分。
@@ -331,19 +405,26 @@ pub fn run() {
                     .build(app)?;
             }
 
+            // 挂件「展开主窗口」：主窗可能已被销毁，必须由 Rust 负责重建。
+            let handle = app.handle().clone();
+            app.listen("widget:expand", move |_event| {
+                show_main(&handle);
+            });
+
             // 仅在 debug 构建自动打开 DevTools，方便排查前端初始化与 IPC 问题。
             #[cfg(debug_assertions)]
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = app.get_webview_window(MAIN_LABEL) {
                 window.open_devtools();
             }
 
             // 挂件不在 conf 里自动创建：上次隐藏过就等到托盘再重建。
             if widget_starts_visible(app.handle()) {
-                if let Err(error) = ensure_widget(app.handle()) {
+                if let Err(error) = ensure_window(app.handle(), WIDGET_LABEL) {
                     eprintln!("[widget] 启动时创建挂件失败: {error}");
                 }
             }
-            sync_tray_labels(app.handle());
+            // conf 把主窗设为 visible:false，启动与唤回统一走 show_main。
+            show_main(app.handle());
 
             Ok(())
         })
@@ -351,25 +432,31 @@ pub fn run() {
             set_tray_progress,
             set_tray_labels
         ])
-        // 主窗关闭 = 隐藏到托盘（impl.md §5），单实例回调才能把它再唤回来。
+        // 主窗关闭 = 销毁窗口收进托盘；单实例/托盘/挂件唤回时重建。
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Focused(true)) {
                 sync_tray_labels(window.app_handle());
             }
             // destroy() 是异步的：销毁当刻 is_visible 仍为 true，必须等 Destroyed 再同步文案。
-            if window.label() == WIDGET_LABEL
+            if (window.label() == MAIN_LABEL || window.label() == WIDGET_LABEL)
                 && matches!(event, tauri::WindowEvent::Destroyed)
             {
                 sync_tray_labels(window.app_handle());
             }
-            if window.label() == "main" {
+            if window.label() == MAIN_LABEL {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
-                    let _ = window.hide();
-                    sync_tray_labels(window.app_handle());
+                    hide_main(window.app_handle());
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // 主窗和挂件都可能被销毁；没有窗口时 Tauri 会请求退出，托盘还必须活着。
+            // 托盘「退出」走 app.exit(0)，code 是 Some，不拦截。
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+                api.prevent_exit();
+            }
+        });
 }

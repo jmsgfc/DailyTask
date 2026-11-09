@@ -95,11 +95,3 @@ export function onSettingsChanged(
     handler(event.payload);
   });
 }
-
-export function onWidgetExpand(
-  handler: (payload: WidgetExpand) => void,
-): Promise<UnlistenFn> {
-  return listen<WidgetExpand>(Events.widgetExpand, (event) => {
-    handler(event.payload);
-  });
-}

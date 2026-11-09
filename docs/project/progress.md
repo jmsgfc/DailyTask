@@ -50,7 +50,7 @@
 | 22 | P0 | 今日页与挂件区块折叠 + 待办进度 | 三个组头可折叠；待办 `x / n`、黄竖条，并计入今日与托盘完成率 | ☑ |
 | 23 | P2 | 内存测量脚本与基线文档 | `npm run perf:memory` 按角色输出私有工作集，三个场景可复现 | ☑ |
 | 24 | P1 | 挂件按需创建 + 启动恢复上次可见性 | 隐藏挂件后重启不再创建；进程数 8 → 7 | ☑ |
-| 25 | P1 | 主窗隐藏即销毁、唤起重建 | 两窗隐藏后 6~7 进程；唤回恢复几何与上次页面 | ☐ |
+| 25 | P1 | 主窗隐藏即销毁、唤起重建 | 两窗隐藏后 6~7 进程；唤回恢复几何与上次页面 | ☑ |
 
 ---
 
@@ -273,10 +273,12 @@
 
 ## 11. v0.1.13 完成记录（2026-11-09）
 
-全量校验：`npm run test` **330 passed**、`npm run lint`、`npm run typecheck`、`npm run docs:check`、`cargo test`（7 passed）、`cargo clippy` 全绿。
+全量校验：`npm run test` **336 passed**、`npm run lint`、`npm run typecheck`、`npm run docs:check`、`cargo test`（7 passed）、`cargo clippy` 全绿。
 
 - **#23**：新增 `scripts/measure-memory.ps1` 与 `npm run perf:memory`，按 `app / browser / gpu-process / network / storage / renderer / crashpad` 输出私有工作集。冷启动 20 秒实测 v0.1.12：8 进程 / 144.6 MB，其中 GPU 51.7 MB、两个 renderer 28.7 + 16.0 MB；确认 8 进程 = 1 个 Rust 进程 + 7 个 WebView2 进程。
 - **#24**：`widget` 改 `create: false`，Rust 侧用 `WebviewWindowBuilder::from_config` 按需创建；隐藏时 `destroy()`，显示时重建；可见性写入 `widget-visible`，启动时按标记决定，缺失按可见处理。`destroy()` 异步，托盘文案改在 `WindowEvent::Destroyed` 同步。实测：隐藏后重启 7 进程 / 122.4 MB；托盘左键重建后 8 进程、标记回到 `1`；右键「隐藏挂件」后销毁、菜单变为「显示挂件」。重建按启动规则回到胶囊态，停靠侧沿用 `localStorage`。
 - 视图按需加载：今日页保持同步，其余五个走 `React.lazy` + `Suspense`，首包 435 KB → 351 KB；挂件显示时内存 144.6 → 142.5 MB。
+- **#25**：主窗关闭与托盘隐藏改为 `destroy()`，`show_main` 用 `from_config` 重建并恢复位置、`inner_size`、最大化。几何必须用 `inner_size` 与 `set_size` 配对，用 `outer_size` 会每轮多算一圈边框（实测每轮 +26×71）。两窗都没了以后 Tauri 会请求退出，Rust 拦截 `code: None` 的 `ExitRequested` 保住托盘；托盘「退出」不受影响。挂件「展开主窗口」监听搬到 Rust，挂件接 `useTrayProgress`，更新检查按 1 小时节流，`uiStore.view` 落 localStorage。
+- **#25 实测**：启动 8 进程 / 134.4 MB；只隐藏挂件 7 / 123.1 MB；两窗都销毁 **1 进程 / 5.2 MB**（WebView2 整棵进程树退出）；托盘唤回 8 / 136.7 MB，0.7 秒后两个 renderer 就绪；连续 3 轮隐藏/唤回窗口矩形不变；`统计` 页与窗口位置均恢复；单实例二次启动可重建主窗。
 - 未采用：`--process-per-site`、`--disable-gpu`、`--enable-low-end-device-mode`，原因见 [内存与进程](../reference/memory-and-processes.md)。
-- 待手动走查：安装版升级后首次启动的挂件位置/胶囊恢复（自动化只覆盖了窗口创建与销毁）。
+- 待手动走查：真实安装包升级后的首次启动；最大化状态下隐藏再唤回的还原尺寸。
