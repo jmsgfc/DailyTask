@@ -97,9 +97,10 @@ function Write-Snapshot {
   }
 
   $totalMb = [math]::Round((($rows | Measure-Object -Property MB -Sum).Sum), 1)
+  $count = @($rows).Count
   $label = if ($Total -gt 1) { "采样 $Index/$Total" } else { "采样" }
   Write-Host ""
-  Write-Host "$label：$($rows.Count) 个进程，私有工作集合计 $totalMb MB"
+  Write-Host "$label：$count 个进程，私有工作集合计 $totalMb MB"
   $rows | Sort-Object MB -Descending |
     Format-Table Role, PID, @{ Name = "MB"; Expression = { $_.MB }; Align = "right" } -AutoSize |
     Out-String -Width 80 |
