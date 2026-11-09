@@ -19,6 +19,7 @@
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run docs:check` | 文档链接/状态头校验 |
+| `npm run perf:memory` | 按角色统计 DailyTask 进程内存 |
 | `npm run tauri build` | 安装包 + updater 签名 |
 | `npm run tauri` | Tauri CLI 透传 |
 

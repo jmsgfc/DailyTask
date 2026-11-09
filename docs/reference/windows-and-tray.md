@@ -28,7 +28,8 @@
 | 装饰 | `decorations:false`、`transparent:true`、圆角 16 |
 | 层级 | `alwaysOnTop` 可配置；`skipTaskbar` |
 | 拖拽 | 标题区 `data-tauri-drag-region`；胶囊拖动后吸附左右边缘 |
-| 关闭 | 隐藏，可从托盘唤回 |
+| 创建 | 不在启动时无条件创建；按上次可见性决定（见 [内存与进程](memory-and-processes.md#5-挂件可见性)） |
+| 关闭 | 隐藏即销毁窗口，可从托盘唤回；重建后胶囊态与停靠侧从 `localStorage` 恢复 |
 
 ### 2.1 展开态内容
 
@@ -109,7 +110,12 @@ export const Events = {
 ```text
 主窗 X        → hide + 同步托盘文案
 托盘切换主窗   → hide / show + sync
+托盘切换挂件   → 可见：destroy + 记录不可见
+                不可见：按配置重建 + show + 记录可见
 挂件展开按钮   → emit widget:expand → 主窗 show + unminimize + setFocus
-托盘左键      → show 挂件 + sync
+托盘左键      → 重建（如已销毁）+ 显示挂件 → show 主窗 + sync
 单实例第二次启动 → show 主窗 + sync
 ```
+
+挂件不常驻：隐藏后窗口被销毁，下次显示时用 `WebviewWindowBuilder::from_config`
+按 `tauri.conf.json` 的 `widget` 配置重建。详见 [内存与进程](memory-and-processes.md)。

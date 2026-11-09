@@ -48,6 +48,8 @@
 | 20 | P1 | 按 Diátaxis 重写文档 | 教程 / 指南 / 参考 / 解释四象限，README 改为落地页 | ☑ |
 | 21 | P1 | 任务表格子自适应文字 | 任务名与自由值完整显示，同列同宽，超长换行，缩放保留 | ☑ |
 | 22 | P0 | 今日页与挂件区块折叠 + 待办进度 | 三个组头可折叠；待办 `x / n`、黄竖条，并计入今日与托盘完成率 | ☑ |
+| 23 | P2 | 内存测量脚本与基线文档 | `npm run perf:memory` 按角色输出私有工作集，三个场景可复现 | ☐ |
+| 24 | P1 | 挂件按需创建 + 启动恢复上次可见性 | 隐藏挂件后重启不再创建；进程数 8 → 7 | ☐ |
 
 ---
 
@@ -168,6 +170,18 @@
 
 - 改动：文档重组为 tutorials / how-to / reference / explanation + project；按四象限重写入口、教程、操作指南、参考与解释；根 README 改为落地页，只保留 30 秒介绍和文档路由；新增 `reference/ui-spec.md`、`reference/commands.md`、`reference/file-locations.md`。
 - 验收：`docs:check` 校验类型头、状态头、必需文件和相对链接；README 中英文链接全部可达。
+
+### #23 内存测量脚本与基线文档
+
+- 现象：issue #1 反馈 8 进程 / 158 MB，但缺少按进程拆解的口径，无法判断哪些是 WebView2 固定成本。
+- 改动：新增 `scripts/measure-memory.ps1` 与 `npm run perf:memory`，遍历 `dailytask.exe` 进程树，按 `--type` / `--utility-sub-type` 归类，输出私有工作集与合计；新增 `docs/reference/memory-and-processes.md` 记录基线、可优化项与测量场景。
+- 验收：脚本能列出 browser / gpu / network / storage / renderer / crashpad 六类角色；三场景（冷启动、空闲、托盘隐藏）数字可复现。
+
+### #24 挂件按需创建 + 启动恢复上次可见性
+
+- 现象：`tauri.conf.json` 同时创建主窗与挂件，挂件即使用户不用也常驻一个 renderer。
+- 改动：`widget` 窗口改 `create: false`，Rust 侧用 `WebviewWindowBuilder::from_config` 按需创建；隐藏时 `destroy()`，显示时重建；可见性写入应用数据目录 `widget-visible`，启动时按该值决定是否创建，缺失按可见处理。
+- 验收：隐藏挂件后重启，进程数为 7 且托盘菜单显示「显示挂件」；再次显示后挂件胶囊态、停靠侧、跨窗口同步正常；`widget_visibility` 单测覆盖解析、写入与异常回退。
 
 ---
 
