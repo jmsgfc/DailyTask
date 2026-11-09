@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "docs:check": "node scripts/check-docs.mjs",
+    "perf:memory": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/measure-memory.ps1",
     "tauri": "tauri"
   },
   "dependencies": {
